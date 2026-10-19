@@ -57,6 +57,10 @@ export const AUDIT_ACTIONS = {
   TALUKA_RESTORE: 'cms.taluka.restore',
   CONTACT_PAGE_UPDATE: 'cms.contact-page.update',
   CONTACT_PAGE_STATUS: 'cms.contact-page.status',
+  FOOTER_UPDATE: 'cms.footer.update',
+  FOOTER_STATUS: 'cms.footer.status',
+  MODULES_PAGE_UPDATE: 'cms.modules-page.update',
+  MODULES_PAGE_STATUS: 'cms.modules-page.status',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

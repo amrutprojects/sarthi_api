@@ -8,6 +8,10 @@ import { StudentRegistration1792600000000 } from './1792600000000-StudentRegistr
 import { Masters1792700000000 } from './1792700000000-Masters';
 import { CmsGeography1792200000000 } from './1792200000000-CmsGeography';
 import { CmsContactPage1792300000000 } from './1792300000000-CmsContactPage';
+import { CmsFooter1792800000000 } from './1792800000000-CmsFooter';
+import { CmsModulesPage1792900000000 } from './1792900000000-CmsModulesPage';
+import { ElectiveDomainsPerModule1793000000000 } from './1793000000000-ElectiveDomainsPerModule';
+import { DomainsForAllModules1793100000000 } from './1793100000000-DomainsForAllModules';
 
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
@@ -29,4 +33,9 @@ export const MIGRATIONS = [
    */
   CmsGeography1792200000000,
   CmsContactPage1792300000000,
+  /* Footer: a fresh timestamp, so it sorts after the migrations above with no tie to break. */
+  CmsFooter1792800000000,
+  CmsModulesPage1792900000000,
+  ElectiveDomainsPerModule1793000000000,
+  DomainsForAllModules1793100000000,
 ];

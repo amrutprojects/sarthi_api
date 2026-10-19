@@ -52,6 +52,8 @@ export const MENUS = {
   lms: 'LMS Integration',
   app: 'Student App',
   'cms-contact': 'Contact Page Management',
+  'cms-footer': 'Footer Management',
+  'cms-modules': 'Modules Page Management',
   'cms-states': 'State Master',
   'cms-districts': 'District Master',
   'cms-talukas': 'Taluka Master',
@@ -122,6 +124,10 @@ export const PERMISSIONS = {
    */
   CMS_CONTACT_VIEW: def('cms-contact.view', 'View Contact Page Management', 'View in the Contact Page Management menu'),
   CMS_CONTACT_UPDATE: def('cms-contact.update', 'Update Contact Page Management', 'Update in the Contact Page Management menu'),
+  CMS_FOOTER_VIEW: def('cms-footer.view', 'View Footer Management', 'View in the Footer Management menu'),
+  CMS_FOOTER_UPDATE: def('cms-footer.update', 'Update Footer Management', 'Update in the Footer Management menu'),
+  CMS_MODULES_VIEW: def('cms-modules.view', 'View Modules Page Management', 'View in the Modules Page Management menu'),
+  CMS_MODULES_UPDATE: def('cms-modules.update', 'Update Modules Page Management', 'Update in the Modules Page Management menu'),
   CMS_STATES_VIEW: def('cms-states.view', 'View State Master', 'View in the State Master menu'),
   CMS_STATES_CREATE: def('cms-states.create', 'Add State Master', 'Add in the State Master menu'),
   CMS_STATES_UPDATE: def('cms-states.update', 'Update State Master', 'Update in the State Master menu'),
@@ -137,7 +143,7 @@ export const PERMISSIONS = {
 } as const satisfies Record<string, PermissionDefinition>;
 
 /* The CMS sidebar keys, in menu order. */
-export const CMS_MENUS = ['cms-contact', 'cms-states', 'cms-districts', 'cms-talukas'] as const satisfies readonly MenuKey[];
+export const CMS_MENUS = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-states', 'cms-districts', 'cms-talukas'] as const satisfies readonly MenuKey[];
 
 export type PermissionKey = keyof typeof PERMISSIONS;
 export type PermissionCode = string;
