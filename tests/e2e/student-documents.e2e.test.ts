@@ -141,19 +141,19 @@ describe('student import with a documents ZIP', () => {
     expect(Buffer.compare(dl.body as Buffer, photo)).toBe(0);
   });
 
-  it('uses the file paths written in the Excel, whatever the folder and file names, and records each path', async () => {
+  it("accepts only files in each student's folder; Excel cells may name the file, other folders are refused", async () => {
     const { op } = await people();
     const rows = [
-      record('MA-PATH-1', {
-        doc_photo: 'scans/Kavya Front.JPG',
-        doc_aadhaar_card: ['ID proofs', 'kavya-aadhaar.pdf'].join(String.fromCharCode(92)),
-      }), // Windows-style path
-      record('MA-PATH-2', { doc_caste_cert: 'missing/not-in-zip.pdf' }),
+      /* A file name is looked up in the student's own folder; "<id>/file" works too (any case). */
+      record('MA-PATH-1', { doc_photo: 'Front Photo.JPG', doc_aadhaar_card: 'ma-path-1/kavya-aadhaar.pdf' }),
+      /* A path into another folder is refused for that row; a referenced file absent from the ZIP is reported. */
+      record('MA-PATH-2', { doc_photo: 'scans/rohan.jpg', doc_caste_cert: 'not-in-zip.pdf' }),
     ];
     const zip = await buildZip({
-      'scans/kavya front.jpg': sampleJpg(), // matched without regard to case
-      'ID proofs/kavya-aadhaar.pdf': samplePdf('aadhaar'),
-      'unrelated/readme.pdf': samplePdf('x'), // not referenced, and not in a folder named after a student
+      'docs/MA-PATH-1/front photo.jpg': sampleJpg(), // one wrapping folder is fine
+      'docs/MA-PATH-1/kavya-aadhaar.pdf': samplePdf('aadhaar'),
+      'scans/rohan.jpg': sampleJpg(), // not a student folder
+      'MA-PATH-2_PHOTO.jpg': sampleJpg(), // flat name: not accepted
     });
     const up = await request(app)
       .post(`${API}/imports`)
@@ -164,26 +164,23 @@ describe('student import with a documents ZIP', () => {
     const report = up.body.data.documentsReport;
     expect(report).toMatchObject({ stored: 2, matchedByPath: 2 });
     expect(report.missingReferenced).toEqual([
-      { rowNumber: 3, sourceRecordId: 'MA-PATH-2', docType: 'CASTE_CERT', path: 'missing/not-in-zip.pdf' },
+      { rowNumber: 3, sourceRecordId: 'MA-PATH-2', docType: 'CASTE_CERT', path: 'MA-PATH-2/not-in-zip.pdf' },
     ]);
-    /* Not referenced and its folder matches no row: reported as an unmatched folder. */
-    expect(report.unmatchedFolders).toEqual(['unrelated']);
-    expect(report.rejected).toEqual([]);
+    expect(report.unmatchedFolders).toEqual(['scans']);
+    expect(report.rejected.map((r: { path: string }) => r.path)).toEqual(['MA-PATH-2_PHOTO.jpg']);
 
     const list = (await request(app).get(`${API}/imports/${up.body.data.id}/rows`).set(auth(op))).body.data;
     const one = list.find((r: { sourceRecordId: string }) => r.sourceRecordId === 'MA-PATH-1');
     const two = list.find((r: { sourceRecordId: string }) => r.sourceRecordId === 'MA-PATH-2');
     expect(one.status).toBe('VALID');
-    expect(two.issues.find((i: { code: string; field: string }) => i.field === 'doc_caste_cert').message).toMatch(
-      /"missing\/not-in-zip.pdf" was not found in paths.zip/,
-    );
+    const photoIssue = two.issues.find((i: { field: string; code: string }) => i.field === 'doc_photo' && i.code === 'DOC_INVALID');
+    expect(photoIssue.message).toMatch(/must be a file in the student's folder MA-PATH-2\//);
 
-    /* Stored under the student's staging folder with a standard name, and the original ZIP path kept in the database. */
     expect(exists(`imports/${up.body.data.code}/MA-PATH-1/PHOTO.jpg`)).toBe(true);
     const docs = (await request(app).get(`${API}/imports/${up.body.data.id}/rows/${one.id}/documents`).set(auth(op))).body.data;
     expect(docs.map((d: { docType: string; sourcePath: string }) => [d.docType, d.sourcePath]).sort()).toEqual([
-      ['AADHAAR_CARD', 'ID proofs/kavya-aadhaar.pdf'],
-      ['PHOTO', 'scans/kavya front.jpg'],
+      ['AADHAAR_CARD', 'docs/MA-PATH-1/kavya-aadhaar.pdf'],
+      ['PHOTO', 'docs/MA-PATH-1/front photo.jpg'],
     ]);
   });
 

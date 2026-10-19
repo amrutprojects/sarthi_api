@@ -122,10 +122,12 @@ Validated at startup (`src/config/env.config.ts`); the process exits listing eve
 
 Upload a ZIP with the data file (`POST /api/v1/imports`, field `documents`) or later while the batch is under review (`POST /api/v1/imports/:id/documents`). Download the **Excel template** (`GET /api/v1/imports/template.xlsx`, with an instructions sheet) and the matching **sample ZIP** (`GET /api/v1/imports/sample-documents.zip`).
 
-**How files are matched to students (in this order):**
+**ZIP layout — one folder per student only:** `<source_record_id>/<file>`, e.g. `MA-0001/photo.jpg` (one wrapping folder around everything is allowed). Files in any other folder, at the top level or with flat names are rejected.
 
-1. **Paths in the Excel** — each document column (`doc_photo`, `doc_aadhaar_card`, …) holds the file's path inside the ZIP, e.g. `scans/asha aadhaar.pdf`. Any folder or file name works; matching ignores case and accepts `\` or `/`.
-2. **Folder convention** — when a column only says `Yes`: `<source_record_id>/<TYPE>.<ext>` (or `<id>_<TYPE>.<ext>`), with TYPE = PHOTO, SIGNATURE, AADHAAR_CARD, CASTE_CERT, INCOME_EWS, DOMICILE, PAN_CARD, SCHOOL_LEAVING, NAME_CHANGE, EDU_CERT, FITNESS, SELF_DECLARATION or OTHER.
+**Which file is which document:**
+
+1. **Excel** — each document column (`doc_photo`, `doc_aadhaar_card`, …) holds the file name inside that student's folder (`photo.jpg`) or `MA-0001/photo.jpg`. A path into any other folder is an issue on that row.
+2. **File name** — when a column only says `Yes`: name the file by type inside the student folder, e.g. `MA-0001/AADHAAR_CARD.pdf` (TYPE = PHOTO, SIGNATURE, AADHAAR_CARD, CASTE_CERT, INCOME_EWS, DOMICILE, PAN_CARD, SCHOOL_LEAVING, NAME_CHANGE, EDU_CERT, FITNESS, SELF_DECLARATION or OTHER).
 
 **What happens:**
 

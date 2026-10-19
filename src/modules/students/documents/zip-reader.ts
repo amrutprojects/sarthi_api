@@ -65,24 +65,18 @@ for (const [alias, key] of Object.entries({
 export const documentTypeFromName = (base: string): string | null => TYPE_BY_NAME.get(norm(base)) ?? null;
 
 /*
- * Where a file belongs. Supported layouts:
- *   <studentId>/<TYPE>.pdf                    one folder per student (recommended)
- *   <anyRootFolder>/<studentId>/<TYPE>.pdf    the same, inside a wrapping folder
- *   <studentId>_<TYPE>.pdf                    flat file names (no folders)
- * studentId is the row's source_record_id.
+ * Where a file belongs. Only one layout is accepted: one folder per student, named by the row's source_record_id:
+ *   <studentId>/<file>                  e.g. MA-0001/photo.jpg
+ *   <oneWrappingFolder>/<studentId>/<file>   the same, when a whole folder was zipped (e.g. documents/MA-0001/photo.jpg)
+ * Files at the top level, or nested deeper inside a student folder, have no student folder (they are rejected).
  */
 export function locate(entryPath: string): { studentFolder: string | null; docType: string | null; fileName: string } {
   const parts = entryPath.split('/').filter(Boolean);
   const fileName = parts[parts.length - 1] ?? '';
-  const base = fileName.replace(/\.[^.]+$/, '');
-  if (parts.length >= 2) return { studentFolder: parts[parts.length - 2], docType: documentTypeFromName(base), fileName };
-  /* Flat: the longest suffix after an underscore that names a document type. */
-  const segs = base.split('_');
-  for (let i = 1; i < segs.length; i++) {
-    const type = documentTypeFromName(segs.slice(i).join('_'));
-    if (type) return { studentFolder: segs.slice(0, i).join('_'), docType: type, fileName };
-  }
-  return { studentFolder: null, docType: null, fileName };
+  const docType = documentTypeFromName(fileName.replace(/\.[^.]+$/, ''));
+  if (parts.length === 2) return { studentFolder: parts[0], docType, fileName };
+  if (parts.length === 3) return { studentFolder: parts[1], docType, fileName };
+  return { studentFolder: null, docType, fileName };
 }
 
 /* Paths that are unsafe (absolute, drive letters, '..') are refused outright: zip-slip protection. */

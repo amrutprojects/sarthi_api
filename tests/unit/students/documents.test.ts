@@ -31,10 +31,11 @@ describe('document type and location', () => {
     ['holiday-pics', null],
   ])('%s → %s', (name, type) => expect(documentTypeFromName(name)).toBe(type));
 
-  it('reads folder layouts and flat file names', () => {
+  it('accepts only one folder per student (optionally inside one wrapping folder)', () => {
     expect(locate('MA-0001/PHOTO.jpg')).toMatchObject({ studentFolder: 'MA-0001', docType: 'PHOTO' });
-    expect(locate('batch-docs/MA-0001/aadhaar_card.pdf')).toMatchObject({ studentFolder: 'MA-0001', docType: 'AADHAAR_CARD' });
-    expect(locate('MA_0001_CASTE_CERT.pdf')).toMatchObject({ studentFolder: 'MA_0001', docType: 'CASTE_CERT' });
+    expect(locate('sample-documents/MA-0001/aadhaar_card.pdf')).toMatchObject({ studentFolder: 'MA-0001', docType: 'AADHAAR_CARD' });
+    expect(locate('MA_0001_CASTE_CERT.pdf')).toMatchObject({ studentFolder: null }); // flat names are not accepted
+    expect(locate('a/b/MA-0001/photo.jpg')).toMatchObject({ studentFolder: null }); // too deep
     expect(locate('random.pdf')).toMatchObject({ studentFolder: null });
   });
 });

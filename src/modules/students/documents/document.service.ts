@@ -170,9 +170,10 @@ export class DocumentService {
         },
         async (doc) => {
           /* 1. The Excel names this exact file. */
-          const ref = expected.get(zipPathKey(doc.path));
-          if (ref) {
-            found.add(zipPathKey(doc.path));
+          const relative = doc.studentFolder ? zipPathKey(`${doc.studentFolder}/${doc.fileName}`) : null;
+          const ref = relative ? expected.get(relative) : undefined;
+          if (ref && relative) {
+            found.add(relative);
             report.matchedByPath++;
             return store(ref.row, ref.docType, doc);
           }
@@ -180,7 +181,7 @@ export class DocumentService {
           if (!doc.studentFolder) {
             report.rejected.push({
               path: doc.path,
-              reason: 'Not referenced in the Excel, and not in a folder named after a source_record_id',
+              reason: "Files must be inside a folder named after the student's source_record_id (e.g. MA-0001/photo.jpg)",
             });
             return;
           }

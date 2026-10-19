@@ -121,13 +121,16 @@ export async function templateXlsx(): Promise<Buffer> {
     ['Dates', 'date_of_birth as YYYY-MM-DD; approved_at as an ISO date-time. Aadhaar and mobile as text.'],
     [
       'Document columns (doc_…)',
-      'Write the path of the file INSIDE the documents ZIP, e.g. MA-0001/photo.jpg or scans/asha aadhaar.pdf. Any folder or file name works; the path is matched without regard to case. Write "No" if the document is not supplied.',
+      'Write the file name of the document inside this student\'s folder in the ZIP, e.g. photo.jpg (or MA-0001/photo.jpg). Matching ignores case. Write "No" if the document is not supplied.',
     ],
     [
       'Documents ZIP',
-      "Upload it together with this file (or later from the batch page). Each file must be PDF, JPG or PNG, at most 5 MB. Every file named here is stored in that student's own folder after the batch is finalised.",
+      "One folder per student, named exactly like source_record_id (e.g. MA-0001/photo.jpg, MA-0001/aadhaar_card.pdf). No other folders. Each file must be PDF, JPG or PNG, at most 5 MB. Upload it with this file (or later from the batch page); after finalising, the files are stored in that student's own folder.",
     ],
-    ['Without paths', 'You may also write "Yes" and organise the ZIP as <source_record_id>/<TYPE>.pdf, e.g. MA-0001/AADHAAR_CARD.pdf.'],
+    [
+      'Without file names',
+      'You may also write "Yes" and name the files by document type inside the student folder, e.g. MA-0001/AADHAAR_CARD.pdf.',
+    ],
     ['Sample', 'Download the sample documents ZIP next to this template: uploading both together shows the expected result.'],
     ['', ''],
     ['Column', 'Meaning'],

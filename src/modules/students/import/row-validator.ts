@@ -207,13 +207,29 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
   for (const d of DOCUMENTS) {
     const k = d.key.toLowerCase();
     const cell = get(`doc_${k}`);
-    const path = zipPathFromCell(cell);
-    const supplied = !path && yes(cell);
+    /*
+     * Only the student's own folder is accepted: the cell holds a file name ("photo.jpg", looked up in
+     * <source_record_id>/) or "<source_record_id>/photo.jpg". A path into any other folder is an issue.
+     */
+    const raw = zipPathFromCell(cell);
+    let path: string | null = null;
+    if (raw && sourceRecordId) {
+      const segs = raw.split('/');
+      if (segs.length === 1) path = `${sourceRecordId}/${segs[0]}`;
+      else if (segs.length === 2 && segs[0].toLowerCase() === sourceRecordId.toLowerCase()) path = `${sourceRecordId}/${segs[1]}`;
+      else
+        add(
+          `doc_${k}`,
+          'DOC_INVALID',
+          `${d.label}: "${raw}" must be a file in the student's folder ${sourceRecordId}/ (e.g. ${sourceRecordId}/${segs[segs.length - 1]})`,
+        );
+    }
+    const supplied = !raw && yes(cell);
     const barcode = d.barcode ? collapse(get(`doc_${k}_barcode`)).slice(0, 64) || null : null;
     documents[d.key] = path ? { supplied: false, barcode, path } : { supplied, barcode };
     /* A path means the file is expected in the documents ZIP; the issue clears when that file is stored. */
     if (path) add(`doc_${k}`, 'DOC_MISSING', `${d.label}: waiting for "${path}" in the documents ZIP`);
-    else if (d.required && !supplied) add(`doc_${k}`, 'DOC_MISSING', `${d.label} not supplied`);
+    else if (d.required && !supplied && !raw) add(`doc_${k}`, 'DOC_MISSING', `${d.label} not supplied`);
     if (d.barcode === 'required' && (supplied || path) && !barcode) add(`doc_${k}_barcode`, 'REQUIRED', `${d.label} barcode is required`);
   }
 
