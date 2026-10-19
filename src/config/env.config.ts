@@ -43,6 +43,12 @@ const schema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   PERMISSION_CACHE_TTL_MS: z.coerce.number().int().min(0).default(60_000),
+
+  /* Student data protection: 32-byte keys, base64. DATA encrypts Aadhaar (AES-256-GCM); INDEX keys the blind index (HMAC-SHA256). */
+  STUDENT_DATA_KEY: z.string().refine((v) => Buffer.from(v, 'base64').length === 32, 'STUDENT_DATA_KEY must be 32 bytes, base64-encoded'),
+  STUDENT_INDEX_KEY: z.string().refine((v) => Buffer.from(v, 'base64').length === 32, 'STUDENT_INDEX_KEY must be 32 bytes, base64-encoded'),
+  IMPORT_MAX_FILE_MB: z.coerce.number().positive().default(20),
+  IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(50_000),
 });
 
 /*

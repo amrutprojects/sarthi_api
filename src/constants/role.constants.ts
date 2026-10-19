@@ -106,6 +106,16 @@ export const ROLES: RoleDefinition[] = [
     permissions: [...view('dashboard', 'exec', 'today', 'candidates', 'lifecycle', 'atrisk', 'documents', 'comms'), 'comms.create'],
   },
   {
+    code: 'IMPORT_OPERATOR', name: 'Candidate Data Import Operator', isSystem: false,
+    description: 'Uploads approved-student files, resolves exceptions and cancels own batches',
+    permissions: [...view('dashboard', 'imports'), ...menuCodes(['imports'], ['create', 'update', 'delete'])],
+  },
+  {
+    code: 'IMPORT_REVIEWER', name: 'Candidate Data Reviewer', isSystem: false,
+    description: 'Reviews exceptions and duplicates, and finalises batches uploaded by others',
+    permissions: [...view('dashboard', 'imports'), ...menuCodes(['imports'], ['update', 'approve'])],
+  },
+  {
     code: 'VIEWER', name: 'Read-only Viewer', isSystem: false,
     description: 'Read-only dashboards',
     permissions: VIEW_ALL,

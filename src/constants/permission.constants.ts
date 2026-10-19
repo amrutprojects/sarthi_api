@@ -25,6 +25,7 @@ export const MENUS = {
   candidates: 'Candidates',
   lifecycle: 'Lifecycle & Funnel',
   atrisk: 'At-Risk Engine',
+  imports: 'Student Import',
   districts: 'Districts',
   map: 'District Map',
   centres: 'Training Centres',

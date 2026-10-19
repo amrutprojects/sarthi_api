@@ -208,3 +208,16 @@ npm test
 
 Several instances can run behind a load balancer; permission caches are per instance and bounded
 by `PERMISSION_CACHE_TTL_MS`. Rate limits are per instance (use a shared store for strict global limits).
+
+## Student data import
+
+Approved-student data enters only through an import (spec A-11..A-18); there is no "add student" endpoint.
+
+1. **Upload** `POST /api/v1/imports` (multipart `file`: CSV UTF-8 or XLSX, ≤ `IMPORT_MAX_FILE_MB`, ≤ `IMPORT_MAX_ROWS` rows) — `imports.create`. The same file returns the existing batch. Download the column template from `GET /api/v1/imports/template.csv`.
+2. **Validate** — every row is checked against the received-data field mapping (Aadhaar 12 digits + Verhoeff; mobile normalised to +91; DOB `YYYY-MM-DD`; religion/caste exact source options; centre and track by code or alias; approval status `APPROVED`). Duplicates are detected in the file and against the register (Tier 0 source ID, Tier 1 Aadhaar blind index, Tier 2 name + DOB + contact, Tier 3 contact only = informational).
+3. **Review** — `imports.update`: accept waivable issues with a reason, reject or restore rows, decide matches (same person / different person / hold).
+4. **Finalise** — `imports.approve`, by someone other than the uploader, typing the batch code. One transaction creates the students.
+
+Aadhaar is encrypted with AES-256-GCM (`STUDENT_DATA_KEY`) and matched by an HMAC blind index (`STUDENT_INDEX_KEY`); the API only ever returns `XXXX-XXXX-1234`. Generate each key with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`; changing `STUDENT_DATA_KEY` later makes existing Aadhaar values unreadable.
+
+Seeded roles: **Candidate Data Import Operator** (upload, resolve, cancel) and **Candidate Data Reviewer** (resolve, finalise).
