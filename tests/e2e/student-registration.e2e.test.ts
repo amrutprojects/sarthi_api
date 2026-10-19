@@ -64,7 +64,7 @@ describe('POST /student-registrations', () => {
     const body = registration({
       email: ' Asha.P@Example.Invalid ',
       mobile_number: '+91 98765 43210',
-      documents: [{ document_type_id: ids.pan }, { document_type_id: ids.lc }, { document_type_id: ids.pan }],
+      documents: [{ document_type_id: ids.pan }, { document_type_id: ids.lc }],
     });
     const res = await request(app).post(URL).send(body);
     expect(res.status).toBe(HTTP_STATUS.CREATED);
@@ -131,16 +131,7 @@ describe('POST /student-registrations', () => {
       );
     expect(res.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     expect(fields(res).sort()).toEqual(
-      [
-        'body.aadhaar_number',
-        'body.caste_id',
-        'body.region_id',
-        'body.date_of_birth',
-        'body.email',
-        'body.first_name',
-        'body.mobile_number',
-        'body.technology',
-      ].sort(),
+      ['body.aadhaar_number', 'body.date_of_birth', 'body.email', 'body.first_name', 'body.mobile_number'].sort(),
     );
     expect(JSON.stringify(res.body)).not.toContain('234567890123');
 
@@ -149,6 +140,20 @@ describe('POST /student-registrations', () => {
       .send(registration({ mobile_number: 9876543210, declaration_accepted: 'yes' }));
     expect(wrongType.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     expect(fields(wrongType)).toEqual(expect.arrayContaining(['body.mobile_number', 'body.declaration_accepted']));
+  });
+
+  it('reports unknown master ids and unknown tracks after the request passes format checks', async () => {
+    const res = await request(app)
+      .post(URL)
+      .send(
+        registration({
+          caste_id: '00000000-0000-4000-8000-000000000000',
+          region_id: '00000000-0000-4000-8000-000000000001',
+          technology: 'Accounting & Financial Management',
+        }),
+      );
+    expect(res.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(fields(res).sort()).toEqual(['body.caste_id', 'body.region_id', 'body.technology']);
   });
 
   it('rejects inactive or deleted master records and unknown document types with 422', async () => {
@@ -164,7 +169,9 @@ describe('POST /student-registrations', () => {
     expect(docs.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     expect(fields(docs)).toEqual(['body.documents.1.document_type_id']);
 
-    const text = await request(app).post(URL).send(registration({ caste: 'मराठी' }));
+    const text = await request(app)
+      .post(URL)
+      .send(registration({ caste: 'मराठी' }));
     expect(text.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     expect(await AppDataSource.getRepository(Student).count()).toBe(0);
   });
