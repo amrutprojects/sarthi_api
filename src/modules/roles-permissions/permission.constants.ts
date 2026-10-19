@@ -73,6 +73,18 @@ export const MENU_PERMISSIONS: PermissionDefinition[] = (Object.keys(MENUS) as M
   ),
 );
 
+/*
+ * Reference-data masters (src/modules/masters): view, create, update, status (activate / deactivate) and delete.
+ * Kept in step with MASTERS in the masters module (module code = its permission prefix).
+ */
+const MASTER_MODULES = { regions: 'Regions', castes: 'Castes', 'document-types': 'Document Types', education: 'Education' } as const;
+const MASTER_ACTION_LABEL = { view: 'View', create: 'Add', update: 'Update', status: 'Activate / deactivate', delete: 'Delete' } as const;
+export const MASTER_PERMISSIONS: PermissionDefinition[] = Object.entries(MASTER_MODULES).flatMap(([module, label]) =>
+  Object.entries(MASTER_ACTION_LABEL).map(([action, verb]) =>
+    def(`${module}.${action}`, `${verb} ${label}`, `${verb} records in the ${label} master`),
+  ),
+);
+
 /* Extra codes beyond the five standard actions. */
 const EXTRA_PERMISSIONS: PermissionDefinition[] = [def('reports.export', 'Export reports', 'Export reports and the MIS pack')];
 
@@ -108,7 +120,7 @@ export const P = Object.fromEntries(Object.entries(PERMISSIONS).map(([k, v]) => 
 
 /* Menu codes first; identity definitions win on duplicates (audit.view). */
 export const ALL_PERMISSIONS: PermissionDefinition[] = [
-  ...new Map([...MENU_PERMISSIONS, ...EXTRA_PERMISSIONS, ...Object.values(PERMISSIONS)].map((p) => [p.code, p] as const)).values(),
+  ...new Map([...MENU_PERMISSIONS, ...EXTRA_PERMISSIONS, ...MASTER_PERMISSIONS, ...Object.values(PERMISSIONS)].map((p) => [p.code, p] as const)).values(),
 ];
 
 /* Builder for role defaults. */

@@ -223,7 +223,7 @@ export const STUDENT_STATUS = {
 /* students.externalStatus for a public registration: never APPROVED until the approval workflow says so. */
 export const REGISTRATION_EXTERNAL_STATUS = 'PENDING';
 
-/* The import columns a public registration accepts (the candidate's own details; no IDs, approval or documents). */
+/* The import columns a public registration fills (the candidate's own details; no source IDs or approval). */
 export const REGISTRATION_FIELDS = [
   'first_name',
   'last_name',
@@ -241,6 +241,13 @@ export const REGISTRATION_FIELDS = [
   'education_qualification',
   'declaration_accepted',
 ] as const;
+
+/* Registration takes master ids where the import takes text: import column → registration field (body). */
+export const REGISTRATION_MASTER_FIELDS: Partial<Record<(typeof REGISTRATION_FIELDS)[number], string>> = {
+  course_centre: 'region_id',
+  caste: 'caste_id',
+  education_qualification: 'education_id',
+};
 
 export const BATCH_STATUS = {
   IMPORT_PENDING: 'IMPORT_PENDING',

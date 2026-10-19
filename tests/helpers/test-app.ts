@@ -11,6 +11,7 @@ import { Permission, Role, RolePermission, User, UserRole } from '../../src/data
 import { rbacService } from '../../src/modules/roles-permissions/rbac.service';
 import { seedRbac } from '../../src/database/seeds/seed-rbac';
 import { assertTestDatabase } from './guard';
+import { TEST_EDUCATIONS } from './masters';
 
 export const API = '/api/v1';
 export const PASSWORD = 'Test-Password-123';
@@ -39,6 +40,9 @@ export async function resetData(): Promise<void> {
   );
   await seedRbac(AppDataSource);
   rbacService.invalidate();
+  /* Masters are not truncated (the migration seeds them); tests add the education values their fixtures use. */
+  for (const [i, name] of TEST_EDUCATIONS.entries())
+    await AppDataSource.query(`INSERT INTO "educations" ("code", "name") VALUES ($1, $2) ON CONFLICT DO NOTHING`, [`TEST_E${i + 1}`, name]);
 }
 
 const hashCache = new Map<string, string>();

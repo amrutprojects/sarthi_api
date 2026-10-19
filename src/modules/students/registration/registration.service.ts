@@ -6,9 +6,10 @@ import { logger } from '../../../observability/logger';
 import { PG_ERROR } from '../../../shared/constants/app.constants';
 import { AppError } from '../../../shared/errors/app-error';
 import { auditService } from '../../audit';
+import { mastersService, type MasterKey, type MasterLookup, type MasterRef } from '../../masters';
 import { rowChecksum, validateCandidate } from '../import/row-validator';
 import { Student } from '../register/student.entity';
-import { REGISTRATION_EXTERNAL_STATUS, STUDENT_SOURCE, STUDENT_STATUS } from '../student.constants';
+import { REGISTRATION_EXTERNAL_STATUS, REGISTRATION_MASTER_FIELDS, STUDENT_SOURCE, STUDENT_STATUS } from '../student.constants';
 import type { RegistrationBody } from './registration.validation';
 
 export const REGISTRATION_MESSAGES = {
@@ -26,6 +27,34 @@ const isUniqueViolation = (err: unknown) =>
 
 const duplicate = () => new AppError(HTTP_STATUS.CONFLICT, REGISTRATION_MESSAGES.DUPLICATE, ERROR_CODES.CONFLICT);
 
+const MASTER_FIELDS: [field: 'region_id' | 'caste_id' | 'education_id', key: MasterKey, label: string][] = [
+  ['region_id', 'region', 'Region'],
+  ['caste_id', 'caste', 'Caste'],
+  ['education_id', 'education', 'Education'],
+];
+
+/* Every referenced master record must exist, be active and not deleted (the lookup holds only those); else a field error. */
+function resolveMasters(
+  masters: MasterLookup,
+  ids: Record<'region_id' | 'caste_id' | 'education_id', string>,
+  declared: { document_type_id: string }[],
+): Partial<Record<MasterKey, MasterRef>> & { documentTypes: MasterRef[]; errors: { field: string; message: string }[] } {
+  const errors: { field: string; message: string }[] = [];
+  const found: Partial<Record<MasterKey, MasterRef>> = {};
+  for (const [field, key, label] of MASTER_FIELDS) {
+    const ref = masters.byId(key, ids[field]);
+    if (ref) found[key] = ref;
+    else errors.push({ field: `body.${field}`, message: `${label} not found or inactive` });
+  }
+  const documentTypes: MasterRef[] = [];
+  declared.forEach((d, i) => {
+    const ref = masters.byId('documentType', d.document_type_id);
+    if (!ref) errors.push({ field: `body.documents.${i}.document_type_id`, message: 'Document type not found or inactive' });
+    else if (!documentTypes.includes(ref)) documentTypes.push(ref);
+  });
+  return { ...found, documentTypes, errors };
+}
+
 export const registrationService = {
   /*
    * Public registration: the same validation and normalisation as the import (validateCandidate), stored in the
@@ -34,13 +63,28 @@ export const registrationService = {
    * concurrent submissions); same name + date of birth + mobile → stored, and flagged in the audit log for review.
    */
   async register(req: Request, body: RegistrationBody): Promise<RegistrationResult> {
-    const raw: Record<string, string> = Object.fromEntries(
-      Object.entries(body).map(([k, v]) => [k, k === 'declaration_accepted' ? 'Yes' : String(v)]),
-    );
-    const { fields, issues } = validateCandidate(raw);
+    const masters = await mastersService.loadLookup();
+    const { region_id, caste_id, education_id, documents: declared, ...rest } = body;
+    const refs = resolveMasters(masters, { region_id, caste_id, education_id }, declared ?? []);
+
+    /* The master values go through validateCandidate like an import row's text, so both paths store the same thing. */
+    const raw: Record<string, string> = {
+      ...Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, k === 'declaration_accepted' ? 'Yes' : String(v)])),
+      course_centre: refs.region?.code ?? '',
+      caste: refs.caste?.name ?? '',
+      education_qualification: refs.education?.name ?? '',
+    };
+    const { fields, issues } = validateCandidate(raw, masters);
     /* Unlike a reviewed import, a public registration cannot carry waivable issues: every issue is a rejection. */
-    if (issues.length) throw AppError.validation(issues.map((i) => ({ field: `body.${i.field}`, message: i.message })));
+    const errors = [
+      ...refs.errors,
+      ...issues.filter((i) => !(i.field in REGISTRATION_MASTER_FIELDS)).map((i) => ({ field: `body.${i.field}`, message: i.message })),
+    ];
+    if (errors.length) throw AppError.validation(errors);
     const bidx = fields.aadhaarBidx as string;
+    const documents = Object.fromEntries(
+      refs.documentTypes.map((t) => [t.code, { supplied: false, barcode: null, documentTypeId: t.id }]),
+    );
 
     let result: { student: Student; possibleDuplicateOf: string | null };
     try {
@@ -68,7 +112,7 @@ export const registrationService = {
             externalStatus: REGISTRATION_EXTERNAL_STATUS,
             approvedAt: null,
             evidenceRef: null,
-            documents: {},
+            documents,
             status: STUDENT_STATUS.REGISTRATION_PENDING,
             source: STUDENT_SOURCE.PUBLIC_REGISTRATION,
             importBatchId: null,

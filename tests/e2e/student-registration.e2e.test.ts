@@ -9,11 +9,26 @@ import { AuditLog, Student } from '../../src/database/entities';
 import { decryptAadhaar, withVerhoeffDigit } from '../../src/modules/students/aadhaar';
 import { API, request, resetData, setupTestApp, teardownTestApp } from '../helpers/test-app';
 
+/* Master ids by code or name (masters are seeded by the migration; educations by resetData). */
+async function masterId(table: string, value: string): Promise<string> {
+  const rows = await AppDataSource.query(`SELECT "id" FROM "${table}" WHERE "code" = upper($1) OR lower("name") = lower($1)`, [value]);
+  if (!rows.length) throw new Error(`no ${table} row for ${value}`);
+  return rows[0].id;
+}
+const ids: Record<string, string> = {};
+
 let app: Express;
 beforeAll(async () => {
   app = await setupTestApp();
 });
-beforeEach(resetData);
+beforeEach(async () => {
+  await resetData();
+  ids.pune = await masterId('regions', 'PUN');
+  ids.maratha = await masterId('castes', 'मराठी');
+  ids.bcom = await masterId('educations', 'B.Com');
+  ids.pan = await masterId('document_types', 'PAN_CARD');
+  ids.lc = await masterId('document_types', 'SCHOOL_LEAVING');
+});
 afterAll(teardownTestApp);
 
 const URL = `${API}/student-registrations`;
@@ -33,10 +48,10 @@ function registration(over: Record<string, unknown> = {}): Record<string, unknow
     aadhaar_number: aadhaar(),
     mobile_number: `98765${String(10000 + n).slice(-5)}`,
     religion: 'हिंदू',
-    caste: 'मराठी',
-    course_centre: 'Pune',
+    caste_id: ids.maratha,
+    region_id: ids.pune,
     technology: 'Web Design & Development',
-    education_qualification: 'B.Com',
+    education_id: ids.bcom,
     declaration_accepted: true,
     ...over,
   };
@@ -46,7 +61,11 @@ const fields = (res: { body: { error?: { details?: { field: string }[] } } }) =>
 
 describe('POST /student-registrations', () => {
   it('creates a pending, unapproved registration with normalised, protected data', async () => {
-    const body = registration({ email: ' Asha.P@Example.Invalid ', mobile_number: '+91 98765 43210', course_centre: 'pun' });
+    const body = registration({
+      email: ' Asha.P@Example.Invalid ',
+      mobile_number: '+91 98765 43210',
+      documents: [{ document_type_id: ids.pan }, { document_type_id: ids.lc }, { document_type_id: ids.pan }],
+    });
     const res = await request(app).post(URL).send(body);
     expect(res.status).toBe(HTTP_STATUS.CREATED);
     expect(res.body).toEqual({
@@ -68,11 +87,20 @@ describe('POST /student-registrations', () => {
       email: 'asha.p@example.invalid',
       mobile: '+919876543210',
       centreCode: 'PUN',
+      regionId: ids.pune,
+      caste: 'मराठी',
+      casteId: ids.maratha,
+      educationQualification: 'B.Com',
+      educationId: ids.bcom,
       trackCode: 'T03',
       declarationAccepted: true,
       aadhaarLast4: (body.aadhaar_number as string).slice(-4),
     });
     expect(decryptAadhaar(s.aadhaarEnc as Buffer)).toBe(body.aadhaar_number);
+    expect(s.documents).toEqual({
+      PAN_CARD: { supplied: false, barcode: null, documentTypeId: ids.pan },
+      SCHOOL_LEAVING: { supplied: false, barcode: null, documentTypeId: ids.lc },
+    });
 
     const audit = await AppDataSource.getRepository(AuditLog).findOneByOrFail({ action: 'student.registration.create' });
     expect(JSON.stringify(audit)).not.toContain(body.aadhaar_number as string);
@@ -95,8 +123,8 @@ describe('POST /student-registrations', () => {
           date_of_birth: '12/04/2003',
           aadhaar_number: '234567890123',
           mobile_number: '12345',
-          caste: 'Unknown',
-          course_centre: 'Atlantis',
+          caste_id: '00000000-0000-4000-8000-000000000000',
+          region_id: '00000000-0000-4000-8000-000000000001',
           technology: 'Accounting & Financial Management',
           first_name: 'Asha123',
         }),
@@ -105,8 +133,8 @@ describe('POST /student-registrations', () => {
     expect(fields(res).sort()).toEqual(
       [
         'body.aadhaar_number',
-        'body.caste',
-        'body.course_centre',
+        'body.caste_id',
+        'body.region_id',
         'body.date_of_birth',
         'body.email',
         'body.first_name',
@@ -121,6 +149,24 @@ describe('POST /student-registrations', () => {
       .send(registration({ mobile_number: 9876543210, declaration_accepted: 'yes' }));
     expect(wrongType.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     expect(fields(wrongType)).toEqual(expect.arrayContaining(['body.mobile_number', 'body.declaration_accepted']));
+  });
+
+  it('rejects inactive or deleted master records and unknown document types with 422', async () => {
+    await AppDataSource.query(`UPDATE "educations" SET "isActive" = false WHERE "id" = $1`, [ids.bcom]);
+    const inactive = await request(app).post(URL).send(registration());
+    expect(inactive.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(fields(inactive)).toEqual(['body.education_id']);
+    await AppDataSource.query(`UPDATE "educations" SET "isActive" = true WHERE "id" = $1`, [ids.bcom]);
+
+    const docs = await request(app)
+      .post(URL)
+      .send(registration({ documents: [{ document_type_id: ids.pan }, { document_type_id: '00000000-0000-4000-8000-000000000002' }] }));
+    expect(docs.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(fields(docs)).toEqual(['body.documents.1.document_type_id']);
+
+    const text = await request(app).post(URL).send(registration({ caste: 'मराठी' }));
+    expect(text.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(await AppDataSource.getRepository(Student).count()).toBe(0);
   });
 
   it('rejects client-supplied status, approval and internal identifiers', async () => {
