@@ -6,10 +6,10 @@ import { In } from 'typeorm';
 import { createApp } from '../../src/app';
 import { AppDataSource } from '../../src/config/database.config';
 import { env } from '../../src/config/env.config';
-import { ROLE_CODES } from '../../src/constants/role.constants';
-import { Permission, Role, RolePermission, User, UserRole } from '../../src/entities';
-import { rbacService } from '../../src/services/rbac.service';
-import { seedRbac } from '../../seeds/seed-rbac';
+import { ROLE_CODES } from '../../src/modules/roles-permissions/role.constants';
+import { Permission, Role, RolePermission, User, UserRole } from '../../src/database/entities';
+import { rbacService } from '../../src/modules/roles-permissions/rbac.service';
+import { seedRbac } from '../../src/database/seeds/seed-rbac';
 import { assertTestDatabase } from './guard';
 
 export const API = '/api/v1';
@@ -35,7 +35,7 @@ export async function teardownTestApp(): Promise<void> {
 export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
   await AppDataSource.query(
-    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "role_permissions", "user_roles", "permissions", "roles", "users" RESTART IDENTITY CASCADE',
+    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "import_rows", "students", "import_batches", "idempotency_keys", "role_permissions", "user_roles", "permissions", "roles", "users" RESTART IDENTITY CASCADE',
   );
   await seedRbac(AppDataSource);
   rbacService.invalidate();
@@ -57,12 +57,14 @@ export interface TestActor {
 export async function createUser(opts: { roleCodes?: string[]; isActive?: boolean; password?: string; name?: string } = {}): Promise<User> {
   counter++;
   const users = AppDataSource.getRepository(User);
-  const user = await users.save(users.create({
-    name: opts.name ?? `Test User ${counter}`,
-    email: `user${counter}.${Date.now()}@test.local`,
-    passwordHash: await hash(opts.password ?? PASSWORD),
-    isActive: opts.isActive ?? true,
-  }));
+  const user = await users.save(
+    users.create({
+      name: opts.name ?? `Test User ${counter}`,
+      email: `user${counter}.${Date.now()}@test.local`,
+      passwordHash: await hash(opts.password ?? PASSWORD),
+      isActive: opts.isActive ?? true,
+    }),
+  );
   if (opts.roleCodes?.length) {
     const roles = await AppDataSource.getRepository(Role).find({ where: { code: In(opts.roleCodes), isDelete: false } });
     await AppDataSource.getRepository(UserRole).insert(roles.map((r) => ({ userId: user.id, roleId: r.id })));
@@ -85,7 +87,7 @@ export async function createRoleWith(codes: string[], code = `TEST_ROLE_${++coun
 }
 
 export async function login(email: string, password = PASSWORD): Promise<string> {
-  const res = await request(app).post(`${API}/auth/login`).send({ email, password });
+  const res = await request(app).post(`${API}/auth/login`).set('X-Auth-Mode', 'bearer').send({ email, password });
   if (res.status !== 200) throw new Error(`login failed (${res.status}): ${JSON.stringify(res.body)}`);
   return res.body.data.accessToken as string;
 }

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { createServer } from 'http';
 import { appConfig } from './config/app.config';
 import { AppDataSource, initializeDatabase } from './config/database.config';
-import { logger } from './config/logger.config';
+import { logger } from './observability/logger';
 import { createApp } from './app';
 
 async function main() {

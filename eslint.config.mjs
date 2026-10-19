@@ -19,4 +19,9 @@ export default tseslint.config(
     files: ['tests/**/*.ts'],
     rules: { 'no-console': 'off' },
   },
+  {
+    /* Plain Node scripts (e.g. scripts/check-boundaries.mjs). */
+    files: ['**/*.mjs'],
+    languageOptions: { globals: { console: 'readonly', process: 'readonly', URL: 'readonly' } },
+  },
 );

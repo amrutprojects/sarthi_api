@@ -8,7 +8,15 @@ import { Client } from 'pg';
  * Connects to the server's maintenance database `postgres` with the same credentials.
  */
 
-interface DbTarget { file: string; host: string; port: number; user: string; password: string; database: string; ssl: boolean }
+interface DbTarget {
+  file: string;
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+  ssl: boolean;
+}
 
 function readTarget(file: string): DbTarget | null {
   const parsed = dotenv.config({ path: path.resolve(__dirname, '..', file), processEnv: {} }).parsed;
