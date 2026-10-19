@@ -122,15 +122,17 @@ describe.each(MASTER_LIST)('$plural master (/$path)', (d) => {
 });
 
 describe('masters referenced by students', () => {
-  it('cannot delete a region / caste / education a student uses, nor change its code', async () => {
+  it('cannot delete a region or document type a student uses, nor change its code', async () => {
     const regions = MASTER_LIST.find((d) => d.key === 'region')!;
     const token = `Bearer ${(await actorWith(allCodes(regions))).token}`;
     const [pune] = await AppDataSource.query(`SELECT "id" FROM "regions" WHERE "code" = 'PUN'`);
+    const [pan] = await AppDataSource.query(`SELECT "id" FROM "document_types" WHERE "code" = 'PAN_CARD'`);
     await AppDataSource.query(
       `INSERT INTO "students" ("code", "sourceChecksum", "firstName", "lastName", "fatherName", "motherName", "currentAddress",
-         "religion", "caste", "centreCode", "regionId", "trackSourceValue", "educationQualification", "externalStatus", "source")
-       VALUES ('REG-TEST01', repeat('0', 64), 'A', 'B', 'C', 'D', 'E', 'हिंदू', 'मराठी', 'PUN', $1, 'T03', 'B.Com', 'PENDING', 'PUBLIC_REGISTRATION')`,
-      [pune.id],
+         "religion", "caste", "centreCode", "regionId", "trackSourceValue", "educationQualification", "externalStatus", "source", "documents")
+       VALUES ('REG-TEST01', repeat('0', 64), 'A', 'B', 'C', 'D', 'E', 'हिंदू', 'मराठी', 'PUN', $1, 'T03', 'B.Com', 'PENDING', 'PUBLIC_REGISTRATION',
+         jsonb_build_object('PAN_CARD', jsonb_build_object('supplied', false, 'barcode', null, 'documentTypeId', $2::text)))`,
+      [pune.id, pan.id],
     );
     const del = await request(app).delete(`${API}/regions/${pune.id}`).set('Authorization', token);
     expect(del.status).toBe(HTTP_STATUS.CONFLICT);
@@ -138,6 +140,8 @@ describe('masters referenced by students', () => {
     expect(recode.status).toBe(HTTP_STATUS.CONFLICT);
     const rename = await request(app).patch(`${API}/regions/${pune.id}`).set('Authorization', token).send({ description: 'District HQ' });
     expect(rename.status).toBe(HTTP_STATUS.OK);
+    const docAdmin = `Bearer ${(await actorWith(allCodes(MASTER_LIST.find((d) => d.key === 'documentType')!))).token}`;
+    expect((await request(app).delete(`${API}/document-types/${pan.id}`).set('Authorization', docAdmin)).status).toBe(HTTP_STATUS.CONFLICT);
     await AppDataSource.query(`UPDATE "regions" SET "description" = NULL WHERE "id" = $1`, [pune.id]);
   });
 
