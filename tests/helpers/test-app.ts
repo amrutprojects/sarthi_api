@@ -36,7 +36,7 @@ export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
   await AppDataSource.query(
     'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "role_permissions", "user_roles", "permissions", "roles", "users", '
-    + '"talukas", "districts", "states" RESTART IDENTITY CASCADE',
+    + '"talukas", "districts", "states", "contact_organizations", "contact_page_settings" RESTART IDENTITY CASCADE',
   );
   await seedRbac(AppDataSource);
   rbacService.invalidate();

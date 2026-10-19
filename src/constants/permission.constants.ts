@@ -50,6 +50,7 @@ export const MENUS = {
   documents: 'Documents',
   lms: 'LMS Integration',
   app: 'Student App',
+  'cms-contact': 'Contact Page Management',
   'cms-states': 'State Master',
   'cms-districts': 'District Master',
   'cms-talukas': 'Taluka Master',
@@ -104,6 +105,8 @@ export const PERMISSIONS = {
    * the route guards can reference them through P instead of a bare string. `approve` is not used by
    * these screens, and restoring a soft-deleted record is guarded by the matching `.delete` code.
    */
+  CMS_CONTACT_VIEW: def('cms-contact.view', 'View Contact Page Management', 'View in the Contact Page Management menu'),
+  CMS_CONTACT_UPDATE: def('cms-contact.update', 'Update Contact Page Management', 'Update in the Contact Page Management menu'),
   CMS_STATES_VIEW: def('cms-states.view', 'View State Master', 'View in the State Master menu'),
   CMS_STATES_CREATE: def('cms-states.create', 'Add State Master', 'Add in the State Master menu'),
   CMS_STATES_UPDATE: def('cms-states.update', 'Update State Master', 'Update in the State Master menu'),
@@ -118,8 +121,8 @@ export const PERMISSIONS = {
   CMS_TALUKAS_DELETE: def('cms-talukas.delete', 'Delete Taluka Master', 'Delete in the Taluka Master menu'),
 } as const satisfies Record<string, PermissionDefinition>;
 
-/* The three CMS sidebar keys, in menu order. */
-export const CMS_MENUS = ['cms-states', 'cms-districts', 'cms-talukas'] as const satisfies readonly MenuKey[];
+/* The CMS sidebar keys, in menu order. */
+export const CMS_MENUS = ['cms-contact', 'cms-states', 'cms-districts', 'cms-talukas'] as const satisfies readonly MenuKey[];
 
 export type PermissionKey = keyof typeof PERMISSIONS;
 export type PermissionCode = string;

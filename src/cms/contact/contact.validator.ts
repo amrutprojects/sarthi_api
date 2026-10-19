@@ -1,0 +1,108 @@
+import { z } from 'zod';
+import { ORG_TYPES } from './contact.model';
+
+/*
+ * Contact page request contract.
+ *
+ * Mirrors the database exactly: the same lengths, the same per-type required fields, the same URL
+ * and email shapes. The CHECK constraints are the real guarantee; these rules exist so a mistake
+ * comes back as a 422 naming the field rather than as a constraint violation.
+ */
+
+/* A Marathi/English pair. Both halves are required: a half-translated page is a broken page. */
+const bilingual = (max: number, label: string) =>
+  z
+    .object({
+      mr: z.string().trim().min(1, `${label} (Marathi) is required`).max(max, `${label} (Marathi) must be at most ${max} characters`),
+      en: z.string().trim().min(1, `${label} (English) is required`).max(max, `${label} (English) must be at most ${max} characters`),
+    })
+    .strict();
+
+/* Optional pair: omitted or null entirely, never one half. */
+const optionalBilingual = (max: number, label: string) => bilingual(max, label).nullish();
+
+const contactEmail = z.string().trim().toLowerCase().email('Must be a valid email address').max(255);
+
+/*
+ * Phone: digits, spaces, hyphens and brackets, with an optional leading +. Deliberately permissive
+ * about formatting (the site shows "+91 97301 51450") and strict about content — no letters, and
+ * between 6 and 20 digits so a truncated or pasted-wrong number is caught.
+ */
+const contactPhone = z
+  .string()
+  .trim()
+  .max(32)
+  .regex(/^\+?[0-9 ()-]+$/, 'Use digits, spaces, brackets and hyphens only, optionally starting with +')
+  .refine((v) => {
+    const digits = v.replace(/\D/g, '').length;
+    return digits >= 6 && digits <= 20;
+  }, 'Must contain between 6 and 20 digits');
+
+/* Absolute http(s) only: a relative or javascript: URL must never reach an href on the public site. */
+const websiteUrl = z
+  .string()
+  .trim()
+  .max(255)
+  .refine((v) => {
+    try {
+      return ['http:', 'https:'].includes(new URL(v).protocol);
+    } catch {
+      return false;
+    }
+  }, 'Must be an absolute http:// or https:// URL');
+
+const organization = z
+  .object({
+    orgType: z.enum(ORG_TYPES),
+    name: bilingual(150, 'Organisation name'),
+    role: optionalBilingual(200, 'Role'),
+    address: optionalBilingual(500, 'Address'),
+    email: contactEmail.nullish(),
+    phone: contactPhone.nullish(),
+    websiteUrl: websiteUrl.nullish(),
+    helpdeskHours: optionalBilingual(120, 'Helpdesk hours'),
+    displayOrder: z.coerce.number().int().min(0).max(999).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict()
+  /*
+   * Which fields a card must carry depends on what the card is — the same rule as
+   * CHK_contact_organizations_required_by_type. Expressed as a superRefine so each missing field is
+   * reported against its own path and lands on the right input in the admin form.
+   */
+  .superRefine((o, ctx) => {
+    const require = (value: unknown, path: string, message: string) => {
+      if (value === undefined || value === null || value === '') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+      }
+    };
+    if (o.orgType === 'AMRUT') {
+      require(o.address, 'address', 'Address is required for the AMRUT card');
+      require(o.email, 'email', 'Email is required for the AMRUT card');
+      require(o.phone, 'phone', 'Phone is required for the AMRUT card');
+    } else {
+      require(o.role, 'role', 'Role is required for the implementation partner');
+      require(o.email, 'email', 'Programme desk email is required for the implementation partner');
+      require(o.helpdeskHours, 'helpdeskHours', 'Helpdesk hours are required for the implementation partner');
+    }
+  });
+
+export const updateContactPageSchema = {
+  body: z
+    .object({
+      pageTitle: bilingual(150, 'Page title'),
+      pageSubtitle: bilingual(300, 'Page subtitle'),
+      isPublished: z.boolean().optional(),
+      /* Both cards are expected; the cap leaves room for the extra cards the brief anticipates. */
+      organizations: z.array(organization).min(1, 'At least one organisation is required').max(ORG_TYPES.length),
+    })
+    .strict(),
+};
+
+/* Publish / unpublish on its own, so visibility changes need not resubmit the whole page. */
+export const contactStatusSchema = {
+  body: z.object({ isPublished: z.boolean() }).strict(),
+};
+
+export type UpdateContactPageBody = z.infer<typeof updateContactPageSchema.body>;
+export type ContactStatusBody = z.infer<typeof contactStatusSchema.body>;
