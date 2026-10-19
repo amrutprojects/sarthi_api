@@ -83,3 +83,17 @@ Since migration `1792700000000-Masters`, region, caste, education and document t
   the portal launcher, and the specification says students register on the external MahaAmrut form. Which site
   should call this API, and does it replace the MahaAmrut redirect?
 - **D7 — CORS.** The approved website origin(s) to allow.
+
+## Admin entry (Student Registration menu)
+
+- `GET /student-registrations` (registrations.view): server-paged, masked list of registrations; `GET /student-registrations/:id`
+  adds the uploaded files.
+- `POST /student-registrations/admin` (registrations.create), multipart: `data` = the registration JSON (as the public
+  endpoint, without `documents`, plus `barcodes` per document type code) and one file per document type code
+  (PDF / JPG / JPEG / PNG, ≤ 5 MB, type checked from the content). Mandatory document types need a file; `INCOME_EWS`
+  needs its barcode. Files are stored under `students/<code>/` and in `student_documents` (no batch or import row,
+  migration `1792800000000`), in the same transaction as the registration.
+- Permissions: `registrations.view|create|update|delete|approve`. They are seeded to the **SUMAGO Super Admin** role
+  (every permission); Super Admin's "all permissions" sync leaves them out. Any role can be granted them in Roles &
+  Permissions. Create the first SUMAGO Super Admin with `npm run admin:create -- --email … --role SUMAGO_SUPER_ADMIN`
+  (a Super Admin cannot assign that role: it grants permissions Super Admin does not hold).

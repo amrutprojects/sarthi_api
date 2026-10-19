@@ -43,7 +43,10 @@ export class Student extends AppBaseEntity {
   @Column({ type: 'timestamptz', name: 'approvedAt', nullable: true }) approvedAt!: Date | null;
   @Column({ type: 'varchar', length: 120, name: 'evidenceRef', nullable: true }) evidenceRef!: string | null;
   @Column({ type: 'boolean', name: 'declarationAccepted', nullable: true }) declarationAccepted!: boolean | null;
-  @Column({ type: 'jsonb', default: () => `'{}'::jsonb` }) documents!: Record<string, { supplied: boolean; barcode: string | null; documentTypeId?: string }>;
+  @Column({ type: 'jsonb', default: () => `'{}'::jsonb` }) documents!: Record<
+    string,
+    { supplied: boolean; barcode: string | null; documentTypeId?: string }
+  >;
   @Column({ type: 'varchar', length: 30, default: 'RECEIVED' }) status!: string;
   @Column({ type: 'uuid', name: 'importBatchId', nullable: true }) importBatchId!: string | null;
   @Column({ type: 'varchar', length: 30, default: 'IMPORT' }) source!: string;

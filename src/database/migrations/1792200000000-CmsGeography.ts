@@ -53,7 +53,9 @@ export class CmsGeography1792200000000 implements MigrationInterface {
         CONSTRAINT "CHK_districts_code_upper"   CHECK ("code" = upper("code") AND "code" ~ '^[A-Z][A-Z0-9-]{1,19}$')
       )`);
     await q.query(`CREATE UNIQUE INDEX "UQ_districts_state_code_active" ON "districts" ("stateId", "code") WHERE "isDelete" = false`);
-    await q.query(`CREATE UNIQUE INDEX "UQ_districts_state_name_active" ON "districts" ("stateId", lower("name")) WHERE "isDelete" = false`);
+    await q.query(
+      `CREATE UNIQUE INDEX "UQ_districts_state_name_active" ON "districts" ("stateId", lower("name")) WHERE "isDelete" = false`,
+    );
     await q.query(`CREATE INDEX "IDX_districts_stateId" ON "districts" ("stateId")`);
 
     await q.query(`
@@ -66,8 +68,12 @@ export class CmsGeography1792200000000 implements MigrationInterface {
         CONSTRAINT "CHK_talukas_name_trimmed" CHECK ("name" = btrim("name") AND length("name") >= 2),
         CONSTRAINT "CHK_talukas_code_upper"   CHECK ("code" IS NULL OR ("code" = upper("code") AND "code" ~ '^[A-Z][A-Z0-9-]{1,19}$'))
       )`);
-    await q.query(`CREATE UNIQUE INDEX "UQ_talukas_district_name_active" ON "talukas" ("districtId", lower("name")) WHERE "isDelete" = false`);
-    await q.query(`CREATE UNIQUE INDEX "UQ_talukas_district_code_active" ON "talukas" ("districtId", "code") WHERE "isDelete" = false AND "code" IS NOT NULL`);
+    await q.query(
+      `CREATE UNIQUE INDEX "UQ_talukas_district_name_active" ON "talukas" ("districtId", lower("name")) WHERE "isDelete" = false`,
+    );
+    await q.query(
+      `CREATE UNIQUE INDEX "UQ_talukas_district_code_active" ON "talukas" ("districtId", "code") WHERE "isDelete" = false AND "code" IS NOT NULL`,
+    );
     await q.query(`CREATE INDEX "IDX_talukas_districtId" ON "talukas" ("districtId")`);
 
     for (const t of ['states', 'districts', 'talukas']) {

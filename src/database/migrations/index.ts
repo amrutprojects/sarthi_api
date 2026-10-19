@@ -6,6 +6,7 @@ import { StudentDocuments1792400000000 } from './1792400000000-StudentDocuments'
 import { StudentDocumentSourcePath1792500000000 } from './1792500000000-StudentDocumentSourcePath';
 import { StudentRegistration1792600000000 } from './1792600000000-StudentRegistration';
 import { Masters1792700000000 } from './1792700000000-Masters';
+import { RegistrationDocuments1792800000000 } from './1792800000000-RegistrationDocuments';
 import { CmsGeography1792200000000 } from './1792200000000-CmsGeography';
 import { CmsContactPage1792300000000 } from './1792300000000-CmsContactPage';
 
@@ -19,6 +20,7 @@ export const MIGRATIONS = [
   StudentDocumentSourcePath1792500000000,
   StudentRegistration1792600000000,
   Masters1792700000000,
+  RegistrationDocuments1792800000000,
   /*
    * The CMS migrations carry the timestamps they were applied under (1792200000000 /
    * 1792300000000), which collide with StudentImport and IdempotencyKeys above. They are listed

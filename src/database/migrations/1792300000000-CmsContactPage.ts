@@ -90,7 +90,9 @@ export class CmsContactPage1792300000000 implements MigrationInterface {
       )`);
 
     /* One live card of each type. Soft-deleted rows keep their history without blocking a new card. */
-    await q.query(`CREATE UNIQUE INDEX "UQ_contact_organizations_type_active" ON "contact_organizations" ("settingsId", "orgType") WHERE "isDelete" = false`);
+    await q.query(
+      `CREATE UNIQUE INDEX "UQ_contact_organizations_type_active" ON "contact_organizations" ("settingsId", "orgType") WHERE "isDelete" = false`,
+    );
     await q.query(`CREATE INDEX "IDX_contact_organizations_settingsId" ON "contact_organizations" ("settingsId")`);
 
     for (const t of ['contact_page_settings', 'contact_organizations']) {

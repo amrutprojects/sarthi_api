@@ -26,6 +26,7 @@ export const MENUS = {
   lifecycle: 'Lifecycle & Funnel',
   atrisk: 'At-Risk Engine',
   imports: 'Student Import',
+  registrations: 'Student Registration',
   districts: 'Districts',
   map: 'District Map',
   centres: 'Training Centres',
@@ -149,7 +150,9 @@ export const P = Object.fromEntries(Object.entries(PERMISSIONS).map(([k, v]) => 
 
 /* Menu codes first; identity definitions win on duplicates (audit.view). */
 export const ALL_PERMISSIONS: PermissionDefinition[] = [
-  ...new Map([...MENU_PERMISSIONS, ...EXTRA_PERMISSIONS, ...MASTER_PERMISSIONS, ...Object.values(PERMISSIONS)].map((p) => [p.code, p] as const)).values(),
+  ...new Map(
+    [...MENU_PERMISSIONS, ...EXTRA_PERMISSIONS, ...MASTER_PERMISSIONS, ...Object.values(PERMISSIONS)].map((p) => [p.code, p] as const),
+  ).values(),
 ];
 
 /* Builder for role defaults. */
