@@ -1,13 +1,13 @@
 import type { Request } from 'express';
 import type { EntityManager } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
-import { AUDIT_ACTIONS } from '../../../constants/app.constants';
+import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import type { District } from './district.model';
 import { districtRepository } from './district.repository';
 import { stateRepository } from '../state/state.repository';
-import { AppError } from '../../../utils/app-error';
-import type { Paginated } from '../../../utils/pagination';
-import { auditService } from '../../../services/audit.service';
+import { AppError } from '../../../shared/errors/app-error';
+import type { Paginated } from '../../../shared/utils/pagination';
+import { auditService } from '../../../modules/audit/audit.service';
 import { assertUsableState } from '../state/state.service';
 import type {
   CreateDistrictInput, DistrictListQuery, PublicDistrictDetail, UpdateDistrictInput,

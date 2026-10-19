@@ -2,8 +2,8 @@ import type { EntityManager } from 'typeorm';
 import { Brackets } from 'typeorm';
 import { District } from '../district/district.model';
 import { State } from './state.model';
-import { BaseRepository } from '../../../repositories/base.repository';
-import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../../utils/pagination';
+import { BaseRepository } from '../../../database/base.repository';
+import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../../shared/utils/pagination';
 import type { StateListQuery } from './state.types';
 
 export class StateRepository extends BaseRepository<State> {

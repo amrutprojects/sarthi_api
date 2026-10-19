@@ -1,5 +1,5 @@
 import type { EntityManager } from 'typeorm';
-import { BaseRepository } from '../../repositories/base.repository';
+import { BaseRepository } from '../../database/base.repository';
 import { ContactOrganization, ContactPageSettings } from './contact.model';
 
 /*

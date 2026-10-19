@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import { AppDataSource, API, actorWith, auth, request, setupTestApp, superAdmin, teardownTestApp, type TestActor } from '../helpers/test-app';
-import { seedContactPage } from '../../seeds/seed-contact-page';
+import { seedContactPage } from '../../src/database/seeds/seed-contact-page';
 import { ContactOrganization, ContactPageSettings } from '../../src/cms/contact/contact.model';
 
 const ADMIN_URL = `${API}/cms/contact`;

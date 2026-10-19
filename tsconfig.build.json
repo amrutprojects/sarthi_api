@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "types": ["node"], "sourceMap": false },
-  "include": ["src", "migrations", "seeds", "scripts"],
+  "include": ["src", "scripts"],
   "exclude": ["tests", "jest.config.ts", "**/*.test.ts"]
 }

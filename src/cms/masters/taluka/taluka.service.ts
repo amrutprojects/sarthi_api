@@ -1,10 +1,10 @@
 import type { Request } from 'express';
 import type { EntityManager } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
-import { AUDIT_ACTIONS } from '../../../constants/app.constants';
-import { auditService } from '../../../services/audit.service';
-import { AppError } from '../../../utils/app-error';
-import type { Paginated } from '../../../utils/pagination';
+import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
+import { auditService } from '../../../modules/audit/audit.service';
+import { AppError } from '../../../shared/errors/app-error';
+import type { Paginated } from '../../../shared/utils/pagination';
 import { districtRepository } from '../district/district.repository';
 import { districtService } from '../district/district.service';
 import { stateRepository } from '../state/state.repository';

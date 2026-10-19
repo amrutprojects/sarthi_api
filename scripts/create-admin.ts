@@ -3,12 +3,12 @@ import bcrypt from 'bcrypt';
 import readline from 'readline';
 import { appConfig } from '../src/config/app.config';
 import { AppDataSource } from '../src/config/database.config';
-import { ROLE_CODES } from '../src/constants/role.constants';
-import { AuditLog } from '../src/entities/audit-log.entity';
-import { Role } from '../src/entities/role.entity';
-import { UserRole } from '../src/entities/user-role.entity';
-import { User } from '../src/entities/user.entity';
-import { email as emailSchema, name as nameSchema, password as passwordSchema } from '../src/validators/common.validator';
+import { ROLE_CODES } from '../src/modules/roles-permissions/role.constants';
+import { AuditLog } from '../src/modules/audit/audit-log.entity';
+import { Role } from '../src/modules/roles-permissions/roles/role.entity';
+import { UserRole } from '../src/modules/roles-permissions/user-role.entity';
+import { User } from '../src/modules/users/user.entity';
+import { email as emailSchema, name as nameSchema, password as passwordSchema } from '../src/shared/validation/common.validation';
 
 /*
  * Secure initial administrator setup:
@@ -60,10 +60,15 @@ async function main() {
       const passwordHash = await bcrypt.hash(password!, appConfig.bcryptRounds);
       const user = await m.getRepository(User).save(m.getRepository(User).create({ name, email, passwordHash }));
       await m.getRepository(UserRole).insert({ userId: user.id, roleId: role.id });
-      await m.getRepository(AuditLog).save(m.getRepository(AuditLog).create({
-        action: 'user.create', resource: 'user', resourceId: user.id, outcome: 'SUCCESS',
-        details: { email, via: 'admin:create script', roles: [ROLE_CODES.SUPER_ADMIN] },
-      }));
+      await m.getRepository(AuditLog).save(
+        m.getRepository(AuditLog).create({
+          action: 'user.create',
+          resource: 'user',
+          resourceId: user.id,
+          outcome: 'SUCCESS',
+          details: { email, via: 'admin:create script', roles: [ROLE_CODES.SUPER_ADMIN] },
+        }),
+      );
       // eslint-disable-next-line no-console
       console.log(`Administrator created: ${email} (id ${user.id}) with role ${ROLE_CODES.SUPER_ADMIN}`);
     });

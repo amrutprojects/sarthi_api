@@ -39,10 +39,44 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
-  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  RATE_LIMIT_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  /* Public student registrations per IP per rate-limit window. */
+  REGISTRATION_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   PERMISSION_CACHE_TTL_MS: z.coerce.number().int().min(0).default(60_000),
+
+  /* Student data protection: 32-byte keys, base64. DATA encrypts Aadhaar (AES-256-GCM); INDEX keys the blind index (HMAC-SHA256). */
+  STUDENT_DATA_KEY: z.string().refine((v) => Buffer.from(v, 'base64').length === 32, 'STUDENT_DATA_KEY must be 32 bytes, base64-encoded'),
+  STUDENT_INDEX_KEY: z.string().refine((v) => Buffer.from(v, 'base64').length === 32, 'STUDENT_INDEX_KEY must be 32 bytes, base64-encoded'),
+  IMPORT_MAX_FILE_MB: z.coerce.number().positive().default(20),
+  IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(50_000),
+
+  /* Student document files (private storage, never served statically). Relative paths are resolved from the backend folder. */
+  STORAGE_DIR: z.string().min(1).default('storage'),
+  DOCUMENT_MAX_FILE_MB: z.coerce.number().positive().default(5),
+  DOCUMENTS_ZIP_MAX_MB: z.coerce.number().positive().default(500),
+  DOCUMENTS_ZIP_MAX_FILES: z.coerce.number().int().positive().default(20_000),
+
+  /* Browser sessions: HttpOnly cookie carrying the access token (ADR-0003). */
+  SESSION_COOKIE_NAME: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .default('amrut_session'),
+  /* Defaults to true outside development and test; must be true when SameSite=none. */
+  COOKIE_SECURE: z.enum(['true', 'false']).optional(),
+  COOKIE_SAMESITE: z.enum(['strict', 'lax', 'none']).default('strict'),
+  /* e.g. .sumago.ai when the admin panel and the API are on different subdomains; unset = host-only cookie. */
+  COOKIE_DOMAIN: z.string().optional(),
+  /* Absolute session lifetime; the access token is renewed while the user is active, up to this limit. */
+  SESSION_MAX_HOURS: z.coerce.number().positive().default(12),
+
+  /* Serve OpenAPI JSON and Swagger UI (default: on, except in production). */
+  API_DOCS_ENABLED: z.enum(['true', 'false']).optional(),
 });
 
 /*
@@ -78,11 +112,19 @@ if (raw.NODE_ENV === 'production' && /CHANGE_ME|REPLACE_WITH/i.test(raw.JWT_SECR
   process.exit(1);
 }
 
+if (raw.COOKIE_SAMESITE === 'none' && raw.COOKIE_SECURE === 'false') {
+  // eslint-disable-next-line no-console
+  console.error('COOKIE_SAMESITE=none requires COOKIE_SECURE=true (browsers reject insecure SameSite=None cookies)');
+  process.exit(1);
+}
+
 export const env = {
   ...raw,
   isProduction: raw.NODE_ENV === 'production',
   isTest: raw.NODE_ENV === 'test',
-  corsOrigins: raw.FRONTEND_URL.split(',').map((o) => o.trim()).filter(Boolean),
+  corsOrigins: raw.FRONTEND_URL.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
 } as const;
 
 export type Env = typeof env;

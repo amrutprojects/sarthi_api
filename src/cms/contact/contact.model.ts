@@ -1,5 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
-import { AppBaseEntity } from '../../entities/base.entity';
+import { AppBaseEntity } from '../../database/base.entity';
 
 /* The two cards the Contact page shows today. New card types are added here and to the CHECK constraint. */
 export const ORG_TYPES = ['AMRUT', 'IMPLEMENTATION_PARTNER'] as const;

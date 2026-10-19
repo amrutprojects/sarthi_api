@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { P } from '../../../constants/permission.constants';
+import { P } from '../../../modules/roles-permissions/permission.constants';
 import { authorizePermission } from '../../../middleware/authorize-permission.middleware';
 import { validateRequest } from '../../../middleware/validate-request.middleware';
-import { parentIdParams } from '../../../validators/common.validator';
+import { parentIdParams } from '../../../shared/validation/common.validation';
 import { districtController } from './district.controller';
 import {
   createDistrictSchema, districtIdSchema, districtStatusSchema, listDistrictsSchema, updateDistrictSchema,

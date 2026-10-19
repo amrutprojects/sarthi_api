@@ -1,4 +1,4 @@
-import type { ListQuery } from '../../../utils/pagination';
+import type { ListQuery } from '../../../shared/utils/pagination';
 
 /* Columns a client may sort by (?sortBy=). stateName sorts on the joined parent. */
 export type DistrictSortField = 'name' | 'code' | 'stateName' | 'createdAt' | 'updatedAt';

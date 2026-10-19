@@ -1,4 +1,4 @@
-import type { ListQuery } from '../../../utils/pagination';
+import type { ListQuery } from '../../../shared/utils/pagination';
 
 /* Columns a client may sort by (?sortBy=). Anything else is rejected by the validator. */
 export type StateSortField = 'name' | 'code' | 'createdAt' | 'updatedAt';

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validateRequest } from '../../../middleware/validate-request.middleware';
-import { parentIdParams } from '../../../validators/common.validator';
+import { parentIdParams } from '../../../shared/validation/common.validation';
 import { geographyController } from './geography.controller';
 
 /*

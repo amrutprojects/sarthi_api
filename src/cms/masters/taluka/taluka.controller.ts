@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { body, params, query } from '../../../middleware/validate-request.middleware';
 import { ApiResponse } from '../../../utils/api-response';
-import { asyncHandler } from '../../../utils/async-handler';
+import { asyncHandler } from '../../../shared/http/async-handler';
 import { talukaService } from './taluka.service';
 import type { CreateTalukaBody, ListTalukasQuery, UpdateTalukaBody } from './taluka.validator';
 

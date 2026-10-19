@@ -1,8 +1,8 @@
 import type { EntityManager, SelectQueryBuilder } from 'typeorm';
 import { Brackets } from 'typeorm';
 import { Taluka } from './taluka.model';
-import { BaseRepository } from '../../../repositories/base.repository';
-import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../../utils/pagination';
+import { BaseRepository } from '../../../database/base.repository';
+import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../../shared/utils/pagination';
 import type { TalukaListQuery, TalukaSortField } from './taluka.types';
 
 const SORT_SQL: Record<TalukaSortField, string> = {

@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { body, params, query } from '../../../middleware/validate-request.middleware';
 import { ApiResponse } from '../../../utils/api-response';
-import { asyncHandler } from '../../../utils/async-handler';
+import { asyncHandler } from '../../../shared/http/async-handler';
 import { geographyService } from '../geography/geography.service';
 import { districtService } from './district.service';
 import type { CreateDistrictBody, ListDistrictsQuery, UpdateDistrictBody } from './district.validator';

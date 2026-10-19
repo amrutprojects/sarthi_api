@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { body } from '../../middleware/validate-request.middleware';
 import { ApiResponse } from '../../utils/api-response';
-import { asyncHandler } from '../../utils/async-handler';
+import { asyncHandler } from '../../shared/http/async-handler';
 import { contactService } from './contact.service';
 import type { ContactStatusBody, UpdateContactPageBody } from './contact.validator';
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { idParams, masterCode, masterName, statusBody } from '../../../validators/common.validator';
-import { listQueryAscSchema } from '../../../utils/pagination';
+import { idParams, masterCode, masterName, statusBody } from '../../../shared/validation/common.validation';
+import { listQueryAscSchema } from '../../../shared/utils/pagination';
 
 /* A state code is short and alphanumeric, e.g. MH. The same shape is a CHECK constraint on the table. */
 const stateCode = masterCode(10);

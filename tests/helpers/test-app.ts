@@ -6,11 +6,12 @@ import { In } from 'typeorm';
 import { createApp } from '../../src/app';
 import { AppDataSource } from '../../src/config/database.config';
 import { env } from '../../src/config/env.config';
-import { ROLE_CODES } from '../../src/constants/role.constants';
-import { Permission, Role, RolePermission, User, UserRole } from '../../src/entities';
-import { rbacService } from '../../src/services/rbac.service';
-import { seedRbac } from '../../seeds/seed-rbac';
+import { ROLE_CODES } from '../../src/modules/roles-permissions/role.constants';
+import { Permission, Role, RolePermission, User, UserRole } from '../../src/database/entities';
+import { rbacService } from '../../src/modules/roles-permissions/rbac.service';
+import { seedRbac } from '../../src/database/seeds/seed-rbac';
 import { assertTestDatabase } from './guard';
+import { TEST_EDUCATIONS } from './masters';
 
 export const API = '/api/v1';
 export const PASSWORD = 'Test-Password-123';
@@ -35,11 +36,14 @@ export async function teardownTestApp(): Promise<void> {
 export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
   await AppDataSource.query(
-    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "role_permissions", "user_roles", "permissions", "roles", "users", '
+    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "student_documents", "import_rows", "students", "import_batches", "idempotency_keys", "role_permissions", "user_roles", "permissions", "roles", "users", '
     + '"talukas", "districts", "states", "contact_organizations", "contact_page_settings" RESTART IDENTITY CASCADE',
   );
   await seedRbac(AppDataSource);
   rbacService.invalidate();
+  /* Masters are not truncated (the migration seeds them); tests add the education values their fixtures use. */
+  for (const [i, name] of TEST_EDUCATIONS.entries())
+    await AppDataSource.query(`INSERT INTO "educations" ("code", "name") VALUES ($1, $2) ON CONFLICT DO NOTHING`, [`TEST_E${i + 1}`, name]);
 }
 
 const hashCache = new Map<string, string>();
@@ -58,12 +62,14 @@ export interface TestActor {
 export async function createUser(opts: { roleCodes?: string[]; isActive?: boolean; password?: string; name?: string } = {}): Promise<User> {
   counter++;
   const users = AppDataSource.getRepository(User);
-  const user = await users.save(users.create({
-    name: opts.name ?? `Test User ${counter}`,
-    email: `user${counter}.${Date.now()}@test.local`,
-    passwordHash: await hash(opts.password ?? PASSWORD),
-    isActive: opts.isActive ?? true,
-  }));
+  const user = await users.save(
+    users.create({
+      name: opts.name ?? `Test User ${counter}`,
+      email: `user${counter}.${Date.now()}@test.local`,
+      passwordHash: await hash(opts.password ?? PASSWORD),
+      isActive: opts.isActive ?? true,
+    }),
+  );
   if (opts.roleCodes?.length) {
     const roles = await AppDataSource.getRepository(Role).find({ where: { code: In(opts.roleCodes), isDelete: false } });
     await AppDataSource.getRepository(UserRole).insert(roles.map((r) => ({ userId: user.id, roleId: r.id })));
@@ -86,7 +92,7 @@ export async function createRoleWith(codes: string[], code = `TEST_ROLE_${++coun
 }
 
 export async function login(email: string, password = PASSWORD): Promise<string> {
-  const res = await request(app).post(`${API}/auth/login`).send({ email, password });
+  const res = await request(app).post(`${API}/auth/login`).set('X-Auth-Mode', 'bearer').send({ email, password });
   if (res.status !== 200) throw new Error(`login failed (${res.status}): ${JSON.stringify(res.body)}`);
   return res.body.data.accessToken as string;
 }
