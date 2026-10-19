@@ -1,4 +1,5 @@
 import type { EntityManager } from 'typeorm';
+import { ERROR_CODES, HTTP_STATUS } from '../../constants/api-response.constants';
 import { appConfig } from '../../config/app.config';
 import { ROLE_CODES } from './role.constants';
 import type { Permission } from './permissions/permission.entity';
@@ -69,9 +70,9 @@ export class RbacService {
         .map((p) => p.code);
       if (missing.length) {
         throw new AppError(
-          403,
+          HTTP_STATUS.FORBIDDEN,
           `You cannot assign role ${role.code}: it grants permissions you do not hold`,
-          'PRIVILEGE_ESCALATION',
+          ERROR_CODES.PRIVILEGE_ESCALATION,
           missing.map((m) => ({ field: 'roleIds', message: m })),
         );
       }
@@ -83,9 +84,9 @@ export class RbacService {
     const missing = permissions.filter((p) => !actor.permissions.has(p.code)).map((p) => p.code);
     if (missing.length) {
       throw new AppError(
-        403,
+        HTTP_STATUS.FORBIDDEN,
         'You cannot grant permissions you do not hold',
-        'PRIVILEGE_ESCALATION',
+        ERROR_CODES.PRIVILEGE_ESCALATION,
         missing.map((m) => ({ field: 'permissionIds', message: m })),
       );
     }
@@ -94,14 +95,14 @@ export class RbacService {
   /* Rule 4. */
   assertNotEditingOwnRole(actor: AuthUser, role: Role): void {
     if (actor.roleCodes.includes(role.code) && !this.isSuperAdmin(actor)) {
-      throw new AppError(403, 'You cannot change the permissions of a role you hold', 'SELF_PRIVILEGE_CHANGE');
+      throw new AppError(HTTP_STATUS.FORBIDDEN, 'You cannot change the permissions of a role you hold', ERROR_CODES.SELF_PRIVILEGE_CHANGE);
     }
   }
 
   /* Rule 5 (role side). */
   assertNotProtectedRole(role: Role, operation: string): void {
     if (role.code === ROLE_CODES.SUPER_ADMIN) {
-      throw new AppError(403, `The ${ROLE_CODES.SUPER_ADMIN} role cannot be ${operation}`, 'PROTECTED_ROLE');
+      throw new AppError(HTTP_STATUS.FORBIDDEN, `The ${ROLE_CODES.SUPER_ADMIN} role cannot be ${operation}`, ERROR_CODES.PROTECTED_ROLE);
     }
   }
 }

@@ -85,6 +85,12 @@ describe('OpenAPI contract', () => {
       .set(auth(await login(viewer.email)))
       .send({});
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ success: false, message: expect.any(String), error: { code: 'FORBIDDEN', requestId: expect.any(String) } });
+    expect(res.body).toEqual({
+      success: false,
+      status: 403,
+      message: expect.any(String),
+      data: null,
+      error: { code: 'FORBIDDEN', requestId: expect.any(String) },
+    });
   });
 });

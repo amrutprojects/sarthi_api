@@ -28,7 +28,9 @@ export const ErrorEnvelope = registry.register(
   'ErrorEnvelope',
   z.object({
     success: z.literal(false),
+    status: z.number().int().describe('Always equals the HTTP status code'),
     message: z.string(),
+    data: z.null(),
     error: z.object({ code: z.string(), requestId: z.string().optional(), details: z.array(ErrorDetailSchema).optional() }),
   }),
 );
@@ -43,9 +45,10 @@ export const PageMetaSchema = registry.register(
 );
 
 /* Response envelopes — the shape every endpoint returns (shared/http/api-response.ts). */
-export const envelope = <T extends ZodTypeAny>(data: T) => z.object({ success: z.literal(true), message: z.string(), data });
+export const envelope = <T extends ZodTypeAny>(data: T) =>
+  z.object({ success: z.literal(true), status: z.number().int(), message: z.string(), data });
 export const pagedEnvelope = <T extends ZodTypeAny>(item: T) =>
-  z.object({ success: z.literal(true), message: z.string(), data: z.array(item), meta: PageMetaSchema });
+  z.object({ success: z.literal(true), status: z.number().int(), message: z.string(), data: z.array(item), meta: PageMetaSchema });
 
 const ERROR_TEXT: Record<number, string> = {
   400: 'Bad request',

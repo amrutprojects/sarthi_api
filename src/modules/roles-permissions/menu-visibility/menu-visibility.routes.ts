@@ -1,11 +1,12 @@
 import { Router } from 'express';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import { z } from 'zod';
 import { P } from '../permission.constants';
 import { authenticate } from '../../../middleware/authenticate.middleware';
 import { authorizePermission } from '../../../middleware/authorize-permission.middleware';
 import { body, validateRequest } from '../../../middleware/validate-request.middleware';
 import { menuVisibilityService, type MenuVisibilityChange } from './menu-visibility.service';
-import { ApiResponse } from '../../../shared/http/api-response';
+import { ApiResponse } from '../../../utils/api-response';
 import { asyncHandler } from '../../../shared/http/async-handler';
 
 const updateSchema = {
@@ -26,7 +27,7 @@ menuVisibilityRouter.get(
   '/',
   authorizePermission(P.ROLES_VIEW),
   asyncHandler(async (_req, res) => {
-    ApiResponse.ok(res, await menuVisibilityService.matrix(), 'Menu visibility retrieved');
+    ApiResponse.ok(res, await menuVisibilityService.matrix(), MESSAGES.retrieved('Menu visibility'));
   }),
 );
 
@@ -36,6 +37,6 @@ menuVisibilityRouter.put(
   validateRequest(updateSchema),
   asyncHandler(async (req, res) => {
     const { changes } = body<{ changes: MenuVisibilityChange[] }>(req);
-    ApiResponse.ok(res, await menuVisibilityService.apply(changes, req), 'Menu visibility updated');
+    ApiResponse.ok(res, await menuVisibilityService.apply(changes, req), MESSAGES.updated('Menu visibility'));
   }),
 );

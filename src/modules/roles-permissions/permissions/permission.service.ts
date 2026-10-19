@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import { AppDataSource } from '../../../config/database.config';
 import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import type { Permission } from './permission.entity';
@@ -55,7 +56,7 @@ export class PermissionService {
 
   async get(id: string): Promise<PublicPermission> {
     const p = await permissionRepository.findById(id);
-    if (!p) throw AppError.notFound('Permission not found');
+    if (!p) throw AppError.notFound(MESSAGES.notFound('Permission'));
     return toPublic(p);
   }
 
@@ -85,7 +86,7 @@ export class PermissionService {
 
   async update(id: string, input: UpdatePermissionInput, req?: Request): Promise<PublicPermission> {
     await AppDataSource.transaction(async (m) => {
-      if (!(await permissionRepository.findById(id, { manager: m }))) throw AppError.notFound('Permission not found');
+      if (!(await permissionRepository.findById(id, { manager: m }))) throw AppError.notFound(MESSAGES.notFound('Permission'));
       await permissionRepository.update(id, { ...input }, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.PERMISSION_UPDATE,
@@ -99,7 +100,7 @@ export class PermissionService {
 
   async setStatus(id: string, isActive: boolean, req?: Request): Promise<PublicPermission> {
     await AppDataSource.transaction(async (m) => {
-      if (!(await permissionRepository.findById(id, { manager: m }))) throw AppError.notFound('Permission not found');
+      if (!(await permissionRepository.findById(id, { manager: m }))) throw AppError.notFound(MESSAGES.notFound('Permission'));
       await permissionRepository.update(id, { isActive }, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.PERMISSION_STATUS,
@@ -115,7 +116,7 @@ export class PermissionService {
   async remove(id: string, req?: Request): Promise<void> {
     await AppDataSource.transaction(async (m) => {
       const p = await permissionRepository.findById(id, { manager: m });
-      if (!p) throw AppError.notFound('Permission not found');
+      if (!p) throw AppError.notFound(MESSAGES.notFound('Permission'));
       await permissionRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.PERMISSION_DELETE,
@@ -130,7 +131,7 @@ export class PermissionService {
   async restore(id: string, req?: Request): Promise<PublicPermission> {
     await AppDataSource.transaction(async (m) => {
       const existing = await permissionRepository.findByIdIncludingDeleted(id, m);
-      if (!existing) throw AppError.notFound('Permission not found');
+      if (!existing) throw AppError.notFound(MESSAGES.notFound('Permission'));
       if (!existing.isDelete) throw AppError.conflict('Permission is not deleted');
       if (await permissionRepository.findByCode(existing.code, m))
         throw AppError.conflict('Another active permission already uses this code');
