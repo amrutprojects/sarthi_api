@@ -6,10 +6,10 @@ import path from 'path';
 import { appConfig } from '../src/config/app.config';
 import { AppDataSource } from '../src/config/database.config';
 import { env } from '../src/config/env.config';
-import { ROLES } from '../src/constants/role.constants';
-import { Role } from '../src/entities/role.entity';
-import { UserRole } from '../src/entities/user-role.entity';
-import { User } from '../src/entities/user.entity';
+import { ROLES } from '../src/modules/roles-permissions/role.constants';
+import { Role } from '../src/modules/roles-permissions/roles/role.entity';
+import { UserRole } from '../src/modules/roles-permissions/user-role.entity';
+import { User } from '../src/modules/users/user.entity';
 
 /*
  * DEVELOPMENT ONLY: one demo account per seeded role (demo.<role>@kalash.local), for trying the

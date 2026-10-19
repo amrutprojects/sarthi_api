@@ -5,13 +5,13 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { appConfig } from './config/app.config';
-import { logger } from './config/logger.config';
-import { REQUEST_ID_HEADER } from './constants/app.constants';
+import { logger } from './observability/logger';
+import { REQUEST_ID_HEADER } from './shared/constants/app.constants';
 import { errorHandler } from './middleware/error-handler.middleware';
 import { notFound } from './middleware/not-found.middleware';
 import { requestId } from './middleware/request-id.middleware';
 import { apiRouter } from './routes';
-import { ApiResponse } from './utils/api-response';
+import { ApiResponse } from './shared/http/api-response';
 
 /* Builds the Express app (no listening, no DB connection) so tests can drive it with Supertest. */
 export function createApp(): Express {

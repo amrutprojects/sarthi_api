@@ -3,12 +3,12 @@ import bcrypt from 'bcrypt';
 import readline from 'readline';
 import { appConfig } from '../src/config/app.config';
 import { AppDataSource } from '../src/config/database.config';
-import { ROLE_CODES } from '../src/constants/role.constants';
-import { AuditLog } from '../src/entities/audit-log.entity';
-import { Role } from '../src/entities/role.entity';
-import { UserRole } from '../src/entities/user-role.entity';
-import { User } from '../src/entities/user.entity';
-import { email as emailSchema, name as nameSchema, password as passwordSchema } from '../src/validators/common.validator';
+import { ROLE_CODES } from '../src/modules/roles-permissions/role.constants';
+import { AuditLog } from '../src/modules/audit/audit-log.entity';
+import { Role } from '../src/modules/roles-permissions/roles/role.entity';
+import { UserRole } from '../src/modules/roles-permissions/user-role.entity';
+import { User } from '../src/modules/users/user.entity';
+import { email as emailSchema, name as nameSchema, password as passwordSchema } from '../src/shared/validation/common.validation';
 
 /*
  * Secure initial administrator setup:

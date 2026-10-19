@@ -6,10 +6,10 @@ import { In } from 'typeorm';
 import { createApp } from '../../src/app';
 import { AppDataSource } from '../../src/config/database.config';
 import { env } from '../../src/config/env.config';
-import { ROLE_CODES } from '../../src/constants/role.constants';
-import { Permission, Role, RolePermission, User, UserRole } from '../../src/entities';
-import { rbacService } from '../../src/services/rbac.service';
-import { seedRbac } from '../../seeds/seed-rbac';
+import { ROLE_CODES } from '../../src/modules/roles-permissions/role.constants';
+import { Permission, Role, RolePermission, User, UserRole } from '../../src/database/entities';
+import { rbacService } from '../../src/modules/roles-permissions/rbac.service';
+import { seedRbac } from '../../src/database/seeds/seed-rbac';
 import { assertTestDatabase } from './guard';
 
 export const API = '/api/v1';

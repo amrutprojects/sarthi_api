@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { AppDataSource } from '../../config/database.config';
-import { ApiResponse } from '../../utils/api-response';
-import { asyncHandler } from '../../utils/async-handler';
+import { ApiResponse } from '../../shared/http/api-response';
+import { asyncHandler } from '../../shared/http/async-handler';
 
 const startedAt = Date.now();
 

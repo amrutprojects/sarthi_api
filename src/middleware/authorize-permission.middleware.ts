@@ -1,8 +1,8 @@
 import type { RequestHandler } from 'express';
-import { AUDIT_ACTIONS } from '../constants/app.constants';
-import type { PermissionCode } from '../constants/permission.constants';
-import { auditService } from '../services/audit.service';
-import { AppError } from '../utils/app-error';
+import { AUDIT_ACTIONS } from '../shared/constants/app.constants';
+import type { PermissionCode } from '../modules/roles-permissions';
+import { auditService } from '../modules/audit';
+import { AppError } from '../shared/errors/app-error';
 
 /*
  * Deny-by-default permission guard. Must run after authenticate().

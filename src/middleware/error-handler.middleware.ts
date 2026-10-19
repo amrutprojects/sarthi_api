@@ -1,9 +1,9 @@
 import type { ErrorRequestHandler } from 'express';
 import { QueryFailedError } from 'typeorm';
-import { logger } from '../config/logger.config';
-import { PG_ERROR } from '../constants/app.constants';
-import { ApiResponse } from '../utils/api-response';
-import { AppError } from '../utils/app-error';
+import { logger } from '../observability/logger';
+import { PG_ERROR } from '../shared/constants/app.constants';
+import { ApiResponse } from '../shared/http/api-response';
+import { AppError } from '../shared/errors/app-error';
 
 interface PgDriverError { code?: string; constraint?: string }
 

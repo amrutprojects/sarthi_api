@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
-import { authService } from '../services/auth.service';
-import { AppError } from '../utils/app-error';
+import { authService } from '../modules/auth';
+import { AppError } from '../shared/errors/app-error';
 
 /*
  * Requires `Authorization: Bearer <token>`. Verifies the token, checks revocation, re-checks that the
