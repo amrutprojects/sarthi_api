@@ -6,7 +6,7 @@ import { DOCUMENTS, IMPORT_COLUMNS } from '../student.constants';
 /*
  * Import templates built from one set of synthetic sample rows, so the Excel template and the sample
  * documents ZIP always agree: every document column holds the path of a file that is inside the sample ZIP.
- * The two samples show both styles — one student folder per student, and arbitrary paths.
+ * The sample uses one folder per student (named by source_record_id); any path works as long as the Excel names it.
  */
 
 /* Tiny but valid files (open in any viewer). */
@@ -44,7 +44,7 @@ function sampleRows(): SampleRow[] {
       last: 'Example',
       track: 'AI-ML Engineer',
       centre: 'Nashik',
-      folder: (_id: string, key: string, ext: string) => `scans/vikram ${key.toLowerCase().replace(/_/g, ' ')}.${ext}`,
+      folder: (id: string, key: string, ext: string) => `${id}/${key.toLowerCase()}.${ext}`,
     },
   ];
   return people.map((p) => {
