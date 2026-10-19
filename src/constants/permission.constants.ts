@@ -50,6 +50,9 @@ export const MENUS = {
   documents: 'Documents',
   lms: 'LMS Integration',
   app: 'Student App',
+  'cms-states': 'State Master',
+  'cms-districts': 'District Master',
+  'cms-talukas': 'Taluka Master',
   admin: 'Administration',
   audit: 'Audit Log',
   settings: 'System Settings',
@@ -94,7 +97,29 @@ export const PERMISSIONS = {
   PERMISSIONS_RESTORE: def('permissions.restore', 'Restore permissions', 'Restore soft-deleted permissions'),
   PERMISSIONS_ASSIGN: def('permissions.assign', 'Assign permissions to roles', 'Change which permissions a role grants'),
   AUDIT_VIEW: def('audit.view', 'View Audit Log', 'View in the Audit Log menu'),
+
+  /*
+   * CMS geography masters. These are the same codes MENU_PERMISSIONS generates for the three CMS
+   * sidebar keys (and carry the same names, so re-seeding never rewrites them) — named here only so
+   * the route guards can reference them through P instead of a bare string. `approve` is not used by
+   * these screens, and restoring a soft-deleted record is guarded by the matching `.delete` code.
+   */
+  CMS_STATES_VIEW: def('cms-states.view', 'View State Master', 'View in the State Master menu'),
+  CMS_STATES_CREATE: def('cms-states.create', 'Add State Master', 'Add in the State Master menu'),
+  CMS_STATES_UPDATE: def('cms-states.update', 'Update State Master', 'Update in the State Master menu'),
+  CMS_STATES_DELETE: def('cms-states.delete', 'Delete State Master', 'Delete in the State Master menu'),
+  CMS_DISTRICTS_VIEW: def('cms-districts.view', 'View District Master', 'View in the District Master menu'),
+  CMS_DISTRICTS_CREATE: def('cms-districts.create', 'Add District Master', 'Add in the District Master menu'),
+  CMS_DISTRICTS_UPDATE: def('cms-districts.update', 'Update District Master', 'Update in the District Master menu'),
+  CMS_DISTRICTS_DELETE: def('cms-districts.delete', 'Delete District Master', 'Delete in the District Master menu'),
+  CMS_TALUKAS_VIEW: def('cms-talukas.view', 'View Taluka Master', 'View in the Taluka Master menu'),
+  CMS_TALUKAS_CREATE: def('cms-talukas.create', 'Add Taluka Master', 'Add in the Taluka Master menu'),
+  CMS_TALUKAS_UPDATE: def('cms-talukas.update', 'Update Taluka Master', 'Update in the Taluka Master menu'),
+  CMS_TALUKAS_DELETE: def('cms-talukas.delete', 'Delete Taluka Master', 'Delete in the Taluka Master menu'),
 } as const satisfies Record<string, PermissionDefinition>;
+
+/* The three CMS sidebar keys, in menu order. */
+export const CMS_MENUS = ['cms-states', 'cms-districts', 'cms-talukas'] as const satisfies readonly MenuKey[];
 
 export type PermissionKey = keyof typeof PERMISSIONS;
 export type PermissionCode = string;

@@ -40,6 +40,21 @@ export const AUDIT_ACTIONS = {
   PERMISSION_STATUS: 'permission.status',
   PERMISSION_DELETE: 'permission.delete',
   PERMISSION_RESTORE: 'permission.restore',
+  STATE_CREATE: 'cms.state.create',
+  STATE_UPDATE: 'cms.state.update',
+  STATE_STATUS: 'cms.state.status',
+  STATE_DELETE: 'cms.state.delete',
+  STATE_RESTORE: 'cms.state.restore',
+  DISTRICT_CREATE: 'cms.district.create',
+  DISTRICT_UPDATE: 'cms.district.update',
+  DISTRICT_STATUS: 'cms.district.status',
+  DISTRICT_DELETE: 'cms.district.delete',
+  DISTRICT_RESTORE: 'cms.district.restore',
+  TALUKA_CREATE: 'cms.taluka.create',
+  TALUKA_UPDATE: 'cms.taluka.update',
+  TALUKA_STATUS: 'cms.taluka.status',
+  TALUKA_DELETE: 'cms.taluka.delete',
+  TALUKA_RESTORE: 'cms.taluka.restore',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
