@@ -76,7 +76,9 @@ export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
       }
       if (!created && def.permissions !== 'ALL') continue;
 
-      const codes = def.permissions === 'ALL' ? [...byCode.keys()] : def.permissions;
+      const except = new Set(def.exceptModules ?? []);
+      const codes =
+        def.permissions === 'ALL' ? [...byCode.values()].filter((p) => !except.has(p.module)).map((p) => p.code) : def.permissions;
       const existing = await grantRepo.find({ where: { roleId: role.id, isDelete: false } });
       const have = new Set(existing.map((g) => g.permissionId));
       const missing = codes.map((c) => byCode.get(c)).filter((p): p is Permission => !!p && !have.has(p.id));

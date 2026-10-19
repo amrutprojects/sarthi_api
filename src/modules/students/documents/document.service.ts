@@ -287,7 +287,7 @@ export class DocumentService {
         const students = await m.getRepository(Student).find({ where: { id: In([...new Set(studentByRow.values())]) } });
         const codeOf = new Map(students.map((s) => [s.id, s.code]));
         for (const doc of staged) {
-          const studentId = studentByRow.get(doc.importRowId)!;
+          const studentId = studentByRow.get(doc.importRowId!)!;
           const code = codeOf.get(studentId)!;
           const target = documentStorage.studentKey(code, `${doc.docType}.${doc.storageKey.split('.').pop()}`);
           /* A linked (same person) student may already have this document: keep the earlier version under _replaced/. */

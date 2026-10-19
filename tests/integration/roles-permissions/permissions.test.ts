@@ -109,8 +109,10 @@ describe('seed script', () => {
     expect(await AppDataSource.getRepository(Role).countBy({ isDelete: false, code: 'SUPER_ADMIN' })).toBe(1);
   });
 
-  it('gives SUPER_ADMIN every catalogue permission', async () => {
+  it('gives SUPER_ADMIN every catalogue permission except Student Registration', async () => {
     const res = await request(app).get(`${API}/auth/permissions`).set(auth(admin.token));
-    expect(res.body.data.permissions).toEqual(expect.arrayContaining(ALL_PERMISSIONS.map((p) => p.code)));
+    const expected = ALL_PERMISSIONS.filter((p) => p.module !== 'registrations').map((p) => p.code);
+    expect(res.body.data.permissions).toEqual(expect.arrayContaining(expected));
+    expect(res.body.data.permissions.filter((c: string) => c.startsWith('registrations.'))).toEqual([]);
   });
 });

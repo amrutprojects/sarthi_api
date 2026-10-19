@@ -6,6 +6,11 @@ import { validateRequest } from '../../../middleware/validate-request.middleware
 import { ApiResponse } from '../../../utils/api-response';
 import { registrationController } from './registration.controller';
 import { createRegistrationSchema } from './registration.validation';
+import { authenticate } from '../../../middleware/authenticate.middleware';
+import { authorizePermission } from '../../../middleware/authorize-permission.middleware';
+import { registrationAdminController } from './registration-admin.controller';
+import { listRegistrationsSchema, registrationIdSchema } from './registration-admin.validation';
+import { receiveRegistrationUpload } from './registration-upload.middleware';
 
 /* Per-IP limit for the public endpoint, on top of the global API limit. */
 const registrationLimiter = rateLimit({
@@ -21,3 +26,26 @@ const registrationLimiter = rateLimit({
 /* Public student registration (website). No authentication; it exposes no admin data and cannot approve. */
 export const registrationRouter = Router();
 registrationRouter.post('/', registrationLimiter, validateRequest(createRegistrationSchema), registrationController.create);
+
+/* Student Registration menu (admin panel): registrations.view / registrations.create. */
+registrationRouter.get(
+  '/',
+  authenticate,
+  authorizePermission('registrations.view'),
+  validateRequest(listRegistrationsSchema),
+  registrationAdminController.list,
+);
+registrationRouter.post(
+  '/admin',
+  authenticate,
+  authorizePermission('registrations.create'),
+  receiveRegistrationUpload,
+  registrationAdminController.create,
+);
+registrationRouter.get(
+  '/:id',
+  authenticate,
+  authorizePermission('registrations.view'),
+  validateRequest(registrationIdSchema),
+  registrationAdminController.get,
+);
