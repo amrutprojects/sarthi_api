@@ -13,6 +13,7 @@ import { AppError } from '../../shared/errors/app-error';
 import { auditService } from '../audit';
 import { rbacService } from '../roles-permissions';
 import { toPublicUser } from '../users';
+import { csrfTokenFor } from './session';
 
 /* Same message for unknown email, wrong password and disabled account, so accounts cannot be enumerated. */
 const INVALID_CREDENTIALS = 'Invalid email or password';
@@ -50,12 +51,17 @@ export class AuthService {
       tokenType: 'Bearer',
       expiresIn: payload.exp - payload.iat,
       expiresAt: new Date(payload.exp * 1000).toISOString(),
+      csrfToken: csrfTokenFor(payload.sid),
+      payload,
       user: toPublicUser(fresh ?? user),
     };
   }
 
-  signAccessToken(userId: string): { token: string; payload: AccessTokenPayload } {
-    const token = jwt.sign({}, appConfig.jwt.secret, {
+  /* A new session (login) or a renewal of an existing one (same sid and start time). */
+  signAccessToken(userId: string, session?: { sid: string; sst: number }): { token: string; payload: AccessTokenPayload } {
+    const sid = session?.sid ?? randomUUID();
+    const sst = session?.sst ?? Math.floor(Date.now() / 1000);
+    const token = jwt.sign({ sid, sst }, appConfig.jwt.secret, {
       algorithm: appConfig.jwt.algorithm,
       subject: userId,
       jwtid: randomUUID(),
@@ -74,7 +80,7 @@ export class AuthService {
         issuer: appConfig.jwt.issuer,
         audience: appConfig.jwt.audience,
       }) as JwtPayload;
-      if (!decoded.sub || !decoded.jti || !decoded.exp) throw new Error('missing claims');
+      if (!decoded.sub || !decoded.jti || !decoded.exp || !decoded.sid || !decoded.sst) throw new Error('missing claims');
       return decoded as AccessTokenPayload;
     } catch {
       throw AppError.unauthorized('Invalid or expired token');
@@ -85,8 +91,9 @@ export class AuthService {
    * Builds the request principal from a verified token: rejects revoked tokens and users that are
    * deleted or inactive *now* (not just at login), then resolves permissions from the database.
    */
-  async resolvePrincipal(payload: AccessTokenPayload): Promise<AuthUser> {
-    const revoked = await AppDataSource.getRepository(RevokedToken).exists({ where: { jti: payload.jti } });
+  async resolvePrincipal(payload: AccessTokenPayload, via: AuthUser['via'] = 'bearer'): Promise<AuthUser> {
+    /* Logout revokes the whole session (sid), which also covers tokens issued by earlier renewals. */
+    const revoked = await AppDataSource.getRepository(RevokedToken).exists({ where: [{ jti: payload.jti }, { jti: payload.sid }] });
     if (revoked) throw AppError.unauthorized('Token has been revoked');
 
     const user = await userService.findAccount(payload.sub);
@@ -99,6 +106,9 @@ export class AuthService {
       email: user.email,
       tokenId: payload.jti,
       tokenExpiresAt: new Date(payload.exp * 1000),
+      sessionId: payload.sid,
+      sessionStartedAt: payload.sst,
+      via,
       permissions,
       roleCodes,
     };
@@ -107,7 +117,11 @@ export class AuthService {
   /* Logout revokes this token until its natural expiry, and purges entries that have already expired. */
   async logout(auth: AuthUser, req?: Request): Promise<void> {
     const repo = AppDataSource.getRepository(RevokedToken);
-    await repo.upsert({ jti: auth.tokenId, userId: auth.id, expiresAt: auth.tokenExpiresAt }, ['jti']);
+    const sessionEnd = new Date((auth.sessionStartedAt + appConfig.session.maxAgeSeconds) * 1000);
+    await repo.upsert([
+      { jti: auth.tokenId, userId: auth.id, expiresAt: auth.tokenExpiresAt },
+      { jti: auth.sessionId, userId: auth.id, expiresAt: sessionEnd },
+    ], ['jti']);
     await repo.delete({ expiresAt: LessThan(new Date()) });
     await auditService.record(req, { action: AUDIT_ACTIONS.LOGOUT, resource: 'auth', resourceId: auth.id });
   }

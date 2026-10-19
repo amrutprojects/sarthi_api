@@ -4,27 +4,13 @@ import { AppDataSource } from '../../config/database.config';
 import { appConfig } from '../../config/app.config';
 import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import type { User } from './user.entity';
+import { toPublicUser } from './user.mapper';
 import { userRepository, type UserSortField } from './user.repository';
 import type { AuthUser, PublicRole, PublicUser } from '../auth';
 import { AppError } from '../../shared/errors/app-error';
 import type { ListQuery, Paginated } from '../../shared/utils/pagination';
 import { auditService } from '../audit';
 import { rbacService, roleAssignmentService } from '../roles-permissions';
-
-/* Strips passwordHash and soft-delete internals from API output. */
-export function toPublicUser(u: User, roles?: PublicRole[]): PublicUser {
-  const out: PublicUser = {
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    isActive: u.isActive,
-    lastLoginAt: u.lastLoginAt ?? null,
-    createdAt: u.createdAt,
-    updatedAt: u.updatedAt,
-  };
-  if (roles) out.roles = roles;
-  return out;
-}
 
 export interface CreateUserInput { name: string; email: string; password: string; roleIds?: string[]; isActive?: boolean }
 export interface UpdateUserInput { name?: string; email?: string; password?: string }

@@ -5,3 +5,4 @@
 export * from './auth.service';
 export * from './auth.types';
 export * from './revoked-token.entity';
+export * from './session';

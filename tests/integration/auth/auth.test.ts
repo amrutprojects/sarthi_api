@@ -13,9 +13,9 @@ beforeAll(async () => { app = await setupTestApp(); });
 afterAll(teardownTestApp);
 
 describe('POST /auth/login', () => {
-  it('returns a bearer token and the user without the password hash', async () => {
+  it('returns a bearer token to API clients that ask for it, and the user without the password hash', async () => {
     const user = await createUser({ roleCodes: ['VIEWER'] });
-    const res = await request(app).post(`${API}/auth/login`).send({ email: user.email.toUpperCase(), password: PASSWORD });
+    const res = await request(app).post(`${API}/auth/login`).set('X-Auth-Mode', 'bearer').send({ email: user.email.toUpperCase(), password: PASSWORD });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.tokenType).toBe('Bearer');

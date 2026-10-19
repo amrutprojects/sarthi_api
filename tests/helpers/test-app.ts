@@ -35,7 +35,7 @@ export async function teardownTestApp(): Promise<void> {
 export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
   await AppDataSource.query(
-    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "import_rows", "students", "import_batches", "role_permissions", "user_roles", "permissions", "roles", "users" RESTART IDENTITY CASCADE',
+    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "import_rows", "students", "import_batches", "idempotency_keys", "role_permissions", "user_roles", "permissions", "roles", "users" RESTART IDENTITY CASCADE',
   );
   await seedRbac(AppDataSource);
   rbacService.invalidate();
@@ -85,7 +85,7 @@ export async function createRoleWith(codes: string[], code = `TEST_ROLE_${++coun
 }
 
 export async function login(email: string, password = PASSWORD): Promise<string> {
-  const res = await request(app).post(`${API}/auth/login`).send({ email, password });
+  const res = await request(app).post(`${API}/auth/login`).set('X-Auth-Mode', 'bearer').send({ email, password });
   if (res.status !== 200) throw new Error(`login failed (${res.status}): ${JSON.stringify(res.body)}`);
   return res.body.data.accessToken as string;
 }

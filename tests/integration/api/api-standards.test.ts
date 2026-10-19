@@ -12,6 +12,15 @@ describe('API standards', () => {
     expect(res.body).toMatchObject({ success: true, data: { status: 'ok', database: 'up' } });
   });
 
+  it('GET /health/live answers without touching the database; /health/ready checks database and migrations', async () => {
+    const live = await request(app).get(`${API}/health/live`);
+    expect(live.status).toBe(200);
+    expect(live.body.data).toEqual({ status: 'ok', uptimeSeconds: expect.any(Number) });
+    const ready = await request(app).get(`${API}/health/ready`);
+    expect(ready.status).toBe(200);
+    expect(ready.body.data).toMatchObject({ database: 'up', migrations: 'current' });
+  });
+
   it('returns a JSON 404 for unknown routes', async () => {
     const res = await request(app).get(`${API}/does-not-exist`);
     expect(res.status).toBe(404);

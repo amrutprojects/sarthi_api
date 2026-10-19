@@ -10,6 +10,8 @@ import { REQUEST_ID_HEADER } from './shared/constants/app.constants';
 import { errorHandler } from './middleware/error-handler.middleware';
 import { notFound } from './middleware/not-found.middleware';
 import { requestId } from './middleware/request-id.middleware';
+import swaggerUi from 'swagger-ui-express';
+import { openApiDocument } from './openapi';
 import { apiRouter } from './routes';
 import { ApiResponse } from './shared/http/api-response';
 
@@ -34,7 +36,7 @@ export function createApp(): Express {
     origin: (origin, cb) => cb(null, !origin || appConfig.corsOrigins.includes(origin)),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', REQUEST_ID_HEADER],
+    allowedHeaders: ['Content-Type', 'Authorization', REQUEST_ID_HEADER, 'X-CSRF-Token', 'X-Auth-Mode', 'Idempotency-Key'],
     exposedHeaders: [REQUEST_ID_HEADER],
     maxAge: 600,
   }));
@@ -48,6 +50,12 @@ export function createApp(): Express {
     },
   }));
   app.use(express.json({ limit: appConfig.bodyLimit }));
+
+  /* API contract (ADR-0004): machine-readable JSON plus Swagger UI, off in production unless enabled. */
+  if (appConfig.apiDocsEnabled) {
+    app.get(`${appConfig.apiPrefix}/openapi.json`, (_req, res) => { res.json(openApiDocument()); });
+    app.use('/api/docs', helmet({ contentSecurityPolicy: false }), swaggerUi.serve, swaggerUi.setup(openApiDocument(), { customSiteTitle: 'Admin API docs' }));
+  }
 
   app.use(appConfig.apiPrefix, apiRouter);
 

@@ -1,3 +1,4 @@
+import { idempotent } from '../../shared/idempotency/idempotency.middleware';
 import { Router } from 'express';
 import { P } from '../roles-permissions';
 import { userController } from './user.controller';
@@ -14,7 +15,7 @@ export const userRouter = Router();
 userRouter.use(authenticate);
 
 userRouter.get('/', authorizePermission(P.USERS_VIEW), validateRequest(listUsersSchema), userController.list);
-userRouter.post('/', authorizePermission(P.USERS_CREATE), validateRequest(createUserSchema), userController.create);
+userRouter.post('/', authorizePermission(P.USERS_CREATE), validateRequest(createUserSchema), idempotent, userController.create);
 userRouter.get('/:id', authorizePermission(P.USERS_VIEW), validateRequest(userIdSchema), userController.get);
 userRouter.patch('/:id', authorizePermission(P.USERS_UPDATE), validateRequest(updateUserSchema), userController.update);
 userRouter.patch('/:id/status', authorizePermission(P.USERS_UPDATE), validateRequest(userStatusSchema), userController.setStatus);

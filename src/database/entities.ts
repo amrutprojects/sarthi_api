@@ -10,10 +10,11 @@ import { Role } from '../modules/roles-permissions/roles/role.entity';
 import { Student } from '../modules/students/register/student.entity';
 import { UserRole } from '../modules/roles-permissions/user-role.entity';
 import { User } from '../modules/users/user.entity';
+import { IdempotencyKey } from '../shared/idempotency/idempotency-key.entity';
 
 export { AppBaseEntity } from './base.entity';
 export { AuditLog, ImportBatch, ImportRow, Permission, RevokedToken, Role, RoleMenuVisibility, RolePermission, Student, User, UserRole };
 export type { AuditOutcome } from '../modules/audit';
 
 /* Explicit entity registration for the DataSource (no glob loading). */
-export const ENTITIES = [User, Role, Permission, UserRole, RolePermission, AuditLog, RevokedToken, RoleMenuVisibility, ImportBatch, ImportRow, Student];
+export const ENTITIES = [User, Role, Permission, UserRole, RolePermission, AuditLog, RevokedToken, RoleMenuVisibility, ImportBatch, ImportRow, Student, IdempotencyKey];

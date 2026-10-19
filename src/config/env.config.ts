@@ -49,6 +49,19 @@ const schema = z.object({
   STUDENT_INDEX_KEY: z.string().refine((v) => Buffer.from(v, 'base64').length === 32, 'STUDENT_INDEX_KEY must be 32 bytes, base64-encoded'),
   IMPORT_MAX_FILE_MB: z.coerce.number().positive().default(20),
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(50_000),
+
+  /* Browser sessions: HttpOnly cookie carrying the access token (ADR-0003). */
+  SESSION_COOKIE_NAME: z.string().regex(/^[A-Za-z0-9_-]+$/).default('amrut_session'),
+  /* Defaults to true outside development and test; must be true when SameSite=none. */
+  COOKIE_SECURE: z.enum(['true', 'false']).optional(),
+  COOKIE_SAMESITE: z.enum(['strict', 'lax', 'none']).default('strict'),
+  /* e.g. .sumago.ai when the admin panel and the API are on different subdomains; unset = host-only cookie. */
+  COOKIE_DOMAIN: z.string().optional(),
+  /* Absolute session lifetime; the access token is renewed while the user is active, up to this limit. */
+  SESSION_MAX_HOURS: z.coerce.number().positive().default(12),
+
+  /* Serve OpenAPI JSON and Swagger UI (default: on, except in production). */
+  API_DOCS_ENABLED: z.enum(['true', 'false']).optional(),
 });
 
 /*
@@ -81,6 +94,12 @@ const raw = parsed.data;
 if (raw.NODE_ENV === 'production' && /CHANGE_ME|REPLACE_WITH/i.test(raw.JWT_SECRET + raw.DB_PASSWORD)) {
   // eslint-disable-next-line no-console
   console.error('Refusing to start in production with placeholder secrets from .env.example');
+  process.exit(1);
+}
+
+if (raw.COOKIE_SAMESITE === 'none' && raw.COOKIE_SECURE === 'false') {
+  // eslint-disable-next-line no-console
+  console.error('COOKIE_SAMESITE=none requires COOKIE_SECURE=true (browsers reject insecure SameSite=None cookies)');
   process.exit(1);
 }
 

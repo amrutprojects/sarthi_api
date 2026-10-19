@@ -1,3 +1,4 @@
+import { idempotent } from '../../../shared/idempotency/idempotency.middleware';
 import { Router } from 'express';
 import { P } from '../permission.constants';
 import { permissionController } from './permission.controller';
@@ -14,7 +15,7 @@ permissionRouter.use(authenticate);
 
 permissionRouter.get('/', authorizePermission(P.PERMISSIONS_VIEW), validateRequest(listPermissionsSchema), permissionController.list);
 permissionRouter.get('/modules', authorizePermission(P.PERMISSIONS_VIEW), permissionController.modules);
-permissionRouter.post('/', authorizePermission(P.PERMISSIONS_CREATE), validateRequest(createPermissionSchema), permissionController.create);
+permissionRouter.post('/', authorizePermission(P.PERMISSIONS_CREATE), validateRequest(createPermissionSchema), idempotent, permissionController.create);
 permissionRouter.get('/:id', authorizePermission(P.PERMISSIONS_VIEW), validateRequest(permissionIdSchema), permissionController.get);
 permissionRouter.patch('/:id', authorizePermission(P.PERMISSIONS_UPDATE), validateRequest(updatePermissionSchema), permissionController.update);
 permissionRouter.patch('/:id/status', authorizePermission(P.PERMISSIONS_UPDATE), validateRequest(permissionStatusSchema), permissionController.setStatus);
