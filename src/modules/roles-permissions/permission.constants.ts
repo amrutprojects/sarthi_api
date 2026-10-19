@@ -58,7 +58,8 @@ export const MENUS = {
 export type MenuKey = keyof typeof MENUS;
 
 /* Menus whose visibility can be toggled per role: every gated menu plus Users & Roles and Masters. */
-export const VISIBILITY_MENUS: string[] = [...Object.keys(MENUS), 'users', 'masters'];
+/* Each master has its own sidebar item; keys equal the master permission prefixes. */
+export const VISIBILITY_MENUS: string[] = [...Object.keys(MENUS), 'users', 'regions', 'castes', 'document-types', 'education'];
 
 const def = (code: string, name: string, description: string): PermissionDefinition => ({
   code,
