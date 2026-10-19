@@ -60,10 +60,15 @@ async function main() {
       const passwordHash = await bcrypt.hash(password!, appConfig.bcryptRounds);
       const user = await m.getRepository(User).save(m.getRepository(User).create({ name, email, passwordHash }));
       await m.getRepository(UserRole).insert({ userId: user.id, roleId: role.id });
-      await m.getRepository(AuditLog).save(m.getRepository(AuditLog).create({
-        action: 'user.create', resource: 'user', resourceId: user.id, outcome: 'SUCCESS',
-        details: { email, via: 'admin:create script', roles: [ROLE_CODES.SUPER_ADMIN] },
-      }));
+      await m.getRepository(AuditLog).save(
+        m.getRepository(AuditLog).create({
+          action: 'user.create',
+          resource: 'user',
+          resourceId: user.id,
+          outcome: 'SUCCESS',
+          details: { email, via: 'admin:create script', roles: [ROLE_CODES.SUPER_ADMIN] },
+        }),
+      );
       // eslint-disable-next-line no-console
       console.log(`Administrator created: ${email} (id ${user.id}) with role ${ROLE_CODES.SUPER_ADMIN}`);
     });

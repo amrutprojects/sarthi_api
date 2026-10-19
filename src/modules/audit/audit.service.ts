@@ -20,7 +20,11 @@ const SENSITIVE = /pass(word)?|secret|token|authorization|cookie|hash/i;
 function scrub(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(scrub);
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).filter(([k]) => !SENSITIVE.test(k)).map(([k, v]) => [k, scrub(v)]));
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([k]) => !SENSITIVE.test(k))
+        .map(([k, v]) => [k, scrub(v)]),
+    );
   }
   return value;
 }
@@ -28,7 +32,7 @@ function scrub(value: unknown): unknown {
 export class AuditService {
   private toEntry(req: Request | undefined, e: AuditEvent): AuditEntryInput {
     return {
-      actorUserId: e.actorUserId !== undefined ? e.actorUserId : req?.auth?.id ?? null,
+      actorUserId: e.actorUserId !== undefined ? e.actorUserId : (req?.auth?.id ?? null),
       action: e.action,
       resource: e.resource,
       resourceId: e.resourceId ?? null,

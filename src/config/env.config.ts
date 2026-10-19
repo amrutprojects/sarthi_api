@@ -39,7 +39,11 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
-  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  RATE_LIMIT_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   PERMISSION_CACHE_TTL_MS: z.coerce.number().int().min(0).default(60_000),
@@ -51,7 +55,10 @@ const schema = z.object({
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(50_000),
 
   /* Browser sessions: HttpOnly cookie carrying the access token (ADR-0003). */
-  SESSION_COOKIE_NAME: z.string().regex(/^[A-Za-z0-9_-]+$/).default('amrut_session'),
+  SESSION_COOKIE_NAME: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .default('amrut_session'),
   /* Defaults to true outside development and test; must be true when SameSite=none. */
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   COOKIE_SAMESITE: z.enum(['strict', 'lax', 'none']).default('strict'),
@@ -107,7 +114,9 @@ export const env = {
   ...raw,
   isProduction: raw.NODE_ENV === 'production',
   isTest: raw.NODE_ENV === 'test',
-  corsOrigins: raw.FRONTEND_URL.split(',').map((o) => o.trim()).filter(Boolean),
+  corsOrigins: raw.FRONTEND_URL.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
 } as const;
 
 export type Env = typeof env;

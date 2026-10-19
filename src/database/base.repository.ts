@@ -1,6 +1,13 @@
 import type {
-  DeepPartial, EntityManager, EntityTarget, FindOptionsOrder, FindOptionsRelations, FindOptionsWhere, ObjectLiteral,
-  Repository, SelectQueryBuilder,
+  DeepPartial,
+  EntityManager,
+  EntityTarget,
+  FindOptionsOrder,
+  FindOptionsRelations,
+  FindOptionsWhere,
+  ObjectLiteral,
+  Repository,
+  SelectQueryBuilder,
 } from 'typeorm';
 import { AppDataSource } from '../config/database.config';
 import type { AppBaseEntity } from './base.entity';

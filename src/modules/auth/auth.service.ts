@@ -118,10 +118,13 @@ export class AuthService {
   async logout(auth: AuthUser, req?: Request): Promise<void> {
     const repo = AppDataSource.getRepository(RevokedToken);
     const sessionEnd = new Date((auth.sessionStartedAt + appConfig.session.maxAgeSeconds) * 1000);
-    await repo.upsert([
-      { jti: auth.tokenId, userId: auth.id, expiresAt: auth.tokenExpiresAt },
-      { jti: auth.sessionId, userId: auth.id, expiresAt: sessionEnd },
-    ], ['jti']);
+    await repo.upsert(
+      [
+        { jti: auth.tokenId, userId: auth.id, expiresAt: auth.tokenExpiresAt },
+        { jti: auth.sessionId, userId: auth.id, expiresAt: sessionEnd },
+      ],
+      ['jti'],
+    );
     await repo.delete({ expiresAt: LessThan(new Date()) });
     await auditService.record(req, { action: AUDIT_ACTIONS.LOGOUT, resource: 'auth', resourceId: auth.id });
   }

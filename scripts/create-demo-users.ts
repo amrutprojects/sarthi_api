@@ -58,7 +58,12 @@ async function main() {
   try {
     await AppDataSource.transaction(async (m) => {
       const accounts = [
-        ...ROLES.map((def) => ({ name: `Demo ${def.name}`, email: `demo.${def.code.toLowerCase().replace(/_/g, '-')}@kalash.local`, role: def.code, active: true })),
+        ...ROLES.map((def) => ({
+          name: `Demo ${def.name}`,
+          email: `demo.${def.code.toLowerCase().replace(/_/g, '-')}@kalash.local`,
+          role: def.code,
+          active: true,
+        })),
         ...NAMED_USERS,
       ];
       for (const acc of accounts) {
@@ -67,7 +72,9 @@ async function main() {
         const email = acc.email;
         lines.push(`${acc.role.padEnd(24)} ${email}${acc.active === false ? '  (inactive)' : ''}`);
         if (await m.getRepository(User).exists({ where: { email, isDelete: false } })) continue;
-        const user = await m.getRepository(User).save(m.getRepository(User).create({ name: acc.name, email, passwordHash, isActive: acc.active !== false }));
+        const user = await m
+          .getRepository(User)
+          .save(m.getRepository(User).create({ name: acc.name, email, passwordHash, isActive: acc.active !== false }));
         await m.getRepository(UserRole).insert({ userId: user.id, roleId: role.id });
         created++;
       }
@@ -76,10 +83,16 @@ async function main() {
     await AppDataSource.destroy();
   }
   if (created) {
-    fs.writeFileSync(OUT, `# Demo accounts (development only). Password for accounts created on ${new Date().toISOString()}:\n# ${password}\n\n${lines.join('\n')}\n`, { mode: 0o600 });
+    fs.writeFileSync(
+      OUT,
+      `# Demo accounts (development only). Password for accounts created on ${new Date().toISOString()}:\n# ${password}\n\n${lines.join('\n')}\n`,
+      { mode: 0o600 },
+    );
   }
   // eslint-disable-next-line no-console
-  console.log(`Demo users: ${created} created, ${lines.length - created} already existed.${created ? ` Credentials written to ${OUT}` : ''}`);
+  console.log(
+    `Demo users: ${created} created, ${lines.length - created} already existed.${created ? ` Credentials written to ${OUT}` : ''}`,
+  );
 }
 
 main().catch((err) => {

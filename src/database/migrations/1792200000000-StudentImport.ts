@@ -34,7 +34,9 @@ export class StudentImport1792200000000 implements MigrationInterface {
         CONSTRAINT "FK_import_batches_finalisedBy" FOREIGN KEY ("finalisedById") REFERENCES "users"("id") ON DELETE RESTRICT
       )`);
     await q.query(`CREATE UNIQUE INDEX "UQ_import_batches_code" ON "import_batches" ("code")`);
-    await q.query(`CREATE UNIQUE INDEX "UQ_import_batches_checksum_open" ON "import_batches" ("fileChecksum") WHERE "isDelete" = false AND "status" <> 'CANCELLED'`);
+    await q.query(
+      `CREATE UNIQUE INDEX "UQ_import_batches_checksum_open" ON "import_batches" ("fileChecksum") WHERE "isDelete" = false AND "status" <> 'CANCELLED'`,
+    );
 
     await q.query(`
       CREATE TABLE "students" (${base},
@@ -69,7 +71,9 @@ export class StudentImport1792200000000 implements MigrationInterface {
         CONSTRAINT "FK_students_importBatch" FOREIGN KEY ("importBatchId") REFERENCES "import_batches"("id") ON DELETE RESTRICT
       )`);
     await q.query(`CREATE UNIQUE INDEX "UQ_students_code" ON "students" ("code")`);
-    await q.query(`CREATE UNIQUE INDEX "UQ_students_source_record" ON "students" ("sourceRecordId") WHERE "isDelete" = false AND "sourceRecordId" IS NOT NULL`);
+    await q.query(
+      `CREATE UNIQUE INDEX "UQ_students_source_record" ON "students" ("sourceRecordId") WHERE "isDelete" = false AND "sourceRecordId" IS NOT NULL`,
+    );
     await q.query(`CREATE INDEX "IDX_students_bidx" ON "students" ("aadhaarBidx")`);
     await q.query(`CREATE SEQUENCE "students_code_seq"`);
     await q.query(`CREATE SEQUENCE "import_batches_code_seq"`);

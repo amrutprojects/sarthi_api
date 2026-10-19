@@ -9,7 +9,11 @@ import { Role } from '../roles/role.entity';
 import { AppError } from '../../../shared/errors/app-error';
 import { auditService } from '../../audit';
 
-export interface MenuVisibilityChange { roleId: string; menuKey: string; visible: boolean }
+export interface MenuVisibilityChange {
+  roleId: string;
+  menuKey: string;
+  visible: boolean;
+}
 
 /* Menus a Super Admin can never hide from itself (it would lock everyone out of access management). */
 const SUPER_ADMIN_LOCKED = ['users'];
@@ -27,8 +31,14 @@ export class MenuVisibilityService {
       menus: VISIBILITY_MENUS,
       lockedForSuperAdmin: SUPER_ADMIN_LOCKED,
       roles: roles.map((r) => ({
-        id: r.id, code: r.code, name: r.name, isActive: r.isActive,
-        hidden: rows.filter((v) => v.roleId === r.id).map((v) => v.menuKey).sort(),
+        id: r.id,
+        code: r.code,
+        name: r.name,
+        isActive: r.isActive,
+        hidden: rows
+          .filter((v) => v.roleId === r.id)
+          .map((v) => v.menuKey)
+          .sort(),
       })),
     };
   }
@@ -65,7 +75,8 @@ export class MenuVisibilityService {
       }
     });
     await auditService.record(req, {
-      action: AUDIT_ACTIONS.MENU_VISIBILITY_UPDATE, resource: 'role',
+      action: AUDIT_ACTIONS.MENU_VISIBILITY_UPDATE,
+      resource: 'role',
       details: { changes: changes.map((c) => `${c.roleId}:${c.menuKey}=${c.visible ? 'shown' : 'hidden'}`) },
     });
     return this.matrix();

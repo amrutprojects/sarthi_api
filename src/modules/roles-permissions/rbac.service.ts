@@ -68,7 +68,12 @@ export class RbacService {
         .filter((p) => p && !p.isDelete && p.isActive && !actor.permissions.has(p.code))
         .map((p) => p.code);
       if (missing.length) {
-        throw new AppError(403, `You cannot assign role ${role.code}: it grants permissions you do not hold`, 'PRIVILEGE_ESCALATION', missing.map((m) => ({ field: 'roleIds', message: m })));
+        throw new AppError(
+          403,
+          `You cannot assign role ${role.code}: it grants permissions you do not hold`,
+          'PRIVILEGE_ESCALATION',
+          missing.map((m) => ({ field: 'roleIds', message: m })),
+        );
       }
     }
   }
@@ -77,7 +82,12 @@ export class RbacService {
   assertCanGrantPermissions(actor: AuthUser, permissions: Permission[]): void {
     const missing = permissions.filter((p) => !actor.permissions.has(p.code)).map((p) => p.code);
     if (missing.length) {
-      throw new AppError(403, 'You cannot grant permissions you do not hold', 'PRIVILEGE_ESCALATION', missing.map((m) => ({ field: 'permissionIds', message: m })));
+      throw new AppError(
+        403,
+        'You cannot grant permissions you do not hold',
+        'PRIVILEGE_ESCALATION',
+        missing.map((m) => ({ field: 'permissionIds', message: m })),
+      );
     }
   }
 

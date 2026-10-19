@@ -6,7 +6,12 @@ import { authenticate } from '../../../middleware/authenticate.middleware';
 import { authorizePermission } from '../../../middleware/authorize-permission.middleware';
 import { validateRequest } from '../../../middleware/validate-request.middleware';
 import {
-  createRoleSchema, listRolesSchema, replaceRolePermissionsSchema, roleIdSchema, roleStatusSchema, updateRoleSchema,
+  createRoleSchema,
+  listRolesSchema,
+  replaceRolePermissionsSchema,
+  roleIdSchema,
+  roleStatusSchema,
+  updateRoleSchema,
 } from './role.validation';
 
 export const roleRouter = Router();
@@ -20,5 +25,15 @@ roleRouter.patch('/:id', authorizePermission(P.ROLES_UPDATE), validateRequest(up
 roleRouter.patch('/:id/status', authorizePermission(P.ROLES_UPDATE), validateRequest(roleStatusSchema), roleController.setStatus);
 roleRouter.delete('/:id', authorizePermission(P.ROLES_DELETE), validateRequest(roleIdSchema), roleController.remove);
 roleRouter.post('/:id/restore', authorizePermission(P.ROLES_RESTORE), validateRequest(roleIdSchema), roleController.restore);
-roleRouter.get('/:id/permissions', authorizePermission([P.ROLES_VIEW, P.PERMISSIONS_VIEW]), validateRequest(roleIdSchema), roleController.getPermissions);
-roleRouter.put('/:id/permissions', authorizePermission(P.PERMISSIONS_ASSIGN), validateRequest(replaceRolePermissionsSchema), roleController.replacePermissions);
+roleRouter.get(
+  '/:id/permissions',
+  authorizePermission([P.ROLES_VIEW, P.PERMISSIONS_VIEW]),
+  validateRequest(roleIdSchema),
+  roleController.getPermissions,
+);
+roleRouter.put(
+  '/:id/permissions',
+  authorizePermission(P.PERMISSIONS_ASSIGN),
+  validateRequest(replaceRolePermissionsSchema),
+  roleController.replacePermissions,
+);

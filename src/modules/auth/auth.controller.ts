@@ -31,7 +31,11 @@ export const authController = {
     const user = await userService.get(auth.id);
     const hiddenMenus = await menuVisibilityService.hiddenMenusFor(auth.roleCodes);
     res.setHeader('Cache-Control', 'no-store');
-    ApiResponse.ok(res, { ...user, permissions: [...auth.permissions].sort(), hiddenMenus, csrfToken: csrfTokenFor(auth.sessionId) }, 'Current user');
+    ApiResponse.ok(
+      res,
+      { ...user, permissions: [...auth.permissions].sort(), hiddenMenus, csrfToken: csrfTokenFor(auth.sessionId) },
+      'Current user',
+    );
   }),
 
   permissions: asyncHandler(async (req: Request, res: Response) => {

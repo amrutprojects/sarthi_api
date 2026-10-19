@@ -28,7 +28,11 @@ export const roleController = {
 
   setStatus: asyncHandler(async (req: Request, res: Response) => {
     const { isActive } = body<{ isActive: boolean }>(req);
-    ApiResponse.ok(res, await roleService.setStatus(params<IdParams>(req).id, isActive, req), isActive ? 'Role activated' : 'Role deactivated');
+    ApiResponse.ok(
+      res,
+      await roleService.setStatus(params<IdParams>(req).id, isActive, req),
+      isActive ? 'Role activated' : 'Role deactivated',
+    );
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {

@@ -12,8 +12,18 @@ import type { ListQuery, Paginated } from '../../shared/utils/pagination';
 import { auditService } from '../audit';
 import { rbacService, roleAssignmentService } from '../roles-permissions';
 
-export interface CreateUserInput { name: string; email: string; password: string; roleIds?: string[]; isActive?: boolean }
-export interface UpdateUserInput { name?: string; email?: string; password?: string }
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  password: string;
+  roleIds?: string[];
+  isActive?: boolean;
+}
+export interface UpdateUserInput {
+  name?: string;
+  email?: string;
+  password?: string;
+}
 
 export class UserService {
   private hash(password: string) {
@@ -59,7 +69,9 @@ export class UserService {
         await roleAssignmentService.replaceUserRoles(user.id, input.roleIds, actor, m);
       }
       await auditService.recordInTx(m, req, {
-        action: AUDIT_ACTIONS.USER_CREATE, resource: 'user', resourceId: user.id,
+        action: AUDIT_ACTIONS.USER_CREATE,
+        resource: 'user',
+        resourceId: user.id,
         details: { email, roleIds: input.roleIds ?? [] },
       });
       return user.id;
@@ -83,7 +95,9 @@ export class UserService {
       if (input.password !== undefined) patch.passwordHash = await this.hash(input.password);
       await userRepository.update(id, patch, m);
       await auditService.recordInTx(m, req, {
-        action: AUDIT_ACTIONS.USER_UPDATE, resource: 'user', resourceId: id,
+        action: AUDIT_ACTIONS.USER_UPDATE,
+        resource: 'user',
+        resourceId: id,
         details: { fields: Object.keys(input), self: actor.id === id },
       });
     });
@@ -140,7 +154,9 @@ export class UserService {
       if (!(await userRepository.findById(id, { manager: m }))) throw AppError.notFound('User not found');
       const { added, removed } = await roleAssignmentService.replaceUserRoles(id, roleIds, actor, m);
       await auditService.recordInTx(m, req, {
-        action: AUDIT_ACTIONS.USER_ROLES_REPLACE, resource: 'user', resourceId: id,
+        action: AUDIT_ACTIONS.USER_ROLES_REPLACE,
+        resource: 'user',
+        resourceId: id,
         details: { roleIds, added, removed },
       });
     });

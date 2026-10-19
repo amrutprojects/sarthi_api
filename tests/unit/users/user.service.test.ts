@@ -19,10 +19,19 @@ import { toPublicUser } from '../../../src/modules/users/user.mapper';
 import type { User } from '../../../src/modules/users/user.entity';
 import type { AuthUser } from '../../../src/modules/auth';
 
-const user = (over: Partial<User> = {}) => ({
-  id: 'u1', name: 'Asha', email: 'asha@test.local', isActive: true, isDelete: false, lastLoginAt: null,
-  passwordHash: '$2b$secret', createdAt: new Date('2026-01-01'), updatedAt: new Date('2026-01-02'), ...over,
-}) as unknown as User;
+const user = (over: Partial<User> = {}) =>
+  ({
+    id: 'u1',
+    name: 'Asha',
+    email: 'asha@test.local',
+    isActive: true,
+    isDelete: false,
+    lastLoginAt: null,
+    passwordHash: '$2b$secret',
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-02'),
+    ...over,
+  }) as unknown as User;
 const actor = { id: 'admin', permissions: new Set<string>(), roleCodes: [] } as unknown as AuthUser;
 
 describe('userService', () => {
@@ -42,8 +51,15 @@ describe('userService', () => {
   });
 
   it('list() fetches roles in one call only when asked to include them', async () => {
-    jest.mocked(userRepository.list).mockResolvedValue({ items: [user(), user({ id: 'u2' })], meta: { page: 1, limit: 25, total: 2, totalPages: 1 } });
-    jest.mocked(roleAssignmentService.rolesOfUsers).mockResolvedValue(new Map([['u1', []], ['u2', []]]));
+    jest
+      .mocked(userRepository.list)
+      .mockResolvedValue({ items: [user(), user({ id: 'u2' })], meta: { page: 1, limit: 25, total: 2, totalPages: 1 } });
+    jest.mocked(roleAssignmentService.rolesOfUsers).mockResolvedValue(
+      new Map([
+        ['u1', []],
+        ['u2', []],
+      ]),
+    );
     const q = { page: 1, limit: 25, sortBy: 'createdAt' as const, sortOrder: 'DESC' as const };
     await userService.list(q, false);
     expect(roleAssignmentService.rolesOfUsers).not.toHaveBeenCalled();

@@ -112,10 +112,12 @@ describe('soft delete', () => {
 describe('transactions', () => {
   it('rolls back every write when a later step fails', async () => {
     const email = `tx.${Date.now()}@test.local`;
-    await expect(AppDataSource.transaction(async (m) => {
-      await userRepository.create({ name: 'Tx', email, passwordHash: 'x' }, m);
-      throw new Error('boom');
-    })).rejects.toThrow('boom');
+    await expect(
+      AppDataSource.transaction(async (m) => {
+        await userRepository.create({ name: 'Tx', email, passwordHash: 'x' }, m);
+        throw new Error('boom');
+      }),
+    ).rejects.toThrow('boom');
     expect(await userRepository.findByEmail(email)).toBeNull();
   });
 });

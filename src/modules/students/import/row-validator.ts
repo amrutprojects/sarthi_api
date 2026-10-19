@@ -1,10 +1,12 @@
 import crypto from 'crypto';
-import {
-  APPROVED_STATUS, CASTES, CENTRES, DOCUMENTS, RELIGIONS, TRACKS, TRACKS_NOT_OFFERED, type IssueCode,
-} from '../student.constants';
+import { APPROVED_STATUS, CASTES, CENTRES, DOCUMENTS, RELIGIONS, TRACKS, TRACKS_NOT_OFFERED, type IssueCode } from '../student.constants';
 import { aadhaarBlindIndex, encryptAadhaar, verhoeffValid } from '../aadhaar';
 
-export interface RowIssue { field: string; code: IssueCode; message: string }
+export interface RowIssue {
+  field: string;
+  code: IssueCode;
+  message: string;
+}
 
 /* Normalised, protected values of one row, ready to be written as a student. Never contains the Aadhaar plaintext. */
 export interface NormalisedRow {
@@ -49,7 +51,10 @@ for (const t of TRACKS) {
 }
 const NOT_OFFERED = new Set(TRACKS_NOT_OFFERED.map(keyify));
 const CENTRE_BY_KEY = new Map<string, string>();
-for (const c of CENTRES) { CENTRE_BY_KEY.set(keyify(c.code), c.code); CENTRE_BY_KEY.set(keyify(c.name), c.code); }
+for (const c of CENTRES) {
+  CENTRE_BY_KEY.set(keyify(c.code), c.code);
+  CENTRE_BY_KEY.set(keyify(c.name), c.code);
+}
 
 /* ISO YYYY-MM-DD only: other formats are ambiguous (DD/MM vs MM/DD) and are never guessed. Excel dates arrive as ISO. */
 function parseDob(v: string): string | null {
@@ -64,7 +69,10 @@ function parseDob(v: string): string | null {
 /* Stable checksum of the source row, to skip an unchanged re-import (SKIPPED_UNCHANGED). */
 export function rowChecksum(raw: Record<string, string>): string {
   const keys = Object.keys(raw).sort();
-  return crypto.createHash('sha256').update(JSON.stringify(keys.map((k) => [k, raw[k] ?? '']))).digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify(keys.map((k) => [k, raw[k] ?? ''])))
+    .digest('hex');
 }
 
 /* Applies the validation and normalisation rules of Table 81 to one source row. */
@@ -75,8 +83,14 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
 
   const text = (field: string, label: string, max: number, opts: { name?: boolean; collapseSpaces?: boolean } = {}) => {
     let v = opts.collapseSpaces === false ? get(field).trim() : collapse(get(field));
-    if (!v) { add(field, 'REQUIRED', `${label} is required`); return ''; }
-    if (v.length > max) { add(field, 'TEXT_TOO_LONG', `${label} is longer than ${max} characters`); v = v.slice(0, max); }
+    if (!v) {
+      add(field, 'REQUIRED', `${label} is required`);
+      return '';
+    }
+    if (v.length > max) {
+      add(field, 'TEXT_TOO_LONG', `${label} is longer than ${max} characters`);
+      v = v.slice(0, max);
+    }
     if (opts.name && !NAME_RE.test(v)) add(field, 'NAME_INVALID', `${label} may contain only letters, spaces and . ' -`);
     return v;
   };
@@ -93,7 +107,10 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
 
   let email: string | null = get('email').trim().toLowerCase() || null;
   if (!email) add('email', 'REQUIRED', 'Email is required');
-  else if (email.length > 254 || !EMAIL_RE.test(email)) { add('email', 'EMAIL_INVALID', 'Email address is not valid'); email = null; }
+  else if (email.length > 254 || !EMAIL_RE.test(email)) {
+    add('email', 'EMAIL_INVALID', 'Email address is not valid');
+    email = null;
+  }
 
   const dobRaw = get('date_of_birth').trim();
   const dateOfBirth = dobRaw ? parseDob(dobRaw) : null;
@@ -102,7 +119,9 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
 
   /* Aadhaar: strip separators, 12 digits, Verhoeff; encrypt + blind index + last 4. The issue message never contains the value. */
   const aadhaarDigits = get('aadhaar_number').replace(/[\s-]/g, '');
-  let aadhaarEnc: Buffer | null = null; let aadhaarBidx: string | null = null; let aadhaarLast4: string | null = null;
+  let aadhaarEnc: Buffer | null = null;
+  let aadhaarBidx: string | null = null;
+  let aadhaarLast4: string | null = null;
   if (!aadhaarDigits) add('aadhaar_number', 'REQUIRED', 'Aadhaar number is required');
   else if (!/^\d{12}$/.test(aadhaarDigits) || /^[01]/.test(aadhaarDigits) || !verhoeffValid(aadhaarDigits)) {
     add('aadhaar_number', 'AADHAAR_INVALID', 'Aadhaar number must be 12 digits with a valid checksum');
@@ -117,7 +136,8 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
   mobileDigits = mobileDigits.replace(/^\+?91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '');
   let mobile: string | null = null;
   if (!mobileDigits) add('mobile_number', 'REQUIRED', 'Mobile number is required');
-  else if (!/^[6-9]\d{9}$/.test(mobileDigits)) add('mobile_number', 'MOBILE_INVALID', 'Mobile number must be a 10-digit Indian number starting 6–9');
+  else if (!/^[6-9]\d{9}$/.test(mobileDigits))
+    add('mobile_number', 'MOBILE_INVALID', 'Mobile number must be a 10-digit Indian number starting 6–9');
   else mobile = '+91' + mobileDigits;
 
   const religion = nfc(get('religion'));
@@ -129,15 +149,16 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
   else if (!CASTES.includes(caste)) add('caste', 'REF_UNKNOWN', 'Caste is not one of the 27 supplied options');
 
   const centreRaw = collapse(get('course_centre'));
-  const centreCode = centreRaw ? CENTRE_BY_KEY.get(keyify(centreRaw)) ?? null : null;
+  const centreCode = centreRaw ? (CENTRE_BY_KEY.get(keyify(centreRaw)) ?? null) : null;
   if (!centreRaw) add('course_centre', 'REQUIRED', 'Course centre is required');
   else if (!centreCode) add('course_centre', 'REF_UNKNOWN', 'Course centre does not match a district / centre code or name');
 
   const trackSourceValue = collapse(get('technology'));
-  const trackCode = trackSourceValue ? TRACK_BY_ALIAS.get(keyify(trackSourceValue)) ?? null : null;
+  const trackCode = trackSourceValue ? (TRACK_BY_ALIAS.get(keyify(trackSourceValue)) ?? null) : null;
   if (!trackSourceValue) add('technology', 'REQUIRED', 'Technology / third module selection is required');
   else if (!trackCode) {
-    if (NOT_OFFERED.has(keyify(trackSourceValue))) add('technology', 'TRACK_NOT_OFFERED', `"${trackSourceValue}" is not an approved Module 3 track`);
+    if (NOT_OFFERED.has(keyify(trackSourceValue)))
+      add('technology', 'TRACK_NOT_OFFERED', `"${trackSourceValue}" is not an approved Module 3 track`);
     else add('technology', 'REF_UNKNOWN', 'Technology option does not match an approved track');
   }
 
@@ -148,8 +169,10 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
   const approvalStatus = collapse(get('approval_status')).toUpperCase();
   const approvedRaw = get('approved_at').trim();
   const approvedDate = approvedRaw ? new Date(approvedRaw) : null;
-  const approvedAt = approvedDate && !Number.isNaN(approvedDate.getTime()) && approvedDate.getTime() <= Date.now() + 60_000
-    ? approvedDate.toISOString() : null;
+  const approvedAt =
+    approvedDate && !Number.isNaN(approvedDate.getTime()) && approvedDate.getTime() <= Date.now() + 60_000
+      ? approvedDate.toISOString()
+      : null;
   if (approvalStatus !== APPROVED_STATUS) add('approval_status', 'EVIDENCE_MISSING', `Approval status must be ${APPROVED_STATUS}`);
   if (!approvedAt) add('approved_at', 'EVIDENCE_MISSING', 'Approval date is missing, invalid or in the future');
   const evidenceRef = collapse(get('evidence_ref')).slice(0, 120) || null;
@@ -170,9 +193,29 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
   return {
     issues,
     row: {
-      sourceRecordId, firstName, lastName, fatherName, motherName, email, dateOfBirth, currentAddress,
-      aadhaarEnc, aadhaarBidx, aadhaarLast4, mobile, religion, caste, centreCode, trackCode, trackSourceValue,
-      educationQualification, approvalStatus, approvedAt, evidenceRef, declarationAccepted, documents,
+      sourceRecordId,
+      firstName,
+      lastName,
+      fatherName,
+      motherName,
+      email,
+      dateOfBirth,
+      currentAddress,
+      aadhaarEnc,
+      aadhaarBidx,
+      aadhaarLast4,
+      mobile,
+      religion,
+      caste,
+      centreCode,
+      trackCode,
+      trackSourceValue,
+      educationQualification,
+      approvalStatus,
+      approvedAt,
+      evidenceRef,
+      declarationAccepted,
+      documents,
       nameKey: `${firstName} ${lastName}`.toLowerCase().replace(/\s+/g, ' ').trim(),
     },
   };

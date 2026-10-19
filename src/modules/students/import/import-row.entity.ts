@@ -1,7 +1,15 @@
 import { Column, Entity, Index } from 'typeorm';
 import { AppBaseEntity } from '../../../database/base.entity';
 
-export interface StoredIssue { field: string; code: string; message: string; status: 'OPEN' | 'ACCEPTED'; reason?: string; by?: string; at?: string }
+export interface StoredIssue {
+  field: string;
+  code: string;
+  message: string;
+  status: 'OPEN' | 'ACCEPTED';
+  reason?: string;
+  by?: string;
+  at?: string;
+}
 
 /* One source row of a batch with its validation result and identity-match decision (A-14..A-17). */
 @Entity({ name: 'import_rows' })

@@ -24,7 +24,9 @@ export class RoleAssignmentService {
     const out = new Map<string, PublicRole[]>(userIds.map((id) => [id, []]));
     if (!userIds.length) return out;
     const assignments = await AppDataSource.getRepository(UserRole).find({
-      where: { userId: In(userIds), isDelete: false }, relations: { role: true }, order: { createdAt: 'ASC' },
+      where: { userId: In(userIds), isDelete: false },
+      relations: { role: true },
+      order: { createdAt: 'ASC' },
     });
     for (const a of assignments) if (a.role && !a.role.isDelete) out.get(a.userId)?.push(toPublicRole(a));
     return out;
@@ -36,7 +38,10 @@ export class RoleAssignmentService {
     const roles = await roleRepository.findUsableByIds(wanted, m);
     if (roles.length !== wanted.length) {
       const found = new Set(roles.map((r) => r.id));
-      throw AppError.badRequest('Some roles do not exist, are deleted or are inactive', wanted.filter((r) => !found.has(r)).map((r) => ({ field: 'roleIds', message: r })));
+      throw AppError.badRequest(
+        'Some roles do not exist, are deleted or are inactive',
+        wanted.filter((r) => !found.has(r)).map((r) => ({ field: 'roleIds', message: r })),
+      );
     }
 
     const current = await roleRepository.findUserAssignments(userId, m);
@@ -49,7 +54,11 @@ export class RoleAssignmentService {
     if (toRemove.some((a) => a.role?.code === ROLE_CODES.SUPER_ADMIN)) await this.assertNotLastSuperAdmin(userId, m);
 
     const repo = m.getRepository(UserRole);
-    if (toRemove.length) await repo.update(toRemove.map((a) => a.id), { isDelete: true, isActive: false });
+    if (toRemove.length)
+      await repo.update(
+        toRemove.map((a) => a.id),
+        { isDelete: true, isActive: false },
+      );
     if (toAdd.length) await repo.insert(toAdd.map((r) => ({ userId, roleId: r.id, assignedById: actor.id })));
     return { added: toAdd.map((r) => r.code), removed: toRemove.map((a) => a.role?.code ?? a.roleId) };
   }

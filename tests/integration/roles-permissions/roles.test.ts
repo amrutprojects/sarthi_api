@@ -1,7 +1,18 @@
 import type { Express } from 'express';
 import { Role, RolePermission } from '../../../src/database/entities';
 import {
-  API, AppDataSource, auth, createRoleWith, createUser, login, permissionId, request, roleId, setupTestApp, superAdmin, teardownTestApp,
+  API,
+  AppDataSource,
+  auth,
+  createRoleWith,
+  createUser,
+  login,
+  permissionId,
+  request,
+  roleId,
+  setupTestApp,
+  superAdmin,
+  teardownTestApp,
   type TestActor,
 } from '../../helpers/test-app';
 
@@ -15,10 +26,15 @@ afterAll(teardownTestApp);
 
 describe('role CRUD', () => {
   it('creates a role with permissions, and lists / gets it', async () => {
-    const res = await request(app).post(`${API}/roles`).set(auth(admin.token)).send({
-      name: 'Regional Lead', code: 'REGIONAL_LEAD', description: 'Region oversight',
-      permissionIds: [await permissionId('dashboard.view'), await permissionId('districts.view')],
-    });
+    const res = await request(app)
+      .post(`${API}/roles`)
+      .set(auth(admin.token))
+      .send({
+        name: 'Regional Lead',
+        code: 'REGIONAL_LEAD',
+        description: 'Region oversight',
+        permissionIds: [await permissionId('dashboard.view'), await permissionId('districts.view')],
+      });
     expect(res.status).toBe(201);
     expect(res.body.data.permissions.map((p: { code: string }) => p.code).sort()).toEqual(['dashboard.view', 'districts.view']);
 
@@ -49,7 +65,7 @@ describe('role CRUD', () => {
 
     expect((await request(app).delete(`${API}/roles/${role.id}`).set(auth(admin.token))).status).toBe(200);
     expect((await request(app).get(`${API}/roles/${role.id}`).set(auth(admin.token))).status).toBe(404);
-    expect((await AppDataSource.getRepository(Role).findOneByOrFail({ id: role.id }))).toMatchObject({ isDelete: true, isActive: false });
+    expect(await AppDataSource.getRepository(Role).findOneByOrFail({ id: role.id })).toMatchObject({ isDelete: true, isActive: false });
     expect((await request(app).get(`${API}/users`).set(auth(token))).status).toBe(403);
   });
 
@@ -70,7 +86,14 @@ describe('role CRUD', () => {
     await request(app).delete(`${API}/roles/${deleted.id}`).set(auth(admin.token)).expect(200);
     const u = await createUser();
     for (const id of [inactive.id, deleted.id]) {
-      expect((await request(app).put(`${API}/users/${u.id}/roles`).set(auth(admin.token)).send({ roleIds: [id] })).status).toBe(400);
+      expect(
+        (
+          await request(app)
+            .put(`${API}/users/${u.id}/roles`)
+            .set(auth(admin.token))
+            .send({ roleIds: [id] })
+        ).status,
+      ).toBe(400);
     }
   });
 
@@ -95,7 +118,9 @@ describe('protected SUPER_ADMIN role', () => {
 describe('role-permission assignment', () => {
   it('replaces grants atomically, soft-deleting removed ones', async () => {
     const role = await createRoleWith(['dashboard.view', 'reports.view']);
-    const res = await request(app).put(`${API}/roles/${role.id}/permissions`).set(auth(admin.token))
+    const res = await request(app)
+      .put(`${API}/roles/${role.id}/permissions`)
+      .set(auth(admin.token))
       .send({ permissionIds: [await permissionId('reports.view'), await permissionId('finance.view')] });
     expect(res.status).toBe(200);
     expect(res.body.data.map((p: { code: string }) => p.code).sort()).toEqual(['finance.view', 'reports.view']);
@@ -107,20 +132,32 @@ describe('role-permission assignment', () => {
   it('ignores duplicates in the request and never creates duplicate active grants', async () => {
     const role = await createRoleWith([]);
     const pid = await permissionId('dashboard.view');
-    await request(app).put(`${API}/roles/${role.id}/permissions`).set(auth(admin.token)).send({ permissionIds: [pid, pid] }).expect(200);
-    await request(app).put(`${API}/roles/${role.id}/permissions`).set(auth(admin.token)).send({ permissionIds: [pid] }).expect(200);
+    await request(app)
+      .put(`${API}/roles/${role.id}/permissions`)
+      .set(auth(admin.token))
+      .send({ permissionIds: [pid, pid] })
+      .expect(200);
+    await request(app)
+      .put(`${API}/roles/${role.id}/permissions`)
+      .set(auth(admin.token))
+      .send({ permissionIds: [pid] })
+      .expect(200);
     expect(await AppDataSource.getRepository(RolePermission).countBy({ roleId: role.id, permissionId: pid, isDelete: false })).toBe(1);
   });
 
   it('the database rejects a second active grant (partial unique index)', async () => {
     const role = await createRoleWith(['dashboard.view']);
     const pid = await permissionId('dashboard.view');
-    await expect(AppDataSource.getRepository(RolePermission).insert({ roleId: role.id, permissionId: pid })).rejects.toThrow(/UQ_role_permissions_active/);
+    await expect(AppDataSource.getRepository(RolePermission).insert({ roleId: role.id, permissionId: pid })).rejects.toThrow(
+      /UQ_role_permissions_active/,
+    );
   });
 
   it('cannot change permissions of an inactive role', async () => {
     const role = await createRoleWith([]);
     await request(app).patch(`${API}/roles/${role.id}/status`).set(auth(admin.token)).send({ isActive: false }).expect(200);
-    expect((await request(app).put(`${API}/roles/${role.id}/permissions`).set(auth(admin.token)).send({ permissionIds: [] })).status).toBe(400);
+    expect((await request(app).put(`${API}/roles/${role.id}/permissions`).set(auth(admin.token)).send({ permissionIds: [] })).status).toBe(
+      400,
+    );
   });
 });

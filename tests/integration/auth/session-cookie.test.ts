@@ -5,7 +5,9 @@ import { appConfig } from '../../../src/config/app.config';
 import { API, PASSWORD, auth, createUser, login, request, setupTestApp, teardownTestApp } from '../../helpers/test-app';
 
 let app: Express;
-beforeAll(async () => { app = await setupTestApp(); });
+beforeAll(async () => {
+  app = await setupTestApp();
+});
 afterAll(teardownTestApp);
 
 /* Browser login: token only in an HttpOnly cookie, CSRF header required for state-changing requests (ADR-0003). */
@@ -51,7 +53,10 @@ describe('browser session cookie', () => {
 
   it('does not require CSRF for bearer-token API clients', async () => {
     const admin = await createUser({ roleCodes: ['SUPER_ADMIN'] });
-    const res = await request(app).post(`${API}/roles`).set(auth(await login(admin.email))).send({ name: 'Api Role', code: 'API_ROLE' });
+    const res = await request(app)
+      .post(`${API}/roles`)
+      .set(auth(await login(admin.email)))
+      .send({ name: 'Api Role', code: 'API_ROLE' });
     expect(res.status).toBe(201);
   });
 
@@ -67,15 +72,24 @@ describe('browser session cookie', () => {
   it('renews a cookie token past half its lifetime, but not after the absolute session limit', async () => {
     const user = await createUser({ roleCodes: ['VIEWER'] });
     const now = Math.floor(Date.now() / 1000);
-    const tokenWith = (sst: number) => jwt.sign({ sid: randomUUID(), sst, iat: now - 700, exp: now + 200 }, appConfig.jwt.secret, {
-      algorithm: 'HS256', subject: user.id, jwtid: randomUUID(), issuer: appConfig.jwt.issuer, audience: appConfig.jwt.audience,
-    });
+    const tokenWith = (sst: number) =>
+      jwt.sign({ sid: randomUUID(), sst, iat: now - 700, exp: now + 200 }, appConfig.jwt.secret, {
+        algorithm: 'HS256',
+        subject: user.id,
+        jwtid: randomUUID(),
+        issuer: appConfig.jwt.issuer,
+        audience: appConfig.jwt.audience,
+      });
     const cookieName = appConfig.session.cookieName;
-    const fresh = await request(app).get(`${API}/auth/me`).set('Cookie', `${cookieName}=${tokenWith(now - 700)}`);
+    const fresh = await request(app)
+      .get(`${API}/auth/me`)
+      .set('Cookie', `${cookieName}=${tokenWith(now - 700)}`);
     expect(fresh.status).toBe(200);
     expect(([] as string[]).concat(fresh.headers['set-cookie'] ?? []).join(';')).toContain(`${cookieName}=ey`);
 
-    const expired = await request(app).get(`${API}/auth/me`).set('Cookie', `${cookieName}=${tokenWith(now - appConfig.session.maxAgeSeconds - 10)}`);
+    const expired = await request(app)
+      .get(`${API}/auth/me`)
+      .set('Cookie', `${cookieName}=${tokenWith(now - appConfig.session.maxAgeSeconds - 10)}`);
     expect(expired.status).toBe(200);
     expect(expired.headers['set-cookie']).toBeUndefined();
   });

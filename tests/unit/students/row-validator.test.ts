@@ -5,11 +5,23 @@ import { decryptAadhaar, verhoeffValid, withVerhoeffDigit } from '../../../src/m
 /* A valid source row per the received-data field mapping (spec Table 81). */
 function row(over: Record<string, string> = {}): Record<string, string> {
   const v: Record<string, string> = {
-    source_record_id: 'MA-1', first_name: 'Asha', last_name: 'Patil', father_name: 'Ramesh', mother_name: 'Sunita',
-    email: 'Asha.Patil@Example.org', date_of_birth: '2003-04-12', current_address: 'Flat 1\nSample Nagar',
-    aadhaar_number: withVerhoeffDigit('23456789012'), mobile_number: '+91 98765 43210', religion: 'हिंदू', caste: 'मराठी',
-    course_centre: 'Pune', technology: 'AI-ML Engineer', education_qualification: 'Graduate',
-    approval_status: 'approved', approved_at: '2026-01-10T06:30:00Z',
+    source_record_id: 'MA-1',
+    first_name: 'Asha',
+    last_name: 'Patil',
+    father_name: 'Ramesh',
+    mother_name: 'Sunita',
+    email: 'Asha.Patil@Example.org',
+    date_of_birth: '2003-04-12',
+    current_address: 'Flat 1\nSample Nagar',
+    aadhaar_number: withVerhoeffDigit('23456789012'),
+    mobile_number: '+91 98765 43210',
+    religion: 'हिंदू',
+    caste: 'मराठी',
+    course_centre: 'Pune',
+    technology: 'AI-ML Engineer',
+    education_qualification: 'Graduate',
+    approval_status: 'approved',
+    approved_at: '2026-01-10T06:30:00Z',
   };
   for (const c of IMPORT_COLUMNS.filter((c) => c.field.startsWith('doc_') && !c.field.endsWith('_barcode'))) v[c.field] = 'Yes';
   v.doc_income_ews_barcode = 'BC-1';
@@ -21,7 +33,13 @@ describe('validateRow', () => {
   it('accepts a valid row and normalises it', () => {
     const { row: n, issues } = validateRow(row());
     expect(issues).toEqual([]);
-    expect(n).toMatchObject({ email: 'asha.patil@example.org', mobile: '+919876543210', centreCode: 'PUN', trackCode: 'T08', approvalStatus: 'APPROVED' });
+    expect(n).toMatchObject({
+      email: 'asha.patil@example.org',
+      mobile: '+919876543210',
+      centreCode: 'PUN',
+      trackCode: 'T08',
+      approvalStatus: 'APPROVED',
+    });
     expect(n.aadhaarLast4).toHaveLength(4);
     expect(n.currentAddress).toContain('\n');
   });

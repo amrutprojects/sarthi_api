@@ -13,7 +13,13 @@ export interface ParsedFile {
 
 /* Byte-order mark that Excel and Notepad put at the start of UTF-8 CSV files. */
 const BOM_RE = new RegExp('^' + String.fromCharCode(0xfeff));
-const norm = (h: string) => h.replace(BOM_RE, '').toLowerCase().replace(/[_\s]+/g, ' ').replace(/&amp;/g, '&').trim();
+const norm = (h: string) =>
+  h
+    .replace(BOM_RE, '')
+    .toLowerCase()
+    .replace(/[_\s]+/g, ' ')
+    .replace(/&amp;/g, '&')
+    .trim();
 
 /* Type is decided by content, not by the file name: XLSX is a ZIP (PK\x03\x04); CSV must be valid UTF-8 text. */
 function detectType(buf: Buffer): 'xlsx' | 'csv' {
@@ -43,7 +49,11 @@ function cellText(v: ExcelJS.CellValue): string {
 async function readTable(buf: Buffer): Promise<string[][]> {
   if (detectType(buf) === 'csv') {
     try {
-      return parseCsv(buf.toString('utf8').replace(BOM_RE, ''), { relax_column_count: true, skip_empty_lines: true, bom: true }) as string[][];
+      return parseCsv(buf.toString('utf8').replace(BOM_RE, ''), {
+        relax_column_count: true,
+        skip_empty_lines: true,
+        bom: true,
+      }) as string[][];
     } catch (e) {
       throw new ImportFileError(`The CSV file could not be read: ${(e as Error).message}`);
     }
@@ -81,8 +91,12 @@ export async function parseImportFile(buf: Buffer, maxRows: number): Promise<Par
     const key = norm(h);
     if (!key) return;
     const col = IMPORT_COLUMNS.find((c) => norm(c.field) === key || norm(c.label) === key || c.aliases.some((a) => norm(a) === key));
-    if (!col) { ignoredColumns.push(h.trim()); return; }
-    if (col.field in indexOf) throw new ImportFileError(`Two columns map to the same field "${col.field}": "${mapping[col.field]}" and "${h.trim()}"`);
+    if (!col) {
+      ignoredColumns.push(h.trim());
+      return;
+    }
+    if (col.field in indexOf)
+      throw new ImportFileError(`Two columns map to the same field "${col.field}": "${mapping[col.field]}" and "${h.trim()}"`);
     mapping[col.field] = h.trim();
     indexOf[col.field] = i;
   });

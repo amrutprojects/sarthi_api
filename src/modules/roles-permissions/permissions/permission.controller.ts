@@ -26,12 +26,20 @@ export const permissionController = {
   }),
 
   update: asyncHandler(async (req: Request, res: Response) => {
-    ApiResponse.ok(res, await permissionService.update(params<IdParams>(req).id, body<UpdatePermissionBody>(req), req), 'Permission updated successfully');
+    ApiResponse.ok(
+      res,
+      await permissionService.update(params<IdParams>(req).id, body<UpdatePermissionBody>(req), req),
+      'Permission updated successfully',
+    );
   }),
 
   setStatus: asyncHandler(async (req: Request, res: Response) => {
     const { isActive } = body<{ isActive: boolean }>(req);
-    ApiResponse.ok(res, await permissionService.setStatus(params<IdParams>(req).id, isActive, req), isActive ? 'Permission activated' : 'Permission deactivated');
+    ApiResponse.ok(
+      res,
+      await permissionService.setStatus(params<IdParams>(req).id, isActive, req),
+      isActive ? 'Permission activated' : 'Permission deactivated',
+    );
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {

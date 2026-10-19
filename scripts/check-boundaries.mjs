@@ -37,7 +37,9 @@ for (const file of walk(SRC)) {
     const to = moduleOf(target);
     /* Only module-to-module imports are restricted; composition roots (routes.ts, database/entities.ts) mount module internals. */
     if (!from || !to || to === from) continue;
-    const isIndex = posix(path.relative(path.join(MODULES, to), target)) === '' || /^index(\.ts)?$/.test(posix(path.relative(path.join(MODULES, to), target)));
+    const isIndex =
+      posix(path.relative(path.join(MODULES, to), target)) === '' ||
+      /^index(\.ts)?$/.test(posix(path.relative(path.join(MODULES, to), target)));
     if (!isIndex) {
       const line = text.slice(0, m.index).split('\n').length;
       violations.push(`${posix(path.relative(root, file))}:${line} imports "${spec}" — use the public API "src/modules/${to}" instead`);

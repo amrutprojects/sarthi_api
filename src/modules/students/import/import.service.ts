@@ -28,22 +28,44 @@ function rowData(r: NormalisedRow): Record<string, unknown> {
 export function publicRow(r: ImportRow) {
   const d = r.data as Partial<NormalisedRow>;
   return {
-    id: r.id, rowNumber: r.rowNumber, status: r.status, sourceRecordId: r.sourceRecordId,
+    id: r.id,
+    rowNumber: r.rowNumber,
+    status: r.status,
+    sourceRecordId: r.sourceRecordId,
     name: [d.firstName, d.lastName].filter(Boolean).join(' '),
-    fatherName: d.fatherName, motherName: d.motherName,
-    email: maskEmail(d.email ?? null), mobile: maskMobile(d.mobile ?? null), aadhaar: maskAadhaar(r.aadhaarLast4),
-    dateOfBirth: d.dateOfBirth, religion: d.religion, caste: d.caste, centreCode: d.centreCode,
-    trackCode: d.trackCode, trackSourceValue: d.trackSourceValue, educationQualification: d.educationQualification,
-    approvalStatus: d.approvalStatus, approvedAt: d.approvedAt, evidenceRef: d.evidenceRef, documents: d.documents,
+    fatherName: d.fatherName,
+    motherName: d.motherName,
+    email: maskEmail(d.email ?? null),
+    mobile: maskMobile(d.mobile ?? null),
+    aadhaar: maskAadhaar(r.aadhaarLast4),
+    dateOfBirth: d.dateOfBirth,
+    religion: d.religion,
+    caste: d.caste,
+    centreCode: d.centreCode,
+    trackCode: d.trackCode,
+    trackSourceValue: d.trackSourceValue,
+    educationQualification: d.educationQualification,
+    approvalStatus: d.approvalStatus,
+    approvedAt: d.approvedAt,
+    evidenceRef: d.evidenceRef,
+    documents: d.documents,
     issues: r.issues,
     match: r.matchTier ? { tier: r.matchTier, studentId: r.matchStudentId, rowNumber: r.matchRowNumber, note: r.matchNote } : null,
-    decision: r.decision, decisionReason: r.decisionReason, decidedAt: r.decidedAt, rejectReason: r.rejectReason, studentId: r.studentId,
+    decision: r.decision,
+    decisionReason: r.decisionReason,
+    decidedAt: r.decidedAt,
+    rejectReason: r.rejectReason,
+    studentId: r.studentId,
   };
 }
 
 export class ImportService {
-  private batches(m?: EntityManager) { return (m ?? AppDataSource.manager).getRepository(ImportBatch); }
-  private rows(m?: EntityManager) { return (m ?? AppDataSource.manager).getRepository(ImportRow); }
+  private batches(m?: EntityManager) {
+    return (m ?? AppDataSource.manager).getRepository(ImportBatch);
+  }
+  private rows(m?: EntityManager) {
+    return (m ?? AppDataSource.manager).getRepository(ImportRow);
+  }
 
   async getBatch(id: string, m?: EntityManager): Promise<ImportBatch> {
     const b = await this.batches(m).findOne({ where: { id, isDelete: false } });
@@ -52,21 +74,35 @@ export class ImportService {
   }
 
   /* A-11: one batch per distinct file. Re-uploading the same file returns the existing batch. */
-  async createFromFile(file: { buffer: Buffer; originalname: string; size: number }, sourceReference: string | null, actor: AuthUser, req?: Request) {
+  async createFromFile(
+    file: { buffer: Buffer; originalname: string; size: number },
+    sourceReference: string | null,
+    actor: AuthUser,
+    req?: Request,
+  ) {
     const fileChecksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
-    const existing = await this.batches().findOne({ where: { fileChecksum, isDelete: false } , order: { createdAt: 'DESC' } });
+    const existing = await this.batches().findOne({ where: { fileChecksum, isDelete: false }, order: { createdAt: 'DESC' } });
     if (existing && existing.status !== BATCH_STATUS.CANCELLED) return { batch: existing, duplicate: true };
 
     const seq = await AppDataSource.query(`SELECT nextval('import_batches_code_seq') AS n`);
-    const batch = await this.batches().save(this.batches().create({
-      code: 'IMP-' + String(seq[0].n).padStart(6, '0'),
-      status: BATCH_STATUS.IMPORT_PENDING,
-      fileName: file.originalname.slice(0, 255),
-      fileChecksum, fileSize: file.size, sourceReference,
-      createdById: actor.id,
-      counts: { total: 0, valid: 0, exceptions: 0, duplicates: 0, skipped: 0, rejected: 0, reconciled: 0 },
-    }));
-    await auditService.record(req, { action: 'import.batch.created', resource: 'import_batch', resourceId: batch.id, details: { code: batch.code, fileName: batch.fileName, size: file.size } });
+    const batch = await this.batches().save(
+      this.batches().create({
+        code: 'IMP-' + String(seq[0].n).padStart(6, '0'),
+        status: BATCH_STATUS.IMPORT_PENDING,
+        fileName: file.originalname.slice(0, 255),
+        fileChecksum,
+        fileSize: file.size,
+        sourceReference,
+        createdById: actor.id,
+        counts: { total: 0, valid: 0, exceptions: 0, duplicates: 0, skipped: 0, rejected: 0, reconciled: 0 },
+      }),
+    );
+    await auditService.record(req, {
+      action: 'import.batch.created',
+      resource: 'import_batch',
+      resourceId: batch.id,
+      details: { code: batch.code, fileName: batch.fileName, size: file.size },
+    });
 
     let parsed;
     try {
@@ -84,7 +120,12 @@ export class ImportService {
     batch.ignoredColumns = parsed.ignoredColumns;
     await this.batches().save(batch);
     await this.validate(batch, parsed.rows);
-    await auditService.record(req, { action: 'import.batch.validation_completed', resource: 'import_batch', resourceId: batch.id, details: { code: batch.code, counts: batch.counts } });
+    await auditService.record(req, {
+      action: 'import.batch.validation_completed',
+      resource: 'import_batch',
+      resourceId: batch.id,
+      details: { code: batch.code, counts: batch.counts },
+    });
     return { batch: await this.getBatch(batch.id), duplicate: false };
   }
 
@@ -103,7 +144,11 @@ export class ImportService {
     const load = async (col: keyof Student, vals: string[]) =>
       (await Promise.all(chunk(vals).map((c) => students.find({ where: { [col]: In(c), isDelete: false } as never })))).flat();
     const [bySrc, byBidx, byDob, byMobile, byEmail] = await Promise.all([
-      load('sourceRecordId', srcIds), load('aadhaarBidx', bidxs), load('dateOfBirth', dobs), load('mobile', mobiles), load('email', emails),
+      load('sourceRecordId', srcIds),
+      load('aadhaarBidx', bidxs),
+      load('dateOfBirth', dobs),
+      load('mobile', mobiles),
+      load('email', emails),
     ]);
     const nameKey = (s: Student) => `${s.firstName} ${s.lastName}`.toLowerCase().replace(/\s+/g, ' ').trim();
 
@@ -115,14 +160,22 @@ export class ImportService {
       const issues: StoredIssue[] = r.issues.map((i) => ({ ...i, status: 'OPEN' }));
       const addIssue = (field: string, code: IssueCode, message: string) => issues.push({ field, code, message, status: 'OPEN' });
       let status: string = ROW_STATUS.VALID;
-      let matchStudentId: string | null = null; let matchRowNumber: number | null = null; let matchTier: string | null = null; let matchNote: string | null = null;
+      let matchStudentId: string | null = null;
+      let matchRowNumber: number | null = null;
+      let matchTier: string | null = null;
+      let matchNote: string | null = null;
       const { row } = r;
 
       /* Duplicates inside this file. */
       const earlier = (row.sourceRecordId && seenSrc.get(row.sourceRecordId)) || (row.aadhaarBidx && seenBidx.get(row.aadhaarBidx));
       if (earlier) {
-        addIssue(row.aadhaarBidx && seenBidx.get(row.aadhaarBidx) === earlier ? 'aadhaar_number' : 'source_record_id', 'DUPLICATE_IN_FILE', `Same person as row ${earlier} of this file`);
-        matchRowNumber = earlier; matchTier = 'FILE';
+        addIssue(
+          row.aadhaarBidx && seenBidx.get(row.aadhaarBidx) === earlier ? 'aadhaar_number' : 'source_record_id',
+          'DUPLICATE_IN_FILE',
+          `Same person as row ${earlier} of this file`,
+        );
+        matchRowNumber = earlier;
+        matchTier = 'FILE';
       }
       if (row.sourceRecordId && !seenSrc.has(row.sourceRecordId)) seenSrc.set(row.sourceRecordId, r.rowNumber);
       if (row.aadhaarBidx && !seenBidx.has(row.aadhaarBidx)) seenBidx.set(row.aadhaarBidx, r.rowNumber);
@@ -131,21 +184,39 @@ export class ImportService {
       if (!earlier) {
         const t0 = row.sourceRecordId ? bySrc.find((s) => s.sourceRecordId === row.sourceRecordId) : undefined;
         const t1 = row.aadhaarBidx ? byBidx.find((s) => s.aadhaarBidx === row.aadhaarBidx) : undefined;
-        const t2 = row.dateOfBirth ? byDob.find((s) => s.dateOfBirth === row.dateOfBirth && nameKey(s) === row.nameKey
-          && ((row.mobile && s.mobile === row.mobile) || (row.email && s.email === row.email))) : undefined;
+        const t2 = row.dateOfBirth
+          ? byDob.find(
+              (s) =>
+                s.dateOfBirth === row.dateOfBirth &&
+                nameKey(s) === row.nameKey &&
+                ((row.mobile && s.mobile === row.mobile) || (row.email && s.email === row.email)),
+            )
+          : undefined;
         if (t0 && t0.sourceChecksum === r.checksum) {
-          status = ROW_STATUS.SKIPPED_UNCHANGED; matchStudentId = t0.id; matchTier = 'T0'; matchNote = `Already imported as ${t0.code}; unchanged`;
+          status = ROW_STATUS.SKIPPED_UNCHANGED;
+          matchStudentId = t0.id;
+          matchTier = 'T0';
+          matchNote = `Already imported as ${t0.code}; unchanged`;
         } else if (t0) {
-          matchStudentId = t0.id; matchTier = 'T0'; matchNote = `Source record already imported as ${t0.code}; values differ`;
+          matchStudentId = t0.id;
+          matchTier = 'T0';
+          matchNote = `Source record already imported as ${t0.code}; values differ`;
         } else if (t1) {
           const conflict = nameKey(t1) !== row.nameKey || t1.dateOfBirth !== row.dateOfBirth;
-          matchStudentId = t1.id; matchTier = 'T1';
+          matchStudentId = t1.id;
+          matchTier = 'T1';
           matchNote = conflict ? `Same Aadhaar as ${t1.code} but different name or date of birth (CONFLICT)` : `Same Aadhaar as ${t1.code}`;
         } else if (t2) {
-          matchStudentId = t2.id; matchTier = 'T2'; matchNote = `Same name, date of birth and contact as ${t2.code}`;
+          matchStudentId = t2.id;
+          matchTier = 'T2';
+          matchNote = `Same name, date of birth and contact as ${t2.code}`;
         } else {
-          const t3 = (row.mobile && byMobile.find((s) => s.mobile === row.mobile)) || (row.email && byEmail.find((s) => s.email === row.email));
-          if (t3) { matchTier = 'T3'; matchNote = `Shares mobile or email with ${t3.code} (informational only)`; }
+          const t3 =
+            (row.mobile && byMobile.find((s) => s.mobile === row.mobile)) || (row.email && byEmail.find((s) => s.email === row.email));
+          if (t3) {
+            matchTier = 'T3';
+            matchNote = `Shares mobile or email with ${t3.code} (informational only)`;
+          }
         }
       }
 
@@ -154,11 +225,24 @@ export class ImportService {
         else if (matchStudentId) status = ROW_STATUS.POSSIBLE_DUPLICATE;
       }
 
-      entities.push(this.rows().create({
-        batchId: batch.id, rowNumber: r.rowNumber, status, checksum: r.checksum, sourceRecordId: row.sourceRecordId,
-        data: rowData(row), aadhaarEnc: row.aadhaarEnc, aadhaarBidx: row.aadhaarBidx, aadhaarLast4: row.aadhaarLast4,
-        issues, matchStudentId, matchRowNumber, matchTier, matchNote,
-      }));
+      entities.push(
+        this.rows().create({
+          batchId: batch.id,
+          rowNumber: r.rowNumber,
+          status,
+          checksum: r.checksum,
+          sourceRecordId: row.sourceRecordId,
+          data: rowData(row),
+          aadhaarEnc: row.aadhaarEnc,
+          aadhaarBidx: row.aadhaarBidx,
+          aadhaarLast4: row.aadhaarLast4,
+          issues,
+          matchStudentId,
+          matchRowNumber,
+          matchTier,
+          matchNote,
+        }),
+      );
     }
 
     await AppDataSource.transaction(async (m) => {
@@ -171,13 +255,19 @@ export class ImportService {
   async refreshBatch(batchId: string, m?: EntityManager): Promise<ImportBatch> {
     const batch = await this.getBatch(batchId, m);
     const rows: { status: string; n: string }[] = await (m ?? AppDataSource.manager).query(
-      `SELECT "status", count(*)::int AS n FROM "import_rows" WHERE "batchId" = $1 AND "isDelete" = false GROUP BY "status"`, [batchId]);
+      `SELECT "status", count(*)::int AS n FROM "import_rows" WHERE "batchId" = $1 AND "isDelete" = false GROUP BY "status"`,
+      [batchId],
+    );
     const n = (s: string) => Number(rows.find((r) => r.status === s)?.n ?? 0);
     const counts: ImportBatchCounts = {
       ...batch.counts,
       total: rows.reduce((a, r) => a + Number(r.n), 0),
-      valid: n(ROW_STATUS.VALID), exceptions: n(ROW_STATUS.DATA_EXCEPTION), duplicates: n(ROW_STATUS.POSSIBLE_DUPLICATE),
-      skipped: n(ROW_STATUS.SKIPPED_UNCHANGED), rejected: n(ROW_STATUS.ROW_REJECTED), reconciled: n(ROW_STATUS.RECONCILED),
+      valid: n(ROW_STATUS.VALID),
+      exceptions: n(ROW_STATUS.DATA_EXCEPTION),
+      duplicates: n(ROW_STATUS.POSSIBLE_DUPLICATE),
+      skipped: n(ROW_STATUS.SKIPPED_UNCHANGED),
+      rejected: n(ROW_STATUS.ROW_REJECTED),
+      reconciled: n(ROW_STATUS.RECONCILED),
     };
     batch.counts = counts;
     if (batch.status === BATCH_STATUS.VALIDATING || editable(batch)) {
@@ -189,7 +279,9 @@ export class ImportService {
   private async rowForUpdate(batchId: string, rowId: string, m: EntityManager) {
     const batch = await this.getBatch(batchId, m);
     if (!editable(batch)) throw AppError.conflict(`Rows cannot be changed while the batch is ${batch.status}`);
-    const row = await m.getRepository(ImportRow).findOne({ where: { id: rowId, batchId, isDelete: false }, lock: { mode: 'pessimistic_write' } });
+    const row = await m
+      .getRepository(ImportRow)
+      .findOne({ where: { id: rowId, batchId, isDelete: false }, lock: { mode: 'pessimistic_write' } });
     if (!row) throw AppError.notFound('Row not found');
     return { batch, row };
   }
@@ -209,7 +301,10 @@ export class ImportService {
       const open = row.issues.filter((i) => i.status === 'OPEN');
       if (!open.length) throw AppError.conflict('This row has no open issues');
       const blocked = open.filter((i) => !ISSUE_CODES[i.code as IssueCode]?.waivable);
-      if (blocked.length) throw AppError.badRequest(`These issues cannot be waived: ${[...new Set(blocked.map((i) => i.code))].join(', ')}. Correct them at the source and re-import, or reject the row.`);
+      if (blocked.length)
+        throw AppError.badRequest(
+          `These issues cannot be waived: ${[...new Set(blocked.map((i) => i.code))].join(', ')}. Correct them at the source and re-import, or reject the row.`,
+        );
       const at = new Date().toISOString();
       row.issues = row.issues.map((i) => (i.status === 'OPEN' ? { ...i, status: 'ACCEPTED', reason, by: actor.id, at } : i));
       this.settle(row);
@@ -217,7 +312,12 @@ export class ImportService {
       await this.refreshBatch(batchId, m);
       return row;
     });
-    await auditService.record(req, { action: 'exception.resolved', resource: 'import_row', resourceId: row.id, details: { batchId, rowNumber: row.rowNumber, resolution: 'ACCEPTED_WITH_REASON', codes: row.issues.map((i) => i.code), reason } });
+    await auditService.record(req, {
+      action: 'exception.resolved',
+      resource: 'import_row',
+      resourceId: row.id,
+      details: { batchId, rowNumber: row.rowNumber, resolution: 'ACCEPTED_WITH_REASON', codes: row.issues.map((i) => i.code), reason },
+    });
     return publicRow(row);
   }
 
@@ -231,7 +331,12 @@ export class ImportService {
       await this.refreshBatch(batchId, m);
       return row;
     });
-    await auditService.record(req, { action: 'exception.row_rejected', resource: 'import_row', resourceId: row.id, details: { batchId, rowNumber: row.rowNumber, reason } });
+    await auditService.record(req, {
+      action: 'exception.row_rejected',
+      resource: 'import_row',
+      resourceId: row.id,
+      details: { batchId, rowNumber: row.rowNumber, reason },
+    });
     return publicRow(row);
   }
 
@@ -247,7 +352,12 @@ export class ImportService {
       await this.refreshBatch(batchId, m);
       return row;
     });
-    await auditService.record(req, { action: 'import.row.restored', resource: 'import_row', resourceId: row.id, details: { batchId, rowNumber: row.rowNumber } });
+    await auditService.record(req, {
+      action: 'import.row.restored',
+      resource: 'import_row',
+      resourceId: row.id,
+      details: { batchId, rowNumber: row.rowNumber },
+    });
     return publicRow(row);
   }
 
@@ -263,7 +373,12 @@ export class ImportService {
       await this.refreshBatch(batchId, m);
       return row;
     });
-    await auditService.record(req, { action: 'reconciliation.decided', resource: 'import_row', resourceId: row.id, details: { batchId, rowNumber: row.rowNumber, tier: row.matchTier, decision, reason } });
+    await auditService.record(req, {
+      action: 'reconciliation.decided',
+      resource: 'import_row',
+      resourceId: row.id,
+      details: { batchId, rowNumber: row.rowNumber, tier: row.matchTier, decision, reason },
+    });
     return publicRow(row);
   }
 
@@ -272,13 +387,21 @@ export class ImportService {
     const result = await AppDataSource.transaction(async (m) => {
       const batch = await this.batches(m).findOne({ where: { id: batchId, isDelete: false }, lock: { mode: 'pessimistic_write' } });
       if (!batch) throw AppError.notFound('Import batch not found');
-      if (batch.status !== BATCH_STATUS.READY_TO_FINALISE) throw AppError.conflict(batch.status === BATCH_STATUS.VALIDATED_WITH_EXCEPTIONS
-        ? 'Resolve or reject every exception and decide every possible duplicate first' : `A ${batch.status} batch cannot be finalised`);
-      if (batch.createdById === actor.id) throw AppError.forbidden('A batch must be finalised by someone other than the person who uploaded it');
+      if (batch.status !== BATCH_STATUS.READY_TO_FINALISE)
+        throw AppError.conflict(
+          batch.status === BATCH_STATUS.VALIDATED_WITH_EXCEPTIONS
+            ? 'Resolve or reject every exception and decide every possible duplicate first'
+            : `A ${batch.status} batch cannot be finalised`,
+        );
+      if (batch.createdById === actor.id)
+        throw AppError.forbidden('A batch must be finalised by someone other than the person who uploaded it');
       if (confirmCode.trim().toUpperCase() !== batch.code) throw AppError.badRequest('Type the batch code exactly to confirm');
 
-      const valid = await m.getRepository(ImportRow).find({ where: { batchId, status: ROW_STATUS.VALID, isDelete: false }, order: { rowNumber: 'ASC' } });
-      let created = 0; let linked = 0;
+      const valid = await m
+        .getRepository(ImportRow)
+        .find({ where: { batchId, status: ROW_STATUS.VALID, isDelete: false }, order: { rowNumber: 'ASC' } });
+      let created = 0;
+      let linked = 0;
       for (const row of valid) {
         if (row.matchStudentId && row.decision === 'SAME_PERSON') {
           /* Same person: linked to the existing student; protected identity fields are never overwritten by an import. */
@@ -287,18 +410,36 @@ export class ImportService {
         } else {
           const d = row.data as unknown as NormalisedRow;
           const seq = await m.query(`SELECT nextval('students_code_seq') AS n`);
-          const student = await m.getRepository(Student).save(m.getRepository(Student).create({
-            code: 'STU-' + String(seq[0].n).padStart(6, '0'),
-            sourceRecordId: row.decision === 'DIFFERENT_PERSON' && row.matchTier === 'T0' ? null : d.sourceRecordId,
-            sourceChecksum: row.checksum,
-            firstName: d.firstName, lastName: d.lastName, fatherName: d.fatherName, motherName: d.motherName,
-            email: d.email, dateOfBirth: d.dateOfBirth, currentAddress: d.currentAddress,
-            aadhaarEnc: row.aadhaarEnc, aadhaarBidx: row.aadhaarBidx, aadhaarLast4: row.aadhaarLast4,
-            mobile: d.mobile, religion: d.religion, caste: d.caste, centreCode: d.centreCode,
-            trackCode: d.trackCode, trackSourceValue: d.trackSourceValue, educationQualification: d.educationQualification,
-            externalStatus: d.approvalStatus, approvedAt: new Date(d.approvedAt as string), evidenceRef: d.evidenceRef,
-            declarationAccepted: d.declarationAccepted, documents: d.documents, importBatchId: batch.id,
-          }));
+          const student = await m.getRepository(Student).save(
+            m.getRepository(Student).create({
+              code: 'STU-' + String(seq[0].n).padStart(6, '0'),
+              sourceRecordId: row.decision === 'DIFFERENT_PERSON' && row.matchTier === 'T0' ? null : d.sourceRecordId,
+              sourceChecksum: row.checksum,
+              firstName: d.firstName,
+              lastName: d.lastName,
+              fatherName: d.fatherName,
+              motherName: d.motherName,
+              email: d.email,
+              dateOfBirth: d.dateOfBirth,
+              currentAddress: d.currentAddress,
+              aadhaarEnc: row.aadhaarEnc,
+              aadhaarBidx: row.aadhaarBidx,
+              aadhaarLast4: row.aadhaarLast4,
+              mobile: d.mobile,
+              religion: d.religion,
+              caste: d.caste,
+              centreCode: d.centreCode,
+              trackCode: d.trackCode,
+              trackSourceValue: d.trackSourceValue,
+              educationQualification: d.educationQualification,
+              externalStatus: d.approvalStatus,
+              approvedAt: new Date(d.approvedAt as string),
+              evidenceRef: d.evidenceRef,
+              declarationAccepted: d.declarationAccepted,
+              documents: d.documents,
+              importBatchId: batch.id,
+            }),
+          );
           row.studentId = student.id;
           created++;
         }
@@ -312,25 +453,43 @@ export class ImportService {
       await this.batches(m).save(batch);
       return this.refreshBatch(batch.id, m);
     });
-    await auditService.record(req, { action: 'import.batch.finalised', resource: 'import_batch', resourceId: batchId, details: { code: result.code, counts: result.counts } });
+    await auditService.record(req, {
+      action: 'import.batch.finalised',
+      resource: 'import_batch',
+      resourceId: batchId,
+      details: { code: result.code, counts: result.counts },
+    });
     return result;
   }
 
   async cancel(batchId: string, actor: AuthUser, req?: Request) {
     const batch = await this.getBatch(batchId);
-    if (batch.status === BATCH_STATUS.FINALISED || batch.status === BATCH_STATUS.CANCELLED) throw AppError.conflict(`A ${batch.status} batch cannot be cancelled`);
+    if (batch.status === BATCH_STATUS.FINALISED || batch.status === BATCH_STATUS.CANCELLED)
+      throw AppError.conflict(`A ${batch.status} batch cannot be cancelled`);
     batch.status = BATCH_STATUS.CANCELLED;
     batch.cancelledById = actor.id;
     await this.batches().save(batch);
-    await auditService.record(req, { action: 'import.batch.cancelled', resource: 'import_batch', resourceId: batch.id, details: { code: batch.code } });
+    await auditService.record(req, {
+      action: 'import.batch.cancelled',
+      resource: 'import_batch',
+      resourceId: batch.id,
+      details: { code: batch.code },
+    });
     return batch;
   }
 
   async listBatches(q: { page: number; limit: number; status?: string; search?: string }) {
     const qb = this.batches().createQueryBuilder('b').where('b.isDelete = false');
     if (q.status) qb.andWhere('b.status = :status', { status: q.status });
-    if (q.search) qb.andWhere('(b.code ILIKE :s OR b.fileName ILIKE :s OR b.sourceReference ILIKE :s)', { s: `%${q.search.replace(/[%_\\]/g, '\\$&')}%` });
-    const [items, total] = await qb.orderBy('b.createdAt', 'DESC').skip((q.page - 1) * q.limit).take(q.limit).getManyAndCount();
+    if (q.search)
+      qb.andWhere('(b.code ILIKE :s OR b.fileName ILIKE :s OR b.sourceReference ILIKE :s)', {
+        s: `%${q.search.replace(/[%_\\]/g, '\\$&')}%`,
+      });
+    const [items, total] = await qb
+      .orderBy('b.createdAt', 'DESC')
+      .skip((q.page - 1) * q.limit)
+      .take(q.limit)
+      .getManyAndCount();
     return { items, total };
   }
 
@@ -343,7 +502,11 @@ export class ImportService {
       const s = `%${q.search.replace(/[%_\\]/g, '\\$&')}%`;
       qb.andWhere(`(r.sourceRecordId ILIKE :s OR (r.data->>'firstName' || ' ' || (r.data->>'lastName')) ILIKE :s)`, { s });
     }
-    const [items, total] = await qb.orderBy('r.rowNumber', 'ASC').skip((q.page - 1) * q.limit).take(q.limit).getManyAndCount();
+    const [items, total] = await qb
+      .orderBy('r.rowNumber', 'ASC')
+      .skip((q.page - 1) * q.limit)
+      .take(q.limit)
+      .getManyAndCount();
     return { items: items.map(publicRow), total };
   }
 }

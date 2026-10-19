@@ -36,7 +36,11 @@ export function readSessionCookie(req: Request): string | null {
   for (const part of header.split(';')) {
     const i = part.indexOf('=');
     if (i > 0 && part.slice(0, i).trim() === appConfig.session.cookieName) {
-      try { return decodeURIComponent(part.slice(i + 1).trim()) || null; } catch { return null; }
+      try {
+        return decodeURIComponent(part.slice(i + 1).trim()) || null;
+      } catch {
+        return null;
+      }
     }
   }
   return null;

@@ -12,8 +12,14 @@ export const listQuerySchema = <S extends readonly [string, ...string[]]>(sortab
     limit: z.coerce.number().int().min(1).max(PAGINATION.MAX_LIMIT).default(PAGINATION.DEFAULT_LIMIT),
     search: z.string().trim().max(100).optional(),
     sortBy: z.enum(sortable).default(sortable[0]),
-    sortOrder: z.enum(['ASC', 'DESC', 'asc', 'desc']).default('DESC').transform((v) => v.toUpperCase() as 'ASC' | 'DESC'),
-    isActive: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
+    sortOrder: z
+      .enum(['ASC', 'DESC', 'asc', 'desc'])
+      .default('DESC')
+      .transform((v) => v.toUpperCase() as 'ASC' | 'DESC'),
+    isActive: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
   });
 
 export interface ListQuery<SortField extends string = string> {

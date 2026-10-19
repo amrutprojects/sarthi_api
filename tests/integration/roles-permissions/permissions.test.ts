@@ -3,7 +3,17 @@ import { ALL_PERMISSIONS } from '../../../src/modules/roles-permissions/permissi
 import { Permission, Role } from '../../../src/database/entities';
 import { seedRbac } from '../../../src/database/seeds/seed-rbac';
 import {
-  API, AppDataSource, auth, createRoleWith, createUser, login, permissionId, request, setupTestApp, superAdmin, teardownTestApp,
+  API,
+  AppDataSource,
+  auth,
+  createRoleWith,
+  createUser,
+  login,
+  permissionId,
+  request,
+  setupTestApp,
+  superAdmin,
+  teardownTestApp,
   type TestActor,
 } from '../../helpers/test-app';
 
@@ -26,12 +36,19 @@ describe('permission CRUD', () => {
   });
 
   it('creates, updates, deactivates, deletes and restores a permission', async () => {
-    const created = await request(app).post(`${API}/permissions`).set(auth(admin.token)).send({ name: 'Export candidates', code: 'candidates.export' });
+    const created = await request(app)
+      .post(`${API}/permissions`)
+      .set(auth(admin.token))
+      .send({ name: 'Export candidates', code: 'candidates.export' });
     expect(created.status).toBe(201);
     expect(created.body.data.module).toBe('candidates');
     const id = created.body.data.id;
-    expect((await request(app).patch(`${API}/permissions/${id}`).set(auth(admin.token)).send({ name: 'Export candidate list' })).body.data.name).toBe('Export candidate list');
-    expect((await request(app).patch(`${API}/permissions/${id}/status`).set(auth(admin.token)).send({ isActive: false })).body.data.isActive).toBe(false);
+    expect(
+      (await request(app).patch(`${API}/permissions/${id}`).set(auth(admin.token)).send({ name: 'Export candidate list' })).body.data.name,
+    ).toBe('Export candidate list');
+    expect(
+      (await request(app).patch(`${API}/permissions/${id}/status`).set(auth(admin.token)).send({ isActive: false })).body.data.isActive,
+    ).toBe(false);
     expect((await request(app).delete(`${API}/permissions/${id}`).set(auth(admin.token))).status).toBe(200);
     expect((await request(app).get(`${API}/permissions/${id}`).set(auth(admin.token))).status).toBe(404);
     expect((await request(app).post(`${API}/permissions/${id}/restore`).set(auth(admin.token))).body.data.isActive).toBe(false);
@@ -40,7 +57,9 @@ describe('permission CRUD', () => {
   it('validates codes and rejects duplicates', async () => {
     expect((await request(app).post(`${API}/permissions`).set(auth(admin.token)).send({ name: 'x', code: 'NoDots' })).status).toBe(422);
     expect((await request(app).post(`${API}/permissions`).set(auth(admin.token)).send({ name: 'x', code: 'users.view' })).status).toBe(409);
-    expect((await request(app).post(`${API}/permissions`).set(auth(admin.token)).send({ name: 'x', code: 'a.b', module: 'c' })).status).toBe(422);
+    expect(
+      (await request(app).post(`${API}/permissions`).set(auth(admin.token)).send({ name: 'x', code: 'a.b', module: 'c' })).status,
+    ).toBe(422);
   });
 });
 
@@ -61,9 +80,23 @@ describe('inactive / deleted permissions never grant access', () => {
     const id = created.body.data.id;
     const role = await createRoleWith([]);
     await request(app).patch(`${API}/permissions/${id}/status`).set(auth(admin.token)).send({ isActive: false }).expect(200);
-    expect((await request(app).put(`${API}/roles/${role.id}/permissions`).set(auth(admin.token)).send({ permissionIds: [id] })).status).toBe(400);
+    expect(
+      (
+        await request(app)
+          .put(`${API}/roles/${role.id}/permissions`)
+          .set(auth(admin.token))
+          .send({ permissionIds: [id] })
+      ).status,
+    ).toBe(400);
     await request(app).delete(`${API}/permissions/${id}`).set(auth(admin.token)).expect(200);
-    expect((await request(app).put(`${API}/roles/${role.id}/permissions`).set(auth(admin.token)).send({ permissionIds: [id] })).status).toBe(400);
+    expect(
+      (
+        await request(app)
+          .put(`${API}/roles/${role.id}/permissions`)
+          .set(auth(admin.token))
+          .send({ permissionIds: [id] })
+      ).status,
+    ).toBe(400);
   });
 });
 

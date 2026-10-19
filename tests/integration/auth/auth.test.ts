@@ -5,17 +5,31 @@ import { AuditLog, User } from '../../../src/database/entities';
 import { userRepository } from '../../../src/modules/users/user.repository';
 import { authService } from '../../../src/modules/auth/auth.service';
 import {
-  API, AppDataSource, PASSWORD, auth, createUser, login, request, setupTestApp, superAdmin, teardownTestApp,
+  API,
+  AppDataSource,
+  PASSWORD,
+  auth,
+  createUser,
+  login,
+  request,
+  setupTestApp,
+  superAdmin,
+  teardownTestApp,
 } from '../../helpers/test-app';
 
 let app: Express;
-beforeAll(async () => { app = await setupTestApp(); });
+beforeAll(async () => {
+  app = await setupTestApp();
+});
 afterAll(teardownTestApp);
 
 describe('POST /auth/login', () => {
   it('returns a bearer token to API clients that ask for it, and the user without the password hash', async () => {
     const user = await createUser({ roleCodes: ['VIEWER'] });
-    const res = await request(app).post(`${API}/auth/login`).set('X-Auth-Mode', 'bearer').send({ email: user.email.toUpperCase(), password: PASSWORD });
+    const res = await request(app)
+      .post(`${API}/auth/login`)
+      .set('X-Auth-Mode', 'bearer')
+      .send({ email: user.email.toUpperCase(), password: PASSWORD });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.tokenType).toBe('Bearer');
@@ -86,7 +100,9 @@ describe('authenticated endpoints', () => {
 
   it('GET /auth/permissions returns effective permissions only', async () => {
     const user = await createUser({ roleCodes: ['TRAINER'] });
-    const res = await request(app).get(`${API}/auth/permissions`).set(auth(await login(user.email)));
+    const res = await request(app)
+      .get(`${API}/auth/permissions`)
+      .set(auth(await login(user.email)));
     expect(res.status).toBe(200);
     expect(res.body.data.roles).toEqual(['TRAINER']);
     expect(res.body.data.permissions).toContain('attendance.create');
@@ -110,7 +126,12 @@ describe('authenticated endpoints', () => {
       jwt.sign({}, 'x'.repeat(40), { ...base, issuer: appConfig.jwt.issuer, audience: appConfig.jwt.audience, expiresIn: '5m' }),
       jwt.sign({}, appConfig.jwt.secret, { ...base, issuer: 'evil', audience: appConfig.jwt.audience, expiresIn: '5m' }),
       jwt.sign({}, appConfig.jwt.secret, { ...base, issuer: appConfig.jwt.issuer, audience: 'other-app', expiresIn: '5m' }),
-      jwt.sign({ exp: Math.floor(Date.now() / 1000) - 10 }, appConfig.jwt.secret, { subject: base.subject, jwtid: base.jwtid, issuer: appConfig.jwt.issuer, audience: appConfig.jwt.audience }),
+      jwt.sign({ exp: Math.floor(Date.now() / 1000) - 10 }, appConfig.jwt.secret, {
+        subject: base.subject,
+        jwtid: base.jwtid,
+        issuer: appConfig.jwt.issuer,
+        audience: appConfig.jwt.audience,
+      }),
     ];
     for (const t of tokens) {
       expect((await request(app).get(`${API}/auth/me`).set(auth(t))).status).toBe(401);
@@ -120,8 +141,16 @@ describe('authenticated endpoints', () => {
   it('401 with the "none" algorithm', async () => {
     const user = await createUser();
     const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
-    const payload = Buffer.from(JSON.stringify({ sub: user.id, jti: 'x', iss: appConfig.jwt.issuer, aud: appConfig.jwt.audience, exp: 9999999999 })).toString('base64url');
-    expect((await request(app).get(`${API}/auth/me`).set(auth(`${header}.${payload}.`))).status).toBe(401);
+    const payload = Buffer.from(
+      JSON.stringify({ sub: user.id, jti: 'x', iss: appConfig.jwt.issuer, aud: appConfig.jwt.audience, exp: 9999999999 }),
+    ).toString('base64url');
+    expect(
+      (
+        await request(app)
+          .get(`${API}/auth/me`)
+          .set(auth(`${header}.${payload}.`))
+      ).status,
+    ).toBe(401);
   });
 
   it('rejects a valid token once the user is deactivated or deleted', async () => {

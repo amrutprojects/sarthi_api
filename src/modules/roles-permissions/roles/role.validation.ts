@@ -2,26 +2,32 @@ import { z } from 'zod';
 import { listQuerySchema } from '../../../shared/utils/pagination';
 import { description, idList, idParams, statusBody } from '../../../shared/validation/common.validation';
 
-const roleCode = z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,63}$/, 'Code must be UPPER_SNAKE_CASE (2–64 chars)');
+const roleCode = z
+  .string()
+  .trim()
+  .regex(/^[A-Z][A-Z0-9_]{1,63}$/, 'Code must be UPPER_SNAKE_CASE (2–64 chars)');
 const roleName = z.string().trim().min(1, 'Required').max(100);
 
 export const listRolesSchema = { query: listQuerySchema(['createdAt', 'name', 'code'] as const) };
 export const roleIdSchema = { params: idParams };
 
 export const createRoleSchema = {
-  body: z.object({
-    name: roleName,
-    code: roleCode,
-    description,
-    isActive: z.boolean().optional(),
-    permissionIds: idList('permissionIds').optional(),
-  }).strict(),
+  body: z
+    .object({
+      name: roleName,
+      code: roleCode,
+      description,
+      isActive: z.boolean().optional(),
+      permissionIds: idList('permissionIds').optional(),
+    })
+    .strict(),
 };
 
 /* The code is immutable once created (it is referenced by clients and seeds). */
 export const updateRoleSchema = {
   params: idParams,
-  body: z.object({ name: roleName.optional(), description })
+  body: z
+    .object({ name: roleName.optional(), description })
     .strict()
     .refine((b) => Object.keys(b).length > 0, 'Provide at least one field to update'),
 };

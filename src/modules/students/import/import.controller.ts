@@ -23,7 +23,11 @@ export const importController = {
   },
 
   reference: (_req: Request, res: Response) => {
-    ApiResponse.ok(res, { ...studentService.reference(), maxFileMb: env.IMPORT_MAX_FILE_MB, maxRows: env.IMPORT_MAX_ROWS }, 'Import reference');
+    ApiResponse.ok(
+      res,
+      { ...studentService.reference(), maxFileMb: env.IMPORT_MAX_FILE_MB, maxRows: env.IMPORT_MAX_ROWS },
+      'Import reference',
+    );
   },
 
   list: asyncHandler(async (req: Request, res: Response) => {
@@ -57,7 +61,11 @@ export const importController = {
 
   accept: asyncHandler(async (req: Request, res: Response) => {
     const p = params<RowParams>(req);
-    ApiResponse.ok(res, await importService.acceptIssues(p.id, p.rowId, body<{ reason: string }>(req).reason, req.auth!, req), 'Issues accepted with reason');
+    ApiResponse.ok(
+      res,
+      await importService.acceptIssues(p.id, p.rowId, body<{ reason: string }>(req).reason, req.auth!, req),
+      'Issues accepted with reason',
+    );
   }),
 
   reject: asyncHandler(async (req: Request, res: Response) => {
@@ -78,7 +86,11 @@ export const importController = {
 
   finalise: asyncHandler(async (req: Request, res: Response) => {
     const batch = await importService.finalise(params<BatchParams>(req).id, body<{ confirmCode: string }>(req).confirmCode, req.auth!, req);
-    ApiResponse.ok(res, toImportBatchDto(batch), `Batch finalised: ${batch.counts.created ?? 0} students created, ${batch.counts.linked ?? 0} linked`);
+    ApiResponse.ok(
+      res,
+      toImportBatchDto(batch),
+      `Batch finalised: ${batch.counts.created ?? 0} students created, ${batch.counts.linked ?? 0} linked`,
+    );
   }),
 
   cancel: asyncHandler(async (req: Request, res: Response) => {

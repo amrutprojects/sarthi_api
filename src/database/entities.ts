@@ -17,4 +17,17 @@ export { AuditLog, ImportBatch, ImportRow, Permission, RevokedToken, Role, RoleM
 export type { AuditOutcome } from '../modules/audit';
 
 /* Explicit entity registration for the DataSource (no glob loading). */
-export const ENTITIES = [User, Role, Permission, UserRole, RolePermission, AuditLog, RevokedToken, RoleMenuVisibility, ImportBatch, ImportRow, Student, IdempotencyKey];
+export const ENTITIES = [
+  User,
+  Role,
+  Permission,
+  UserRole,
+  RolePermission,
+  AuditLog,
+  RevokedToken,
+  RoleMenuVisibility,
+  ImportBatch,
+  ImportRow,
+  Student,
+  IdempotencyKey,
+];

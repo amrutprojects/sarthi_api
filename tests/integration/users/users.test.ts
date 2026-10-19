@@ -1,7 +1,18 @@
 import type { Express } from 'express';
 import { User } from '../../../src/database/entities';
 import {
-  API, AppDataSource, PASSWORD, actorWith, auth, createUser, request, roleId, setupTestApp, superAdmin, teardownTestApp, type TestActor,
+  API,
+  AppDataSource,
+  PASSWORD,
+  actorWith,
+  auth,
+  createUser,
+  request,
+  roleId,
+  setupTestApp,
+  superAdmin,
+  teardownTestApp,
+  type TestActor,
 } from '../../helpers/test-app';
 
 let app: Express;
@@ -13,7 +24,10 @@ beforeAll(async () => {
 afterAll(teardownTestApp);
 
 const newUser = (over: Record<string, unknown> = {}) => ({
-  name: 'Asha Patil', email: `asha.${Date.now()}.${Math.random().toString(36).slice(2, 7)}@test.local`, password: 'Strong-Pass-123', ...over,
+  name: 'Asha Patil',
+  email: `asha.${Date.now()}.${Math.random().toString(36).slice(2, 7)}@test.local`,
+  password: 'Strong-Pass-123',
+  ...over,
 });
 
 describe('user CRUD', () => {
@@ -23,13 +37,20 @@ describe('user CRUD', () => {
     expect(res.status).toBe(201);
     expect(res.body.data).toMatchObject({ name: body.name, email: body.email, isActive: true });
     expect(res.body.data).not.toHaveProperty('passwordHash');
-    const row = await AppDataSource.getRepository(User).createQueryBuilder('u').addSelect('u.passwordHash').where('u.id = :id', { id: res.body.data.id }).getOneOrFail();
+    const row = await AppDataSource.getRepository(User)
+      .createQueryBuilder('u')
+      .addSelect('u.passwordHash')
+      .where('u.id = :id', { id: res.body.data.id })
+      .getOneOrFail();
     expect(row.passwordHash).toMatch(/^\$2[aby]\$/);
     expect(row.passwordHash).not.toContain(body.password);
   });
 
   it('creates a user with roles in one transaction', async () => {
-    const res = await request(app).post(`${API}/users`).set(auth(admin.token)).send(newUser({ roleIds: [await roleId('VIEWER')] }));
+    const res = await request(app)
+      .post(`${API}/users`)
+      .set(auth(admin.token))
+      .send(newUser({ roleIds: [await roleId('VIEWER')] }));
     expect(res.status).toBe(201);
     expect(res.body.data.roles.map((r: { code: string }) => r.code)).toEqual(['VIEWER']);
   });
@@ -44,7 +65,10 @@ describe('user CRUD', () => {
   it('rejects a duplicate email (409), case-insensitively', async () => {
     const body = newUser();
     await request(app).post(`${API}/users`).set(auth(admin.token)).send(body).expect(201);
-    const res = await request(app).post(`${API}/users`).set(auth(admin.token)).send({ ...body, email: body.email.toUpperCase() });
+    const res = await request(app)
+      .post(`${API}/users`)
+      .set(auth(admin.token))
+      .send({ ...body, email: body.email.toUpperCase() });
     expect(res.status).toBe(409);
   });
 
@@ -58,7 +82,10 @@ describe('user CRUD', () => {
   it('lists users with pagination, search and the standard envelope', async () => {
     const marker = `zeta${Date.now()}`;
     for (let i = 0; i < 3; i++) await createUser({ name: `${marker} ${i}` });
-    const res = await request(app).get(`${API}/users`).query({ search: marker, page: 1, limit: 2, sortBy: 'name', sortOrder: 'asc' }).set(auth(admin.token));
+    const res = await request(app)
+      .get(`${API}/users`)
+      .query({ search: marker, page: 1, limit: 2, sortBy: 'name', sortOrder: 'asc' })
+      .set(auth(admin.token));
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ success: true, message: 'Users retrieved successfully' });
     expect(res.body.data).toHaveLength(2);
@@ -81,7 +108,10 @@ describe('user CRUD', () => {
     const u = await createUser();
     const got = await request(app).get(`${API}/users/${u.id}`).set(auth(admin.token));
     expect(got.status).toBe(200);
-    const upd = await request(app).patch(`${API}/users/${u.id}`).set(auth(admin.token)).send({ name: 'Renamed', password: 'New-Password-456' });
+    const upd = await request(app)
+      .patch(`${API}/users/${u.id}`)
+      .set(auth(admin.token))
+      .send({ name: 'Renamed', password: 'New-Password-456' });
     expect(upd.status).toBe(200);
     expect(upd.body.data.name).toBe('Renamed');
     const loginRes = await request(app).post(`${API}/auth/login`).send({ email: u.email, password: 'New-Password-456' });
@@ -95,9 +125,13 @@ describe('user CRUD', () => {
 
   it('deactivates and reactivates a user; an inactive user cannot log in', async () => {
     const u = await createUser();
-    expect((await request(app).patch(`${API}/users/${u.id}/status`).set(auth(admin.token)).send({ isActive: false })).body.data.isActive).toBe(false);
+    expect(
+      (await request(app).patch(`${API}/users/${u.id}/status`).set(auth(admin.token)).send({ isActive: false })).body.data.isActive,
+    ).toBe(false);
     expect((await request(app).post(`${API}/auth/login`).send({ email: u.email, password: PASSWORD })).status).toBe(401);
-    expect((await request(app).patch(`${API}/users/${u.id}/status`).set(auth(admin.token)).send({ isActive: true })).body.data.isActive).toBe(true);
+    expect(
+      (await request(app).patch(`${API}/users/${u.id}/status`).set(auth(admin.token)).send({ isActive: true })).body.data.isActive,
+    ).toBe(true);
     expect((await request(app).post(`${API}/auth/login`).send({ email: u.email, password: PASSWORD })).status).toBe(200);
   });
 });
@@ -117,7 +151,10 @@ describe('user soft delete and restore', () => {
   it('frees the email for a new account', async () => {
     const u = await createUser();
     await request(app).delete(`${API}/users/${u.id}`).set(auth(admin.token)).expect(200);
-    const res = await request(app).post(`${API}/users`).set(auth(admin.token)).send(newUser({ email: u.email }));
+    const res = await request(app)
+      .post(`${API}/users`)
+      .set(auth(admin.token))
+      .send(newUser({ email: u.email }));
     expect(res.status).toBe(201);
   });
 
@@ -130,13 +167,19 @@ describe('user soft delete and restore', () => {
 
     const v = await createUser();
     await request(app).delete(`${API}/users/${v.id}`).set(auth(admin.token)).expect(200);
-    await request(app).post(`${API}/users`).set(auth(admin.token)).send(newUser({ email: v.email })).expect(201);
+    await request(app)
+      .post(`${API}/users`)
+      .set(auth(admin.token))
+      .send(newUser({ email: v.email }))
+      .expect(201);
     expect((await request(app).post(`${API}/users/${v.id}/restore`).set(auth(admin.token))).status).toBe(409);
   });
 
   it('prevents deleting or deactivating yourself', async () => {
     expect((await request(app).delete(`${API}/users/${admin.user.id}`).set(auth(admin.token))).status).toBe(403);
-    expect((await request(app).patch(`${API}/users/${admin.user.id}/status`).set(auth(admin.token)).send({ isActive: false })).status).toBe(403);
+    expect((await request(app).patch(`${API}/users/${admin.user.id}/status`).set(auth(admin.token)).send({ isActive: false })).status).toBe(
+      403,
+    );
   });
 
   it('requires users.delete to delete', async () => {
@@ -147,19 +190,25 @@ describe('user soft delete and restore', () => {
 });
 
 describe('GET /users roles', () => {
-  it('includes each user\'s roles for callers with roles.view, and omits them otherwise', async () => {
+  it("includes each user's roles for callers with roles.view, and omits them otherwise", async () => {
     const { request: req, API: api, auth: au, createUser: cu, login: li } = await import('../../helpers/test-app');
     const admin = await cu({ roleCodes: ['SUPER_ADMIN'] });
     await cu({ roleCodes: ['TRAINER'] });
-    const withRoles = await req(app).get(`${api}/users?limit=100`).set(au(await li(admin.email)));
+    const withRoles = await req(app)
+      .get(`${api}/users?limit=100`)
+      .set(au(await li(admin.email)));
     expect(withRoles.status).toBe(200);
     const trainer = withRoles.body.data.find((u: { roles?: { code: string }[] }) => u.roles?.some((r) => r.code === 'TRAINER'));
     expect(trainer).toBeDefined();
 
     const limited = await cu({ roleCodes: [] });
     const role = await (await import('../../helpers/test-app')).createRoleWith(['users.view']);
-    await (await import('../../../src/config/database.config')).AppDataSource.query('INSERT INTO "user_roles" ("userId","roleId") VALUES ($1,$2)', [limited.id, role.id]);
-    const without = await req(app).get(`${api}/users?limit=100`).set(au(await li(limited.email)));
+    await (
+      await import('../../../src/config/database.config')
+    ).AppDataSource.query('INSERT INTO "user_roles" ("userId","roleId") VALUES ($1,$2)', [limited.id, role.id]);
+    const without = await req(app)
+      .get(`${api}/users?limit=100`)
+      .set(au(await li(limited.email)));
     expect(without.status).toBe(200);
     expect(without.body.data[0].roles).toBeUndefined();
   });

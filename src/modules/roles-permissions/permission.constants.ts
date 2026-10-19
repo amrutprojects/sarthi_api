@@ -68,12 +68,13 @@ const def = (code: string, name: string, description: string): PermissionDefinit
 });
 
 export const MENU_PERMISSIONS: PermissionDefinition[] = (Object.keys(MENUS) as MenuKey[]).flatMap((menu) =>
-  MENU_ACTIONS.map((action) => def(`${menu}.${action}`, `${ACTION_LABEL[action]} ${MENUS[menu]}`, `${ACTION_LABEL[action]} in the ${MENUS[menu]} menu`)));
+  MENU_ACTIONS.map((action) =>
+    def(`${menu}.${action}`, `${ACTION_LABEL[action]} ${MENUS[menu]}`, `${ACTION_LABEL[action]} in the ${MENUS[menu]} menu`),
+  ),
+);
 
 /* Extra codes beyond the five standard actions. */
-const EXTRA_PERMISSIONS: PermissionDefinition[] = [
-  def('reports.export', 'Export reports', 'Export reports and the MIS pack'),
-];
+const EXTRA_PERMISSIONS: PermissionDefinition[] = [def('reports.export', 'Export reports', 'Export reports and the MIS pack')];
 
 export const PERMISSIONS = {
   /* Identity & access */

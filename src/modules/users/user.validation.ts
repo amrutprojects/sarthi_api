@@ -9,18 +9,21 @@ export const listUsersSchema = {
 export const userIdSchema = { params: idParams };
 
 export const createUserSchema = {
-  body: z.object({
-    name,
-    email,
-    password,
-    isActive: z.boolean().optional(),
-    roleIds: idList('roleIds').optional(),
-  }).strict(),
+  body: z
+    .object({
+      name,
+      email,
+      password,
+      isActive: z.boolean().optional(),
+      roleIds: idList('roleIds').optional(),
+    })
+    .strict(),
 };
 
 export const updateUserSchema = {
   params: idParams,
-  body: z.object({ name: name.optional(), email: email.optional(), password: password.optional() })
+  body: z
+    .object({ name: name.optional(), email: email.optional(), password: password.optional() })
     .strict()
     .refine((b) => Object.keys(b).length > 0, 'Provide at least one field to update'),
 };

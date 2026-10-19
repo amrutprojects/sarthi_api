@@ -39,7 +39,11 @@ describe('Idempotency-Key', () => {
   it('keys are per user', async () => {
     const otherToken = await login((await createUser({ roleCodes: ['SUPER_ADMIN'] })).email);
     await createRole('shared-key-0001', { name: 'Mine', code: 'MINE_ROLE' });
-    const theirs = await request(app).post(`${API}/roles`).set(auth(otherToken)).set('Idempotency-Key', 'shared-key-0001').send({ name: 'Theirs', code: 'THEIRS_ROLE' });
+    const theirs = await request(app)
+      .post(`${API}/roles`)
+      .set(auth(otherToken))
+      .set('Idempotency-Key', 'shared-key-0001')
+      .send({ name: 'Theirs', code: 'THEIRS_ROLE' });
     expect(theirs.status).toBe(201);
     expect(theirs.headers['idempotent-replayed']).toBeUndefined();
   });

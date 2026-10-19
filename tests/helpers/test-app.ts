@@ -57,12 +57,14 @@ export interface TestActor {
 export async function createUser(opts: { roleCodes?: string[]; isActive?: boolean; password?: string; name?: string } = {}): Promise<User> {
   counter++;
   const users = AppDataSource.getRepository(User);
-  const user = await users.save(users.create({
-    name: opts.name ?? `Test User ${counter}`,
-    email: `user${counter}.${Date.now()}@test.local`,
-    passwordHash: await hash(opts.password ?? PASSWORD),
-    isActive: opts.isActive ?? true,
-  }));
+  const user = await users.save(
+    users.create({
+      name: opts.name ?? `Test User ${counter}`,
+      email: `user${counter}.${Date.now()}@test.local`,
+      passwordHash: await hash(opts.password ?? PASSWORD),
+      isActive: opts.isActive ?? true,
+    }),
+  );
   if (opts.roleCodes?.length) {
     const roles = await AppDataSource.getRepository(Role).find({ where: { code: In(opts.roleCodes), isDelete: false } });
     await AppDataSource.getRepository(UserRole).insert(roles.map((r) => ({ userId: user.id, roleId: r.id })));

@@ -23,19 +23,28 @@ export class AuditLogRepository {
   async insert(entry: AuditEntryInput, manager?: EntityManager): Promise<void> {
     const repo = this.repo(manager);
     /* save() of a new entity is always an INSERT (the table is append-only). */
-    await repo.save(repo.create({
-      actorUserId: entry.actorUserId ?? null,
-      action: entry.action,
-      resource: entry.resource,
-      resourceId: entry.resourceId ?? null,
-      requestId: entry.requestId ?? null,
-      outcome: entry.outcome,
-      ipAddress: entry.ipAddress ?? null,
-      details: entry.details ?? null,
-    }));
+    await repo.save(
+      repo.create({
+        actorUserId: entry.actorUserId ?? null,
+        action: entry.action,
+        resource: entry.resource,
+        resourceId: entry.resourceId ?? null,
+        requestId: entry.requestId ?? null,
+        outcome: entry.outcome,
+        ipAddress: entry.ipAddress ?? null,
+        details: entry.details ?? null,
+      }),
+    );
   }
 
-  async list(q: { page: number; limit: number; action?: string; actorUserId?: string; resource?: string; resourceId?: string }): Promise<Paginated<AuditLog>> {
+  async list(q: {
+    page: number;
+    limit: number;
+    action?: string;
+    actorUserId?: string;
+    resource?: string;
+    resourceId?: string;
+  }): Promise<Paginated<AuditLog>> {
     const qb = this.repo().createQueryBuilder('a');
     if (q.action) qb.andWhere('a.action = :action', { action: q.action });
     if (q.actorUserId) qb.andWhere('a.actorUserId = :actor', { actor: q.actorUserId });

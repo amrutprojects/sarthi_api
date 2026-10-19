@@ -69,7 +69,9 @@ export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
       let role = await roleRepo.findOne({ where: { code: def.code, isDelete: false } });
       const created = !role;
       if (!role) {
-        role = await roleRepo.save(roleRepo.create({ code: def.code, name: def.name, description: def.description, isSystem: def.isSystem }));
+        role = await roleRepo.save(
+          roleRepo.create({ code: def.code, name: def.name, description: def.description, isSystem: def.isSystem }),
+        );
         summary.rolesCreated++;
       }
       if (!created && def.permissions !== 'ALL') continue;

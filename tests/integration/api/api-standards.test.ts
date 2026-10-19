@@ -2,7 +2,9 @@ import type { Express } from 'express';
 import { API, request, setupTestApp, teardownTestApp } from '../../helpers/test-app';
 
 let app: Express;
-beforeAll(async () => { app = await setupTestApp(); });
+beforeAll(async () => {
+  app = await setupTestApp();
+});
 afterAll(teardownTestApp);
 
 describe('API standards', () => {
@@ -44,9 +46,15 @@ describe('API standards', () => {
   });
 
   it('allows configured CORS origins only', async () => {
-    const ok = await request(app).options(`${API}/health`).set('Origin', 'http://localhost:5174').set('Access-Control-Request-Method', 'GET');
+    const ok = await request(app)
+      .options(`${API}/health`)
+      .set('Origin', 'http://localhost:5174')
+      .set('Access-Control-Request-Method', 'GET');
     expect(ok.headers['access-control-allow-origin']).toBe('http://localhost:5174');
-    const bad = await request(app).options(`${API}/health`).set('Origin', 'https://evil.example').set('Access-Control-Request-Method', 'GET');
+    const bad = await request(app)
+      .options(`${API}/health`)
+      .set('Origin', 'https://evil.example')
+      .set('Access-Control-Request-Method', 'GET');
     expect(bad.headers['access-control-allow-origin']).toBeUndefined();
   });
 

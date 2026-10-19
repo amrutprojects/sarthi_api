@@ -18,7 +18,8 @@ export function openApiDocument() {
     info: {
       title: 'AMRUT × SUMAGO Admin API',
       version: '1.0.0',
-      description: 'REST API of the admin panel. Responses use the envelope { success, message, data, meta? } or { success: false, message, error: { code, details?, requestId } }.',
+      description:
+        'REST API of the admin panel. Responses use the envelope { success, message, data, meta? } or { success: false, message, error: { code, details?, requestId } }.',
     },
     servers: [{ url: '/' }],
   });

@@ -77,7 +77,9 @@ export class InitialSchema1792000000000 implements MigrationInterface {
         CONSTRAINT "FK_role_permissions_permission" FOREIGN KEY ("permissionId") REFERENCES "permissions"("id") ON DELETE RESTRICT,
         CONSTRAINT "FK_role_permissions_assignedBy" FOREIGN KEY ("assignedById") REFERENCES "users"("id")       ON DELETE SET NULL
       )`);
-    await q.query(`CREATE UNIQUE INDEX "UQ_role_permissions_active" ON "role_permissions" ("roleId", "permissionId") WHERE "isDelete" = false`);
+    await q.query(
+      `CREATE UNIQUE INDEX "UQ_role_permissions_active" ON "role_permissions" ("roleId", "permissionId") WHERE "isDelete" = false`,
+    );
     await q.query(`CREATE INDEX "IDX_role_permissions_permissionId" ON "role_permissions" ("permissionId")`);
 
     await q.query(`
@@ -130,7 +132,9 @@ export class InitialSchema1792000000000 implements MigrationInterface {
         RAISE EXCEPTION 'audit_logs is append-only';
       END;
       $$ LANGUAGE plpgsql`);
-    await q.query(`CREATE TRIGGER "TRG_audit_logs_immutable" BEFORE UPDATE OR DELETE ON "audit_logs" FOR EACH ROW EXECUTE FUNCTION "audit_logs_immutable"()`);
+    await q.query(
+      `CREATE TRIGGER "TRG_audit_logs_immutable" BEFORE UPDATE OR DELETE ON "audit_logs" FOR EACH ROW EXECUTE FUNCTION "audit_logs_immutable"()`,
+    );
   }
 
   public async down(q: QueryRunner): Promise<void> {

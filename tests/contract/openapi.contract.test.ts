@@ -8,10 +8,16 @@ import { PermissionDto, RoleDto } from '../../src/modules/roles-permissions/role
 import { API, auth, createUser, login, request, setupTestApp, superAdmin, teardownTestApp } from '../helpers/test-app';
 
 let app: Express;
-beforeAll(async () => { app = await setupTestApp(); });
+beforeAll(async () => {
+  app = await setupTestApp();
+});
 afterAll(teardownTestApp);
 
-interface Layer { route?: { path: string; methods: Record<string, boolean> }; regexp: RegExp; handle: Router & { stack?: Layer[] } }
+interface Layer {
+  route?: { path: string; methods: Record<string, boolean> };
+  regexp: RegExp;
+  handle: Router & { stack?: Layer[] };
+}
 
 /* Every route registered on the Express API router, as "METHOD /path". */
 function expressRoutes(): string[] {
@@ -20,7 +26,8 @@ function expressRoutes(): string[] {
     const mount = layer.regexp.source.replace('^\\', '').replace('\\/?(?=\\/|$)', '').replace(/\\\//g, '/');
     for (const inner of layer.handle.stack ?? []) {
       if (!inner.route) continue;
-      for (const m of Object.keys(inner.route.methods)) out.push(`${m.toUpperCase()} /${mount}${inner.route.path === '/' ? '' : inner.route.path}`.replace('//', '/'));
+      for (const m of Object.keys(inner.route.methods))
+        out.push(`${m.toUpperCase()} /${mount}${inner.route.path === '/' ? '' : inner.route.path}`.replace('//', '/'));
     }
   }
   return out.sort();
@@ -52,11 +59,17 @@ describe('OpenAPI contract', () => {
 
   it('users endpoints return exactly the documented DTOs', async () => {
     const admin = await superAdmin();
-    const created = await request(app).post(`${API}/users`).set(auth(admin.token)).send({ name: 'Contract User', email: 'contract@test.local', password: 'Contract-Pass-1' });
+    const created = await request(app)
+      .post(`${API}/users`)
+      .set(auth(admin.token))
+      .send({ name: 'Contract User', email: 'contract@test.local', password: 'Contract-Pass-1' });
     check(envelope(UserDto), created.body);
     check(pagedEnvelope(UserDto), (await request(app).get(`${API}/users`).set(auth(admin.token))).body);
     check(envelope(UserDto), (await request(app).get(`${API}/users/${created.body.data.id}`).set(auth(admin.token))).body);
-    check(envelope(z.array(RoleRefDto)), (await request(app).get(`${API}/users/${created.body.data.id}/roles`).set(auth(admin.token))).body);
+    check(
+      envelope(z.array(RoleRefDto)),
+      (await request(app).get(`${API}/users/${created.body.data.id}/roles`).set(auth(admin.token))).body,
+    );
   });
 
   it('roles and permissions endpoints return the documented DTOs', async () => {
@@ -67,7 +80,10 @@ describe('OpenAPI contract', () => {
 
   it('errors use the documented error envelope', async () => {
     const viewer = await createUser({ roleCodes: ['VIEWER'] });
-    const res = await request(app).post(`${API}/users`).set(auth(await login(viewer.email))).send({});
+    const res = await request(app)
+      .post(`${API}/users`)
+      .set(auth(await login(viewer.email)))
+      .send({});
     expect(res.status).toBe(403);
     expect(res.body).toEqual({ success: false, message: expect.any(String), error: { code: 'FORBIDDEN', requestId: expect.any(String) } });
   });

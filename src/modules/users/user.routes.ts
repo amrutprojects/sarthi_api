@@ -6,7 +6,12 @@ import { authenticate } from '../../middleware/authenticate.middleware';
 import { authorizePermission } from '../../middleware/authorize-permission.middleware';
 import { validateRequest } from '../../middleware/validate-request.middleware';
 import {
-  createUserSchema, listUsersSchema, replaceUserRolesSchema, updateUserSchema, userIdSchema, userStatusSchema,
+  createUserSchema,
+  listUsersSchema,
+  replaceUserRolesSchema,
+  updateUserSchema,
+  userIdSchema,
+  userStatusSchema,
 } from './user.validation';
 
 export const userRouter = Router();
@@ -22,4 +27,9 @@ userRouter.patch('/:id/status', authorizePermission(P.USERS_UPDATE), validateReq
 userRouter.delete('/:id', authorizePermission(P.USERS_DELETE), validateRequest(userIdSchema), userController.remove);
 userRouter.post('/:id/restore', authorizePermission(P.USERS_RESTORE), validateRequest(userIdSchema), userController.restore);
 userRouter.get('/:id/roles', authorizePermission([P.USERS_VIEW, P.ROLES_VIEW]), validateRequest(userIdSchema), userController.getRoles);
-userRouter.put('/:id/roles', authorizePermission(P.USERS_ASSIGN_ROLES), validateRequest(replaceUserRolesSchema), userController.replaceRoles);
+userRouter.put(
+  '/:id/roles',
+  authorizePermission(P.USERS_ASSIGN_ROLES),
+  validateRequest(replaceUserRolesSchema),
+  userController.replaceRoles,
+);

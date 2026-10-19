@@ -6,7 +6,9 @@ import { decryptAadhaar, verhoeffValid, withVerhoeffDigit } from '../../src/modu
 import { API, auth, createUser, login, request, resetData, setupTestApp, teardownTestApp } from '../helpers/test-app';
 
 let app: Express;
-beforeAll(async () => { app = await setupTestApp(); });
+beforeAll(async () => {
+  app = await setupTestApp();
+});
 beforeEach(resetData);
 afterAll(teardownTestApp);
 
@@ -18,11 +20,23 @@ function record(over: Record<string, string> = {}): Record<string, string> {
   const n = ++seq;
   const letters = n.toString(26).replace(/\d/g, (d) => 'abcdefghij'[+d]);
   const v: Record<string, string> = {
-    source_record_id: `MA-T-${n}`, first_name: 'Asha', last_name: `Tester${letters}`, father_name: 'Ramesh', mother_name: 'Sunita',
-    email: `asha${n}@example.invalid`, date_of_birth: '2003-04-12', current_address: 'Flat 0, Test Lane',
-    aadhaar_number: aadhaar(), mobile_number: `+91 98${String(10000000 + n).slice(-8)}`, religion: 'हिंदू', caste: 'मराठी',
-    course_centre: 'Pune', technology: 'Cyber Security', education_qualification: 'Graduate',
-    approval_status: 'APPROVED', approved_at: '2026-01-10T06:30:00Z',
+    source_record_id: `MA-T-${n}`,
+    first_name: 'Asha',
+    last_name: `Tester${letters}`,
+    father_name: 'Ramesh',
+    mother_name: 'Sunita',
+    email: `asha${n}@example.invalid`,
+    date_of_birth: '2003-04-12',
+    current_address: 'Flat 0, Test Lane',
+    aadhaar_number: aadhaar(),
+    mobile_number: `+91 98${String(10000000 + n).slice(-8)}`,
+    religion: 'हिंदू',
+    caste: 'मराठी',
+    course_centre: 'Pune',
+    technology: 'Cyber Security',
+    education_qualification: 'Graduate',
+    approval_status: 'APPROVED',
+    approved_at: '2026-01-10T06:30:00Z',
   };
   for (const f of HEADER.filter((h) => h.startsWith('doc_') && !h.endsWith('_barcode'))) v[f] = 'Yes';
   v.doc_income_ews_barcode = 'BC-1';
@@ -40,7 +54,11 @@ async function people() {
   return { op: await login(operator.email), rv: await login(reviewer.email) };
 }
 const rowsOf = async (token: string, batchId: string, status?: string) =>
-  (await request(app).get(`${API}/imports/${batchId}/rows${status ? `?status=${status}` : ''}`).set(auth(token))).body.data;
+  (
+    await request(app)
+      .get(`${API}/imports/${batchId}/rows${status ? `?status=${status}` : ''}`)
+      .set(auth(token))
+  ).body.data;
 
 describe('Verhoeff', () => {
   it('accepts generated numbers and rejects a changed digit', () => {
@@ -65,7 +83,9 @@ describe('student import', () => {
     expect(JSON.stringify(rows)).not.toContain(recs[0].aadhaar_number);
 
     /* The uploader cannot finalise; a wrong code is refused. */
-    expect((await request(app).post(`${API}/imports/${batch.id}/finalise`).set(auth(op)).send({ confirmCode: batch.code })).status).toBe(403);
+    expect((await request(app).post(`${API}/imports/${batch.id}/finalise`).set(auth(op)).send({ confirmCode: batch.code })).status).toBe(
+      403,
+    );
     expect((await request(app).post(`${API}/imports/${batch.id}/finalise`).set(auth(rv)).send({ confirmCode: 'WRONG' })).status).toBe(400);
     const fin = await request(app).post(`${API}/imports/${batch.id}/finalise`).set(auth(rv)).send({ confirmCode: batch.code });
     expect(fin.status).toBe(200);
@@ -97,7 +117,13 @@ describe('student import', () => {
 
   it('fails the batch when a required column is missing', async () => {
     const { op } = await people();
-    const res = await uploadAs(op, csv([record()], HEADER.filter((h) => h !== 'aadhaar_number')));
+    const res = await uploadAs(
+      op,
+      csv(
+        [record()],
+        HEADER.filter((h) => h !== 'aadhaar_number'),
+      ),
+    );
     expect(res.body.data.status).toBe('IMPORT_FAILED');
     expect(res.body.data.failureReason).toMatch(/Aadhaar Number/);
   });
@@ -114,8 +140,13 @@ describe('student import', () => {
 
     const base = `${API}/imports/${up.body.data.id}/rows`;
     expect((await request(app).post(`${base}/${rBad.id}/accept`).set(auth(op)).send({ reason: 'looks fine' })).status).toBe(400);
-    expect((await request(app).post(`${base}/${rBad.id}/reject`).set(auth(op)).send({ reason: 'Invalid identity at source' })).status).toBe(200);
-    const acc = await request(app).post(`${base}/${rTrack.id}/accept`).set(auth(op)).send({ reason: 'Track to be confirmed after Module 1' });
+    expect((await request(app).post(`${base}/${rBad.id}/reject`).set(auth(op)).send({ reason: 'Invalid identity at source' })).status).toBe(
+      200,
+    );
+    const acc = await request(app)
+      .post(`${base}/${rTrack.id}/accept`)
+      .set(auth(op))
+      .send({ reason: 'Track to be confirmed after Module 1' });
     expect(acc.body.data.status).toBe('VALID');
 
     const batch = (await request(app).get(`${API}/imports/${up.body.data.id}`).set(auth(op))).body.data;
@@ -132,7 +163,10 @@ describe('student import', () => {
     const up1 = await uploadAs(op, csv([r1, { ...record(), aadhaar_number: r1.aadhaar_number }]));
     const [, dupRow] = await rowsOf(op, up1.body.data.id);
     expect(dupRow.issues[0].code).toBe('DUPLICATE_IN_FILE');
-    await request(app).post(`${API}/imports/${up1.body.data.id}/rows/${dupRow.id}/reject`).set(auth(op)).send({ reason: 'Duplicate in file' });
+    await request(app)
+      .post(`${API}/imports/${up1.body.data.id}/rows/${dupRow.id}/reject`)
+      .set(auth(op))
+      .send({ reason: 'Duplicate in file' });
     await request(app).post(`${API}/imports/${up1.body.data.id}/finalise`).set(auth(rv)).send({ confirmCode: up1.body.data.code });
 
     /* Same Aadhaar, new source ID → Tier 1 possible duplicate. */
@@ -140,20 +174,30 @@ describe('student import', () => {
     const [m] = await rowsOf(op, up2.body.data.id);
     expect(m.status).toBe('POSSIBLE_DUPLICATE');
     expect(m.match.tier).toBe('T1');
-    const dec = await request(app).post(`${API}/imports/${up2.body.data.id}/rows/${m.id}/decide`).set(auth(rv)).send({ decision: 'SAME_PERSON', reason: 'Same person, new application ID' });
+    const dec = await request(app)
+      .post(`${API}/imports/${up2.body.data.id}/rows/${m.id}/decide`)
+      .set(auth(rv))
+      .send({ decision: 'SAME_PERSON', reason: 'Same person, new application ID' });
     expect(dec.body.data.status).toBe('VALID');
-    const fin = await request(app).post(`${API}/imports/${up2.body.data.id}/finalise`).set(auth(rv)).send({ confirmCode: up2.body.data.code });
+    const fin = await request(app)
+      .post(`${API}/imports/${up2.body.data.id}/finalise`)
+      .set(auth(rv))
+      .send({ confirmCode: up2.body.data.code });
     expect(fin.body.data.counts).toMatchObject({ created: 0, linked: 1 });
     expect((await request(app).get(`${API}/students`).set(auth(op))).body.meta.total).toBe(1);
   });
 
   it('serves a template that imports cleanly as it is (BOM, synthetic valid values)', async () => {
     const { op } = await people();
-    const tpl = await request(app).get(`${API}/imports/template.csv`).set(auth(op)).buffer(true).parse((res, cb) => {
-      const chunks: Buffer[] = [];
-      res.on('data', (c: Buffer) => chunks.push(c));
-      res.on('end', () => cb(null, Buffer.concat(chunks)));
-    });
+    const tpl = await request(app)
+      .get(`${API}/imports/template.csv`)
+      .set(auth(op))
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
     expect(tpl.status).toBe(200);
     const file = tpl.body as Buffer;
     expect(file.subarray(0, 3).toString('hex')).toBe('efbbbf');
@@ -165,6 +209,12 @@ describe('student import', () => {
     const viewer = await createUser({ roleCodes: ['VIEWER'] });
     const res = await uploadAs(await login(viewer.email), csv([record()]));
     expect(res.status).toBe(403);
-    expect((await request(app).get(`${API}/students`).set(auth(await login(viewer.email)))).status).toBe(403);
+    expect(
+      (
+        await request(app)
+          .get(`${API}/students`)
+          .set(auth(await login(viewer.email)))
+      ).status,
+    ).toBe(403);
   });
 });

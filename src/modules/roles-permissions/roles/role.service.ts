@@ -24,12 +24,27 @@ export interface PublicRoleDetail {
 }
 
 const toPublic = (r: Role): PublicRoleDetail => ({
-  id: r.id, name: r.name, code: r.code, description: r.description, isSystem: r.isSystem,
-  isActive: r.isActive, createdAt: r.createdAt, updatedAt: r.updatedAt,
+  id: r.id,
+  name: r.name,
+  code: r.code,
+  description: r.description,
+  isSystem: r.isSystem,
+  isActive: r.isActive,
+  createdAt: r.createdAt,
+  updatedAt: r.updatedAt,
 });
 
-export interface CreateRoleInput { name: string; code: string; description?: string | null; isActive?: boolean; permissionIds?: string[] }
-export interface UpdateRoleInput { name?: string; description?: string | null }
+export interface CreateRoleInput {
+  name: string;
+  code: string;
+  description?: string | null;
+  isActive?: boolean;
+  permissionIds?: string[];
+}
+export interface UpdateRoleInput {
+  name?: string;
+  description?: string | null;
+}
 
 export class RoleService {
   async list(q: ListQuery<RoleSortField>): Promise<Paginated<PublicRoleDetail>> {
@@ -53,18 +68,28 @@ export class RoleService {
   async create(input: CreateRoleInput, actor: AuthUser, req?: Request): Promise<PublicRoleDetail> {
     const id = await AppDataSource.transaction(async (m) => {
       if (await roleRepository.findByCode(input.code, m)) throw AppError.conflict('A role with this code already exists');
-      const role = await roleRepository.create({
-        name: input.name, code: input.code, description: input.description ?? null, isActive: input.isActive ?? true, isSystem: false,
-      }, m);
+      const role = await roleRepository.create(
+        {
+          name: input.name,
+          code: input.code,
+          description: input.description ?? null,
+          isActive: input.isActive ?? true,
+          isSystem: false,
+        },
+        m,
+      );
       if (input.permissionIds?.length) {
         if (!actor.permissions.has('permissions.assign')) throw AppError.forbidden('You need permissions.assign to grant permissions');
         const perms = await permissionRepository.findUsableByIds([...new Set(input.permissionIds)], m);
-        if (perms.length !== new Set(input.permissionIds).size) throw AppError.badRequest('Some permissions do not exist, are deleted or are inactive');
+        if (perms.length !== new Set(input.permissionIds).size)
+          throw AppError.badRequest('Some permissions do not exist, are deleted or are inactive');
         rbacService.assertCanGrantPermissions(actor, perms);
         await m.getRepository(RolePermission).insert(perms.map((p) => ({ roleId: role.id, permissionId: p.id, assignedById: actor.id })));
       }
       await auditService.recordInTx(m, req, {
-        action: AUDIT_ACTIONS.ROLE_CREATE, resource: 'role', resourceId: role.id,
+        action: AUDIT_ACTIONS.ROLE_CREATE,
+        resource: 'role',
+        resourceId: role.id,
         details: { code: role.code, permissionIds: input.permissionIds ?? [] },
       });
       return role.id;
@@ -78,7 +103,12 @@ export class RoleService {
       const role = await roleRepository.findById(id, { manager: m });
       if (!role) throw AppError.notFound('Role not found');
       await roleRepository.update(id, { ...input }, m);
-      await auditService.recordInTx(m, req, { action: AUDIT_ACTIONS.ROLE_UPDATE, resource: 'role', resourceId: id, details: { fields: Object.keys(input) } });
+      await auditService.recordInTx(m, req, {
+        action: AUDIT_ACTIONS.ROLE_UPDATE,
+        resource: 'role',
+        resourceId: id,
+        details: { fields: Object.keys(input) },
+      });
     });
     return this.get(id);
   }
@@ -104,7 +134,12 @@ export class RoleService {
       if (role.isSystem) throw new AppError(403, 'System roles cannot be deleted', 'PROTECTED_ROLE');
       const holders = await roleRepository.countActiveHolders(id, m);
       await roleRepository.softDelete(id, m);
-      await auditService.recordInTx(m, req, { action: AUDIT_ACTIONS.ROLE_DELETE, resource: 'role', resourceId: id, details: { code: role.code, holders } });
+      await auditService.recordInTx(m, req, {
+        action: AUDIT_ACTIONS.ROLE_DELETE,
+        resource: 'role',
+        resourceId: id,
+        details: { code: role.code, holders },
+      });
     });
     rbacService.invalidate();
   }
@@ -140,7 +175,10 @@ export class RoleService {
       const perms = await permissionRepository.findUsableByIds(wanted, m);
       if (perms.length !== wanted.length) {
         const found = new Set(perms.map((p) => p.id));
-        throw AppError.badRequest('Some permissions do not exist, are deleted or are inactive', wanted.filter((p) => !found.has(p)).map((p) => ({ field: 'permissionIds', message: p })));
+        throw AppError.badRequest(
+          'Some permissions do not exist, are deleted or are inactive',
+          wanted.filter((p) => !found.has(p)).map((p) => ({ field: 'permissionIds', message: p })),
+        );
       }
 
       const current = await roleRepository.findRolePermissionGrants(id, m);
@@ -150,10 +188,16 @@ export class RoleService {
       rbacService.assertCanGrantPermissions(actor, [...toAdd, ...toRemove.map((g) => g.permission).filter((p) => p && !p.isDelete)]);
 
       const repo = m.getRepository(RolePermission);
-      if (toRemove.length) await repo.update(toRemove.map((g) => g.id), { isDelete: true, isActive: false });
+      if (toRemove.length)
+        await repo.update(
+          toRemove.map((g) => g.id),
+          { isDelete: true, isActive: false },
+        );
       if (toAdd.length) await repo.insert(toAdd.map((p) => ({ roleId: id, permissionId: p.id, assignedById: actor.id })));
       await auditService.recordInTx(m, req, {
-        action: AUDIT_ACTIONS.ROLE_PERMISSIONS_REPLACE, resource: 'role', resourceId: id,
+        action: AUDIT_ACTIONS.ROLE_PERMISSIONS_REPLACE,
+        resource: 'role',
+        resourceId: id,
         details: { code: role.code, added: toAdd.map((p) => p.code), removed: toRemove.map((g) => g.permission?.code ?? g.permissionId) },
       });
     });

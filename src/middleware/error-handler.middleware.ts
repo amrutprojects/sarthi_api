@@ -5,7 +5,10 @@ import { PG_ERROR } from '../shared/constants/app.constants';
 import { ApiResponse } from '../shared/http/api-response';
 import { AppError } from '../shared/errors/app-error';
 
-interface PgDriverError { code?: string; constraint?: string }
+interface PgDriverError {
+  code?: string;
+  constraint?: string;
+}
 
 /*
  * Central error handler. AppErrors map to their status; known PostgreSQL errors map to 4xx;

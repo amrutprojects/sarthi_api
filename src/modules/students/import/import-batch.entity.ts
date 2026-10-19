@@ -2,8 +2,15 @@ import { Column, Entity, Index } from 'typeorm';
 import { AppBaseEntity } from '../../../database/base.entity';
 
 export interface ImportBatchCounts {
-  total: number; valid: number; exceptions: number; duplicates: number; skipped: number; rejected: number; reconciled: number;
-  created?: number; linked?: number;
+  total: number;
+  valid: number;
+  exceptions: number;
+  duplicates: number;
+  skipped: number;
+  rejected: number;
+  reconciled: number;
+  created?: number;
+  linked?: number;
 }
 
 /* One received file (A-11/A-12). The raw file is not kept; its SHA-256 prevents a second batch from the same file. */

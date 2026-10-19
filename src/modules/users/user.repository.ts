@@ -29,13 +29,24 @@ export class UserRepository extends BaseRepository<User> {
     if (q.isActive !== undefined) qb.andWhere('u.isActive = :isActive', { isActive: q.isActive });
     if (q.roleId) {
       qb.andWhere((sub) => {
-        const s = sub.subQuery().select('1').from(UserRole, 'ur')
-          .where('ur.userId = u.id').andWhere('ur.roleId = :roleId').andWhere('ur.isDelete = false').getQuery();
+        const s = sub
+          .subQuery()
+          .select('1')
+          .from(UserRole, 'ur')
+          .where('ur.userId = u.id')
+          .andWhere('ur.roleId = :roleId')
+          .andWhere('ur.isDelete = false')
+          .getQuery();
         return `EXISTS ${s}`;
       }).setParameter('roleId', q.roleId);
     }
     const { skip, take } = toSkipTake(q);
-    const [items, total] = await qb.orderBy(`u.${q.sortBy}`, q.sortOrder, 'NULLS LAST').addOrderBy('u.id').skip(skip).take(take).getManyAndCount();
+    const [items, total] = await qb
+      .orderBy(`u.${q.sortBy}`, q.sortOrder, 'NULLS LAST')
+      .addOrderBy('u.id')
+      .skip(skip)
+      .take(take)
+      .getManyAndCount();
     return { items, meta: buildMeta(q, total) };
   }
 }
