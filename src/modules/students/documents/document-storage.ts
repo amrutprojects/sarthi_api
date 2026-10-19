@@ -12,7 +12,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { env } from '../../../config/env.config';
+import { backendRoot, env } from '../../../config/env.config';
 
 /*
  * Private file storage for student documents (spec SEC: private storage, access only through the API).
@@ -23,7 +23,6 @@ import { env } from '../../../config/env.config';
  * STORAGE_DRIVER=local keeps files under STORAGE_DIR (every key is resolved and checked to stay inside it);
  * STORAGE_DRIVER=s3 keeps them in the private bucket AWS_BUCKET_NAME, under AWS_KEY_PREFIX, encrypted at rest (SSE-S3).
  */
-const backendRoot = path.resolve(__dirname, '../../../..');
 export const storageRoot = () => path.resolve(backendRoot, env.STORAGE_DIR);
 
 /* Folder and file names: letters, digits, '.', '_' and '-' only (source IDs are sanitised the same way). */

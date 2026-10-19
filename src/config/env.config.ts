@@ -8,8 +8,12 @@ import { z } from 'zod';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'development';
 
-/* .env.test is used for the test run; .env for everything else. Real environments set variables directly. */
-dotenv.config({ path: path.resolve(__dirname, '../..', NODE_ENV === 'test' ? '.env.test' : '.env') });
+/*
+ * The backend folder, whether this file runs from src/config (ts-node) or from the build in dist/src/config
+ * (production commands). .env.test is used for the test run; .env for everything else.
+ */
+export const backendRoot = path.resolve(__dirname, '../..', path.basename(path.resolve(__dirname, '../..')) === 'dist' ? '..' : '');
+dotenv.config({ path: path.join(backendRoot, NODE_ENV === 'test' ? '.env.test' : '.env') });
 
 const bool = z
   .enum(['true', 'false'])
