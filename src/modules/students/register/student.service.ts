@@ -1,4 +1,5 @@
 import { AppDataSource } from '../../../config/database.config';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import { CENTRES, DOCUMENTS, IMPORT_COLUMNS, TRACKS } from '../student.constants';
 import { Student } from './student.entity';
 import { AppError } from '../../../shared/errors/app-error';
@@ -83,7 +84,7 @@ export class StudentService {
 
   async get(id: string) {
     const s = await this.repo().findOne({ where: { id, isDelete: false } });
-    if (!s) throw AppError.notFound('Student not found');
+    if (!s) throw AppError.notFound(MESSAGES.notFound('Student'));
     return publicStudent(s, true);
   }
 

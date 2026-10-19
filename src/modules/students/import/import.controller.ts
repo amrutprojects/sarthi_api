@@ -1,8 +1,9 @@
 import type { Request, Response } from 'express';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import { env } from '../../../config/env.config';
 import { body, params, query } from '../../../middleware/validate-request.middleware';
 import { AppError } from '../../../shared/errors/app-error';
-import { ApiResponse } from '../../../shared/http/api-response';
+import { ApiResponse } from '../../../utils/api-response';
 import { asyncHandler } from '../../../shared/http/async-handler';
 import { buildMeta } from '../../../shared/utils/pagination';
 import { sampleDocumentsZip, templateXlsx } from '../register/import-template';
@@ -43,14 +44,14 @@ export const importController = {
     ApiResponse.ok(
       res,
       { ...studentService.reference(), maxFileMb: env.IMPORT_MAX_FILE_MB, maxRows: env.IMPORT_MAX_ROWS },
-      'Import reference',
+      MESSAGES.retrieved('Import reference'),
     );
   },
 
   list: asyncHandler(async (req: Request, res: Response) => {
     const q = query<ListBatchesQuery>(req);
     const { items, total } = await importService.listBatches(q);
-    ApiResponse.ok(res, items.map(toImportBatchDto), 'Import batches', buildMeta(q, total));
+    ApiResponse.ok(res, items.map(toImportBatchDto), MESSAGES.retrieved('Import batches'), buildMeta(q, total));
   }),
 
   /* Data file (required) and, optionally, the documents ZIP in the same request. */
@@ -103,7 +104,7 @@ export const importController = {
 
   rowDocuments: asyncHandler(async (req: Request, res: Response) => {
     const p = params<RowParams>(req);
-    ApiResponse.ok(res, await documentService.listForRow(p.id, p.rowId), 'Row documents');
+    ApiResponse.ok(res, await documentService.listForRow(p.id, p.rowId), MESSAGES.retrieved('Row documents'));
   }),
 
   rowDocumentFile: asyncHandler(async (req: Request, res: Response) => {
@@ -112,13 +113,13 @@ export const importController = {
   }),
 
   get: asyncHandler(async (req: Request, res: Response) => {
-    ApiResponse.ok(res, toImportBatchDto(await importService.getBatch(params<BatchParams>(req).id)), 'Import batch');
+    ApiResponse.ok(res, toImportBatchDto(await importService.getBatch(params<BatchParams>(req).id)), MESSAGES.retrieved('Import batch'));
   }),
 
   rows: asyncHandler(async (req: Request, res: Response) => {
     const q = query<ListRowsQuery>(req);
     const { items, total } = await importService.listRows(params<BatchParams>(req).id, q);
-    ApiResponse.ok(res, items, 'Import rows', buildMeta(q, total));
+    ApiResponse.ok(res, items, MESSAGES.retrieved('Import rows'), buildMeta(q, total));
   }),
 
   accept: asyncHandler(async (req: Request, res: Response) => {

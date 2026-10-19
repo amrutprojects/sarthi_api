@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import { params, query } from '../../../middleware/validate-request.middleware';
-import { ApiResponse } from '../../../shared/http/api-response';
+import { ApiResponse } from '../../../utils/api-response';
 import { asyncHandler } from '../../../shared/http/async-handler';
 import { buildMeta } from '../../../shared/utils/pagination';
 import { documentService } from '../documents/document.service';
@@ -12,17 +13,17 @@ export const studentController = {
   list: asyncHandler(async (req: Request, res: Response) => {
     const q = query<ListStudentsQuery>(req);
     const { items, total } = await studentService.list(q);
-    ApiResponse.ok(res, items, 'Students', buildMeta(q, total));
+    ApiResponse.ok(res, items, MESSAGES.retrieved('Students'), buildMeta(q, total));
   }),
 
   get: asyncHandler(async (req: Request, res: Response) => {
-    ApiResponse.ok(res, await studentService.get(params<{ id: string }>(req).id), 'Student');
+    ApiResponse.ok(res, await studentService.get(params<{ id: string }>(req).id), MESSAGES.retrieved('Student'));
   }),
 
   documents: asyncHandler(async (req: Request, res: Response) => {
     const { id } = params<{ id: string }>(req);
     await studentService.get(id); // 404 for an unknown student
-    ApiResponse.ok(res, await documentService.listForStudent(id), 'Student documents');
+    ApiResponse.ok(res, await documentService.listForStudent(id), MESSAGES.retrieved('Student documents'));
   }),
 
   documentFile: asyncHandler(async (req: Request, res: Response) => {

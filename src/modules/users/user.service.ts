@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { ERROR_CODES, HTTP_STATUS, MESSAGES } from '../../constants/api-response.constants';
 import type { Request } from 'express';
 import { AppDataSource } from '../../config/database.config';
 import { appConfig } from '../../config/app.config';
@@ -53,7 +54,7 @@ export class UserService {
 
   async get(id: string): Promise<PublicUser> {
     const user = await userRepository.findById(id);
-    if (!user) throw AppError.notFound('User not found');
+    if (!user) throw AppError.notFound(MESSAGES.notFound('User'));
     return toPublicUser(user, await roleAssignmentService.rolesOfUser(id));
   }
 
@@ -83,7 +84,7 @@ export class UserService {
   async update(id: string, input: UpdateUserInput, actor: AuthUser, req?: Request): Promise<PublicUser> {
     await AppDataSource.transaction(async (m) => {
       const user = await userRepository.findById(id, { manager: m });
-      if (!user) throw AppError.notFound('User not found');
+      if (!user) throw AppError.notFound(MESSAGES.notFound('User'));
       const patch: Partial<Pick<User, 'name' | 'email' | 'passwordHash'>> = {};
       if (input.name !== undefined) patch.name = input.name;
       if (input.email !== undefined) {
@@ -108,7 +109,7 @@ export class UserService {
     if (id === actor.id && !isActive) throw AppError.forbidden('You cannot deactivate your own account');
     await AppDataSource.transaction(async (m) => {
       const user = await userRepository.findById(id, { manager: m });
-      if (!user) throw AppError.notFound('User not found');
+      if (!user) throw AppError.notFound(MESSAGES.notFound('User'));
       if (!isActive) await roleAssignmentService.assertNotLastSuperAdmin(id, m);
       await userRepository.update(id, { isActive }, m);
       await auditService.recordInTx(m, req, { action: AUDIT_ACTIONS.USER_STATUS, resource: 'user', resourceId: id, details: { isActive } });
@@ -120,7 +121,7 @@ export class UserService {
   async remove(id: string, actor: AuthUser, req?: Request): Promise<void> {
     if (id === actor.id) throw AppError.forbidden('You cannot delete your own account');
     await AppDataSource.transaction(async (m) => {
-      if (!(await userRepository.findById(id, { manager: m }))) throw AppError.notFound('User not found');
+      if (!(await userRepository.findById(id, { manager: m }))) throw AppError.notFound(MESSAGES.notFound('User'));
       await roleAssignmentService.assertNotLastSuperAdmin(id, m);
       await userRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, { action: AUDIT_ACTIONS.USER_DELETE, resource: 'user', resourceId: id });
@@ -132,7 +133,7 @@ export class UserService {
   async restore(id: string, req?: Request): Promise<PublicUser> {
     await AppDataSource.transaction(async (m) => {
       const existing = await userRepository.findByIdIncludingDeleted(id, m);
-      if (!existing) throw AppError.notFound('User not found');
+      if (!existing) throw AppError.notFound(MESSAGES.notFound('User'));
       if (!existing.isDelete) throw AppError.conflict('User is not deleted');
       if (await userRepository.findByEmail(existing.email, m)) throw AppError.conflict('Another active user already uses this email');
       await userRepository.restore(id, m);
@@ -143,15 +144,15 @@ export class UserService {
   }
 
   async getRoles(id: string): Promise<PublicRole[]> {
-    if (!(await userRepository.findById(id))) throw AppError.notFound('User not found');
+    if (!(await userRepository.findById(id))) throw AppError.notFound(MESSAGES.notFound('User'));
     return roleAssignmentService.rolesOfUser(id);
   }
 
   /* Replaces the user's role set atomically (soft-deletes removed assignments, adds new ones). */
   async replaceRoles(id: string, roleIds: string[], actor: AuthUser, req?: Request): Promise<PublicRole[]> {
-    if (id === actor.id) throw new AppError(403, 'You cannot change your own roles', 'SELF_PRIVILEGE_CHANGE');
+    if (id === actor.id) throw new AppError(HTTP_STATUS.FORBIDDEN, 'You cannot change your own roles', ERROR_CODES.SELF_PRIVILEGE_CHANGE);
     await AppDataSource.transaction(async (m) => {
-      if (!(await userRepository.findById(id, { manager: m }))) throw AppError.notFound('User not found');
+      if (!(await userRepository.findById(id, { manager: m }))) throw AppError.notFound(MESSAGES.notFound('User'));
       const { added, removed } = await roleAssignmentService.replaceUserRoles(id, roleIds, actor, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.USER_ROLES_REPLACE,

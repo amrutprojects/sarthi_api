@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import type { Request } from 'express';
 import { In, type EntityManager } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
@@ -70,7 +71,7 @@ export class ImportService {
 
   async getBatch(id: string, m?: EntityManager): Promise<ImportBatch> {
     const b = await this.batches(m).findOne({ where: { id, isDelete: false } });
-    if (!b) throw AppError.notFound('Import batch not found');
+    if (!b) throw AppError.notFound(MESSAGES.notFound('Import batch'));
     return b;
   }
 
@@ -283,7 +284,7 @@ export class ImportService {
     const row = await m
       .getRepository(ImportRow)
       .findOne({ where: { id: rowId, batchId, isDelete: false }, lock: { mode: 'pessimistic_write' } });
-    if (!row) throw AppError.notFound('Row not found');
+    if (!row) throw AppError.notFound(MESSAGES.notFound('Row'));
     return { batch, row };
   }
 
@@ -389,7 +390,7 @@ export class ImportService {
     let docs = null as { commit: () => Promise<void>; undo: () => Promise<void> } | null;
     const result = await AppDataSource.transaction(async (m) => {
       const batch = await this.batches(m).findOne({ where: { id: batchId, isDelete: false }, lock: { mode: 'pessimistic_write' } });
-      if (!batch) throw AppError.notFound('Import batch not found');
+      if (!batch) throw AppError.notFound(MESSAGES.notFound('Import batch'));
       if (batch.status !== BATCH_STATUS.READY_TO_FINALISE)
         throw AppError.conflict(
           batch.status === BATCH_STATUS.VALIDATED_WITH_EXCEPTIONS

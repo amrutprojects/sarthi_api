@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import type { Request } from 'express';
 import { In, IsNull, type EntityManager } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
@@ -334,7 +335,7 @@ export class DocumentService {
   /* A staged document, for reviewers checking a row before finalisation (audited like any download). */
   async openStaged(batchId: string, importRowId: string, documentId: string, req?: Request) {
     const doc = await this.repo().findOne({ where: { id: documentId, batchId, importRowId, studentId: IsNull(), isDelete: false } });
-    if (!doc || !(await documentStorage.exists(doc.storageKey))) throw AppError.notFound('Document not found');
+    if (!doc || !(await documentStorage.exists(doc.storageKey))) throw AppError.notFound(MESSAGES.notFound('Document'));
     await auditService.record(req, {
       action: 'import.document.downloaded',
       resource: 'import_row',
@@ -351,7 +352,7 @@ export class DocumentService {
   /* Opens a student's document for download; every download is audited (spec candidate.document.downloaded). */
   async openForDownload(studentId: string, documentId: string, req?: Request) {
     const doc = await this.repo().findOne({ where: { id: documentId, studentId, isDelete: false } });
-    if (!doc || !(await documentStorage.exists(doc.storageKey))) throw AppError.notFound('Document not found');
+    if (!doc || !(await documentStorage.exists(doc.storageKey))) throw AppError.notFound(MESSAGES.notFound('Document'));
     await auditService.record(req, {
       action: 'student.document.downloaded',
       resource: 'student',

@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import { ERROR_CODES, HTTP_STATUS, MESSAGES } from '../../../constants/api-response.constants';
 import { AppDataSource } from '../../../config/database.config';
 import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import { RolePermission } from '../role-permission.entity';
@@ -54,7 +55,7 @@ export class RoleService {
 
   async get(id: string): Promise<PublicRoleDetail> {
     const role = await roleRepository.findById(id);
-    if (!role) throw AppError.notFound('Role not found');
+    if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
     return { ...toPublic(role), permissions: await this.permissionsOf(id) };
   }
 
@@ -101,7 +102,7 @@ export class RoleService {
   async update(id: string, input: UpdateRoleInput, req?: Request): Promise<PublicRoleDetail> {
     await AppDataSource.transaction(async (m) => {
       const role = await roleRepository.findById(id, { manager: m });
-      if (!role) throw AppError.notFound('Role not found');
+      if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
       await roleRepository.update(id, { ...input }, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.ROLE_UPDATE,
@@ -116,7 +117,7 @@ export class RoleService {
   async setStatus(id: string, isActive: boolean, req?: Request): Promise<PublicRoleDetail> {
     await AppDataSource.transaction(async (m) => {
       const role = await roleRepository.findById(id, { manager: m });
-      if (!role) throw AppError.notFound('Role not found');
+      if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
       if (!isActive) rbacService.assertNotProtectedRole(role, 'deactivated');
       await roleRepository.update(id, { isActive }, m);
       await auditService.recordInTx(m, req, { action: AUDIT_ACTIONS.ROLE_STATUS, resource: 'role', resourceId: id, details: { isActive } });
@@ -129,9 +130,9 @@ export class RoleService {
   async remove(id: string, req?: Request): Promise<void> {
     await AppDataSource.transaction(async (m) => {
       const role = await roleRepository.findById(id, { manager: m });
-      if (!role) throw AppError.notFound('Role not found');
+      if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
       rbacService.assertNotProtectedRole(role, 'deleted');
-      if (role.isSystem) throw new AppError(403, 'System roles cannot be deleted', 'PROTECTED_ROLE');
+      if (role.isSystem) throw new AppError(HTTP_STATUS.FORBIDDEN, 'System roles cannot be deleted', ERROR_CODES.PROTECTED_ROLE);
       const holders = await roleRepository.countActiveHolders(id, m);
       await roleRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
@@ -147,7 +148,7 @@ export class RoleService {
   async restore(id: string, req?: Request): Promise<PublicRoleDetail> {
     await AppDataSource.transaction(async (m) => {
       const existing = await roleRepository.findByIdIncludingDeleted(id, m);
-      if (!existing) throw AppError.notFound('Role not found');
+      if (!existing) throw AppError.notFound(MESSAGES.notFound('Role'));
       if (!existing.isDelete) throw AppError.conflict('Role is not deleted');
       if (await roleRepository.findByCode(existing.code, m)) throw AppError.conflict('Another active role already uses this code');
       await roleRepository.restore(id, m);
@@ -158,7 +159,7 @@ export class RoleService {
   }
 
   async getPermissions(id: string) {
-    if (!(await roleRepository.findById(id))) throw AppError.notFound('Role not found');
+    if (!(await roleRepository.findById(id))) throw AppError.notFound(MESSAGES.notFound('Role'));
     return this.permissionsOf(id);
   }
 
@@ -166,7 +167,7 @@ export class RoleService {
   async replacePermissions(id: string, permissionIds: string[], actor: AuthUser, req?: Request) {
     await AppDataSource.transaction(async (m) => {
       const role = await roleRepository.findById(id, { manager: m });
-      if (!role) throw AppError.notFound('Role not found');
+      if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
       if (!role.isActive) throw AppError.badRequest('Cannot change the permissions of an inactive role');
       rbacService.assertNotProtectedRole(role, 'edited');
       rbacService.assertNotEditingOwnRole(actor, role);

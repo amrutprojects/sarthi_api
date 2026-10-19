@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { ERROR_CODES, HTTP_STATUS } from '../../constants/api-response.constants';
 import type { RequestHandler } from 'express';
 import { LessThan } from 'typeorm';
 import { AppDataSource } from '../../config/database.config';
@@ -48,10 +49,18 @@ export const idempotent: RequestHandler = (req, res, next) => {
     if (!inserted.identifiers.length || !inserted.identifiers[0]?.id) {
       const existing = await repo.findOneByOrFail({ userId, key });
       if (existing.requestHash !== requestHash) {
-        throw new AppError(422, 'This Idempotency-Key was already used for a different request', 'IDEMPOTENCY_KEY_REUSED');
+        throw new AppError(
+          HTTP_STATUS.UNPROCESSABLE_ENTITY,
+          'This Idempotency-Key was already used for a different request',
+          ERROR_CODES.IDEMPOTENCY_KEY_REUSED,
+        );
       }
       if (existing.statusCode === null)
-        throw new AppError(409, 'A request with this Idempotency-Key is still in progress', 'IDEMPOTENCY_IN_PROGRESS');
+        throw new AppError(
+          HTTP_STATUS.CONFLICT,
+          'A request with this Idempotency-Key is still in progress',
+          ERROR_CODES.IDEMPOTENCY_IN_PROGRESS,
+        );
       res.setHeader('Idempotent-Replayed', 'true');
       res.status(existing.statusCode).json(existing.responseBody);
       return;
