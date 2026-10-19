@@ -208,6 +208,40 @@ export const ISSUE_CODES = {
 } as const;
 export type IssueCode = keyof typeof ISSUE_CODES;
 
+/* Where a student record came from. */
+export const STUDENT_SOURCE = {
+  IMPORT: 'IMPORT',
+  PUBLIC_REGISTRATION: 'PUBLIC_REGISTRATION',
+} as const;
+
+/* students.status: RECEIVED = finalised from an approved import; REGISTRATION_PENDING = public registration awaiting verification. */
+export const STUDENT_STATUS = {
+  RECEIVED: 'RECEIVED',
+  REGISTRATION_PENDING: 'REGISTRATION_PENDING',
+} as const;
+
+/* students.externalStatus for a public registration: never APPROVED until the approval workflow says so. */
+export const REGISTRATION_EXTERNAL_STATUS = 'PENDING';
+
+/* The import columns a public registration accepts (the candidate's own details; no IDs, approval or documents). */
+export const REGISTRATION_FIELDS = [
+  'first_name',
+  'last_name',
+  'father_name',
+  'mother_name',
+  'email',
+  'date_of_birth',
+  'current_address',
+  'aadhaar_number',
+  'mobile_number',
+  'religion',
+  'caste',
+  'course_centre',
+  'technology',
+  'education_qualification',
+  'declaration_accepted',
+] as const;
+
 export const BATCH_STATUS = {
   IMPORT_PENDING: 'IMPORT_PENDING',
   IMPORT_FAILED: 'IMPORT_FAILED',

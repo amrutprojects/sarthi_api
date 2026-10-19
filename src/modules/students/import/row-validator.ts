@@ -98,8 +98,35 @@ export function rowChecksum(raw: Record<string, string>): string {
     .digest('hex');
 }
 
-/* Applies the validation and normalisation rules of Table 81 to one source row. */
-export function validateRow(raw: Record<string, string>): { row: NormalisedRow; issues: RowIssue[] } {
+/* Personal details of one candidate (shared by the bulk import and the public registration API). */
+export type CandidateFields = Pick<
+  NormalisedRow,
+  | 'firstName'
+  | 'lastName'
+  | 'fatherName'
+  | 'motherName'
+  | 'email'
+  | 'dateOfBirth'
+  | 'currentAddress'
+  | 'aadhaarEnc'
+  | 'aadhaarBidx'
+  | 'aadhaarLast4'
+  | 'mobile'
+  | 'religion'
+  | 'caste'
+  | 'centreCode'
+  | 'trackCode'
+  | 'trackSourceValue'
+  | 'educationQualification'
+  | 'declarationAccepted'
+  | 'nameKey'
+>;
+
+/*
+ * Validates and normalises the candidate's personal details (Table 81): names, contact, date of birth, Aadhaar,
+ * reference values, track, qualification and declaration. The single source of these rules for every entry point.
+ */
+export function validateCandidate(raw: Record<string, string>): { fields: CandidateFields; issues: RowIssue[] } {
   const issues: RowIssue[] = [];
   const get = (f: string) => (raw[f] ?? '').toString();
   const add = (field: string, code: IssueCode, message: string) => issues.push({ field, code, message });
@@ -117,10 +144,6 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
     if (opts.name && !NAME_RE.test(v)) add(field, 'NAME_INVALID', `${label} may contain only letters, spaces and . ' -`);
     return v;
   };
-
-  const sourceRecordId = collapse(get('source_record_id')) || null;
-  if (!sourceRecordId) add('source_record_id', 'SRC_ID_MISSING', 'Source record ID is required');
-  else if (sourceRecordId.length > 64) add('source_record_id', 'TEXT_TOO_LONG', 'Source record ID is longer than 64 characters');
 
   const firstName = text('first_name', 'First name', 100, { name: true });
   const lastName = text('last_name', 'Last name', 100, { name: true });
@@ -188,6 +211,48 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
   /* Qualification list is To Be Confirmed: accepted as text. */
   const educationQualification = text('education_qualification', 'Education qualification', 150);
 
+  const declRaw = get('declaration_accepted').trim();
+  const declarationAccepted = declRaw ? yes(declRaw) : null;
+
+  return {
+    issues,
+    fields: {
+      firstName,
+      lastName,
+      fatherName,
+      motherName,
+      email,
+      dateOfBirth,
+      currentAddress,
+      aadhaarEnc,
+      aadhaarBidx,
+      aadhaarLast4,
+      mobile,
+      religion,
+      caste,
+      centreCode,
+      trackCode,
+      trackSourceValue,
+      educationQualification,
+      declarationAccepted,
+      nameKey: `${firstName} ${lastName}`.toLowerCase().replace(/\s+/g, ' ').trim(),
+    },
+  };
+}
+
+/* Applies the validation and normalisation rules of Table 81 to one source row. */
+export function validateRow(raw: Record<string, string>): { row: NormalisedRow; issues: RowIssue[] } {
+  const issues: RowIssue[] = [];
+  const get = (f: string) => (raw[f] ?? '').toString();
+  const add = (field: string, code: IssueCode, message: string) => issues.push({ field, code, message });
+
+  const sourceRecordId = collapse(get('source_record_id')) || null;
+  if (!sourceRecordId) add('source_record_id', 'SRC_ID_MISSING', 'Source record ID is required');
+  else if (sourceRecordId.length > 64) add('source_record_id', 'TEXT_TOO_LONG', 'Source record ID is longer than 64 characters');
+
+  const candidate = validateCandidate(raw);
+  issues.push(...candidate.issues);
+
   /* Approval evidence: required and must be the source's approved value; approved_at not in the future. */
   const approvalStatus = collapse(get('approval_status')).toUpperCase();
   const approvedRaw = get('approved_at').trim();
@@ -199,9 +264,6 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
   if (approvalStatus !== APPROVED_STATUS) add('approval_status', 'EVIDENCE_MISSING', `Approval status must be ${APPROVED_STATUS}`);
   if (!approvedAt) add('approved_at', 'EVIDENCE_MISSING', 'Approval date is missing, invalid or in the future');
   const evidenceRef = collapse(get('evidence_ref')).slice(0, 120) || null;
-
-  const declRaw = get('declaration_accepted').trim();
-  const declarationAccepted = declRaw ? yes(declRaw) : null;
 
   const documents: NormalisedRow['documents'] = {};
   for (const d of DOCUMENTS) {
@@ -235,31 +297,6 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
 
   return {
     issues,
-    row: {
-      sourceRecordId,
-      firstName,
-      lastName,
-      fatherName,
-      motherName,
-      email,
-      dateOfBirth,
-      currentAddress,
-      aadhaarEnc,
-      aadhaarBidx,
-      aadhaarLast4,
-      mobile,
-      religion,
-      caste,
-      centreCode,
-      trackCode,
-      trackSourceValue,
-      educationQualification,
-      approvalStatus,
-      approvedAt,
-      evidenceRef,
-      declarationAccepted,
-      documents,
-      nameKey: `${firstName} ${lastName}`.toLowerCase().replace(/\s+/g, ' ').trim(),
-    },
+    row: { ...candidate.fields, sourceRecordId, approvalStatus, approvedAt, evidenceRef, documents },
   };
 }
