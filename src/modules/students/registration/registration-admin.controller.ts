@@ -7,6 +7,8 @@ import { registrationAdminService } from './registration-admin.service';
 import type { ListRegistrationsQuery } from './registration-admin.validation';
 import { uploadedFiles } from './registration-upload.middleware';
 import { REGISTRATION_MESSAGES } from './registration.service';
+import { documentService } from '../documents/document.service';
+import { sendFile } from '../documents/send-file';
 
 export const registrationAdminController = {
   list: asyncHandler(async (req: Request, res: Response) => {
@@ -16,6 +18,13 @@ export const registrationAdminController = {
 
   get: asyncHandler(async (req: Request, res: Response) => {
     ApiResponse.ok(res, await registrationAdminService.get(params<{ id: string }>(req).id), MESSAGES.retrieved('Registration'));
+  }),
+
+  /* One uploaded file (audited download); the admin panel previews it. */
+  documentFile: asyncHandler(async (req: Request, res: Response) => {
+    const p = params<{ id: string; documentId: string }>(req);
+    await registrationAdminService.get(p.id);
+    sendFile(res, await documentService.openForDownload(p.id, p.documentId, req));
   }),
 
   create: asyncHandler(async (req: Request, res: Response) => {

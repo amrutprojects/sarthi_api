@@ -9,7 +9,7 @@ import { createRegistrationSchema } from './registration.validation';
 import { authenticate } from '../../../middleware/authenticate.middleware';
 import { authorizePermission } from '../../../middleware/authorize-permission.middleware';
 import { registrationAdminController } from './registration-admin.controller';
-import { listRegistrationsSchema, registrationIdSchema } from './registration-admin.validation';
+import { listRegistrationsSchema, registrationDocumentSchema, registrationIdSchema } from './registration-admin.validation';
 import { receiveRegistrationUpload } from './registration-upload.middleware';
 
 /* Per-IP limit for the public endpoint, on top of the global API limit. */
@@ -48,4 +48,11 @@ registrationRouter.get(
   authorizePermission('registrations.view'),
   validateRequest(registrationIdSchema),
   registrationAdminController.get,
+);
+registrationRouter.get(
+  '/:id/documents/:documentId/file',
+  authenticate,
+  authorizePermission('registrations.view'),
+  validateRequest(registrationDocumentSchema),
+  registrationAdminController.documentFile,
 );

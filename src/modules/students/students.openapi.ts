@@ -16,7 +16,7 @@ import {
 import { listStudentsSchema, studentDocumentSchema, studentIdSchema } from './register/student.validation';
 import { BATCH_STATUS, ROW_STATUS } from './student.constants';
 import { registrationBody } from './registration/registration.validation';
-import { listRegistrationsSchema, registrationIdSchema } from './registration/registration-admin.validation';
+import { listRegistrationsSchema, registrationDocumentSchema, registrationIdSchema } from './registration/registration-admin.validation';
 
 const Counts = z.object({
   total: z.number().int(),
@@ -467,4 +467,14 @@ documentEndpoint({
   },
   response: envelope(z.object({ id: z.string().uuid(), registration_id: z.string(), status: z.string() })),
   errors: [409, 422],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/student-registrations/:id/documents/:documentId/file',
+  tag: regTag,
+  summary: 'Download one uploaded document of a registration (audited)',
+  permission: 'registrations.view',
+  request: { params: registrationDocumentSchema.params },
+  response: { file: 'application/pdf | image/jpeg | image/png' },
+  errors: [404],
 });
