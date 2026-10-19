@@ -19,5 +19,13 @@ export const appConfig = {
     loginMax: env.LOGIN_RATE_LIMIT_MAX,
   },
   permissionCacheTtlMs: env.PERMISSION_CACHE_TTL_MS,
+  session: {
+    cookieName: env.SESSION_COOKIE_NAME,
+    secure: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : !['development', 'test'].includes(env.NODE_ENV),
+    sameSite: env.COOKIE_SAMESITE,
+    domain: env.COOKIE_DOMAIN || undefined,
+    maxAgeSeconds: Math.round(env.SESSION_MAX_HOURS * 3600),
+  },
   bodyLimit: '100kb',
+  apiDocsEnabled: env.API_DOCS_ENABLED ? env.API_DOCS_ENABLED === 'true' : !env.isProduction,
 } as const;

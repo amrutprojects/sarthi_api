@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { RequestHandler } from 'express';
-import { REQUEST_ID_HEADER } from '../constants/app.constants';
+import { REQUEST_ID_HEADER } from '../shared/constants/app.constants';
 
 const SAFE_ID = /^[A-Za-z0-9._-]{1,100}$/;
 

@@ -22,5 +22,5 @@
     "types": ["node", "jest"]
   },
   "ts-node": { "files": true },
-  "include": ["src", "migrations", "seeds", "scripts", "tests", "jest.config.ts"]
+  "include": ["src", "scripts", "tests", "jest.config.ts"]
 }

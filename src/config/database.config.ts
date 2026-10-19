@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { DataSource, type DataSourceOptions } from 'typeorm';
 import { env } from './env.config';
-import { ENTITIES } from '../entities';
-import { MIGRATIONS } from '../../migrations';
+import { ENTITIES } from '../database/entities';
+import { MIGRATIONS } from '../database/migrations';
 
 /*
  * PostgreSQL connection (TypeORM + pg).

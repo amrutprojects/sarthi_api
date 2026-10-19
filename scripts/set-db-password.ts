@@ -32,7 +32,9 @@ async function main() {
       continue;
     }
     const text = fs.readFileSync(full, 'utf8');
-    const next = /^DB_PASSWORD=.*$/m.test(text) ? text.replace(/^DB_PASSWORD=.*$/m, () => `DB_PASSWORD=${password}`) : `${text}\nDB_PASSWORD=${password}\n`;
+    const next = /^DB_PASSWORD=.*$/m.test(text)
+      ? text.replace(/^DB_PASSWORD=.*$/m, () => `DB_PASSWORD=${password}`)
+      : `${text}\nDB_PASSWORD=${password}\n`;
     fs.writeFileSync(full, next);
     // eslint-disable-next-line no-console
     console.log(`${file}: DB_PASSWORD updated`);
