@@ -308,9 +308,7 @@ export function validateRow(raw: Record<string, string>, masters: MasterLookup):
     }
     const supplied = !raw && yes(cell);
     const barcode = d.barcode ? collapse(get(`doc_${k}_barcode`)).slice(0, 64) || null : null;
-    documents[d.key] = path
-      ? { supplied: false, barcode, path, documentTypeId: type.id }
-      : { supplied, barcode, documentTypeId: type.id };
+    documents[d.key] = path ? { supplied: false, barcode, path, documentTypeId: type.id } : { supplied, barcode, documentTypeId: type.id };
     /* A path means the file is expected in the documents ZIP; the issue clears when that file is stored. */
     if (path) add(`doc_${k}`, 'DOC_MISSING', `${d.label}: waiting for "${path}" in the documents ZIP`);
     else if (required && !supplied && !raw) add(`doc_${k}`, 'DOC_MISSING', `${d.label} not supplied`);

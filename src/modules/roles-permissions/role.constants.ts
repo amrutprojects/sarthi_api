@@ -13,10 +13,13 @@ export interface RoleDefinition {
   isSystem: boolean;
   /* 'ALL' grants every permission in the catalogue (kept in sync on every seed run). */
   permissions: string[] | 'ALL';
+  /* With 'ALL': permission modules left out of the sync (e.g. 'registrations'); they can still be granted in the UI. */
+  exceptModules?: string[];
 }
 
 export const ROLE_CODES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
+  SUMAGO_SUPER_ADMIN: 'SUMAGO_SUPER_ADMIN',
 } as const;
 
 const view = (...menus: MenuKey[]) => menuCodes(menus, ['view']);
@@ -80,7 +83,16 @@ export const ROLES: RoleDefinition[] = [
     name: 'Super Admin',
     isSystem: true,
     permissions: 'ALL',
+    /* Student Registration is granted to SUMAGO Super Admin by default; any role can be given it in Roles & Permissions. */
+    exceptModules: ['registrations'],
     description: 'Full system access, including users, roles and permissions',
+  },
+  {
+    code: ROLE_CODES.SUMAGO_SUPER_ADMIN,
+    name: 'SUMAGO Super Admin',
+    isSystem: true,
+    permissions: 'ALL',
+    description: 'Every Super Admin permission plus Student Registration',
   },
   {
     code: 'AMRUT_ADMIN',

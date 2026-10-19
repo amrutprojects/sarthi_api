@@ -7,7 +7,7 @@ import type { RegistrationBody } from './registration.validation';
 
 export const registrationController = {
   create: asyncHandler(async (req: Request, res: Response) => {
-    const result = await registrationService.register(req, body<RegistrationBody>(req));
-    ApiResponse.created(res, result, REGISTRATION_MESSAGES.CREATED);
+    const { registration_id, status } = await registrationService.register(req, body<RegistrationBody>(req));
+    ApiResponse.created(res, { registration_id, status }, REGISTRATION_MESSAGES.CREATED);
   }),
 };

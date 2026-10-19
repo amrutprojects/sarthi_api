@@ -9,6 +9,8 @@ import { auditService } from '../../audit';
 import { mastersService, type MasterKey, type MasterLookup, type MasterRef } from '../../masters';
 import { rowChecksum, validateCandidate } from '../import/row-validator';
 import { Student } from '../register/student.entity';
+import { documentStorage } from '../documents/document-storage';
+import { StudentDocument } from '../documents/student-document.entity';
 import { REGISTRATION_EXTERNAL_STATUS, REGISTRATION_MASTER_FIELDS, STUDENT_SOURCE, STUDENT_STATUS } from '../student.constants';
 import type { RegistrationBody } from './registration.validation';
 
@@ -20,6 +22,24 @@ export const REGISTRATION_MESSAGES = {
 export interface RegistrationResult {
   registration_id: string;
   status: string;
+}
+
+/* A document file already checked (type sniffed from content, size, extension) and ready to store. */
+export interface PreparedDocument {
+  code: string;
+  documentTypeId: string;
+  data: Buffer;
+  ext: string;
+  mimeType: string;
+  originalName: string;
+  sha256: string;
+  barcode: string | null;
+}
+
+/* Admin-entered registration: who entered it, and the uploaded documents (stored in the same transaction). */
+export interface AdminRegistrationContext {
+  actorUserId: string;
+  files: PreparedDocument[];
 }
 
 const isUniqueViolation = (err: unknown) =>
@@ -62,7 +82,11 @@ export const registrationService = {
    * Duplicates: same Aadhaar as any student or registration → 409 (an advisory lock plus a unique index stop
    * concurrent submissions); same name + date of birth + mobile → stored, and flagged in the audit log for review.
    */
-  async register(req: Request, body: RegistrationBody): Promise<RegistrationResult> {
+  async register(
+    req: Request,
+    body: RegistrationBody,
+    admin?: AdminRegistrationContext,
+  ): Promise<RegistrationResult & { studentId: string }> {
     const masters = await mastersService.loadLookup();
     const { region_id, caste_id, education_id, documents: declared, ...rest } = body;
     const refs = resolveMasters(masters, { region_id, caste_id, education_id }, declared ?? []);
@@ -82,9 +106,10 @@ export const registrationService = {
     ];
     if (errors.length) throw AppError.validation(errors);
     const bidx = fields.aadhaarBidx as string;
-    const documents = Object.fromEntries(
+    const documents: Record<string, { supplied: boolean; barcode: string | null; documentTypeId: string }> = Object.fromEntries(
       refs.documentTypes.map((t) => [t.code, { supplied: false, barcode: null, documentTypeId: t.id }]),
     );
+    for (const f of admin?.files ?? []) documents[f.code] = { supplied: true, barcode: f.barcode, documentTypeId: f.documentTypeId };
 
     let result: { student: Student; possibleDuplicateOf: string | null };
     try {
@@ -118,6 +143,24 @@ export const registrationService = {
             importBatchId: null,
           }),
         );
+        /* Files are written inside the transaction: if one fails, the registration is not created. */
+        for (const f of admin?.files ?? []) {
+          const storageKey = documentStorage.studentKey(student.code, `${f.code}.${f.ext}`);
+          await documentStorage.write(storageKey, f.data);
+          await m.getRepository(StudentDocument).insert({
+            batchId: null,
+            importRowId: null,
+            studentId: student.id,
+            docType: f.code,
+            storageKey,
+            sourcePath: null,
+            originalName: f.originalName.slice(0, 255),
+            mimeType: f.mimeType,
+            sizeBytes: f.data.length,
+            sha256: f.sha256,
+            uploadedById: admin!.actorUserId,
+          });
+        }
         return { student, possibleDuplicateOf: similar?.code ?? null };
       });
     } catch (err) {
@@ -132,10 +175,10 @@ export const registrationService = {
       action: 'student.registration.create',
       resource: 'student',
       resourceId: student.id,
-      actorUserId: null,
-      details: { code: student.code, possibleDuplicateOf },
+      actorUserId: admin?.actorUserId ?? null,
+      details: { code: student.code, possibleDuplicateOf, channel: admin ? 'ADMIN' : 'PUBLIC', files: admin?.files.length ?? 0 },
     });
     if (possibleDuplicateOf) logger.info({ code: student.code, possibleDuplicateOf }, 'registration flagged as possible duplicate');
-    return { registration_id: student.code, status: student.status };
+    return { registration_id: student.code, status: student.status, studentId: student.id };
   },
 };

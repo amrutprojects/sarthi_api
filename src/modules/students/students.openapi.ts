@@ -16,6 +16,7 @@ import {
 import { listStudentsSchema, studentDocumentSchema, studentIdSchema } from './register/student.validation';
 import { BATCH_STATUS, ROW_STATUS } from './student.constants';
 import { registrationBody } from './registration/registration.validation';
+import { listRegistrationsSchema, registrationIdSchema } from './registration/registration-admin.validation';
 
 const Counts = z.object({
   total: z.number().int(),
@@ -406,4 +407,64 @@ documentEndpoint({
     }),
   ),
   errors: [400, 409, 422],
+});
+
+/* Student Registration menu (admin panel). */
+const RegistrationDto = registry.register('Registration', StudentDto.extend({ importBatchId: z.string().uuid().nullable() }));
+const RegistrationDetailDto = registry.register(
+  'RegistrationDetail',
+  RegistrationDto.extend({
+    files: z.array(
+      z.object({
+        id: z.string().uuid(),
+        docType: z.string(),
+        originalName: z.string(),
+        mimeType: z.string(),
+        sizeBytes: z.number().int(),
+        uploadedAt: z.string().datetime(),
+      }),
+    ),
+  }),
+);
+const regTag = 'Student registration';
+documentEndpoint({
+  method: 'get',
+  path: '/student-registrations',
+  tag: regTag,
+  summary: 'List registrations (masked)',
+  description: 'Server-side paging; search matches code, name, email, or the last four mobile digits.',
+  permission: 'registrations.view',
+  request: { query: listRegistrationsSchema.query },
+  response: pagedEnvelope(RegistrationDto),
+});
+documentEndpoint({
+  method: 'get',
+  path: '/student-registrations/:id',
+  tag: regTag,
+  summary: 'Get a registration with its uploaded documents (masked)',
+  permission: 'registrations.view',
+  request: { params: registrationIdSchema.params },
+  response: envelope(RegistrationDetailDto),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'post',
+  path: '/student-registrations/admin',
+  tag: regTag,
+  summary: 'Enter a registration with its document files (admin panel form)',
+  description: [
+    'multipart/form-data: field `data` is the registration JSON (as POST /student-registrations, without `documents`,',
+    'plus optional `barcodes` per document type code). Each file goes in a field named after its document type code',
+    '(PHOTO, AADHAAR_CARD, …): PDF, JPG, JPEG or PNG, at most 5 MB, type checked from the content. Mandatory document',
+    'types need a file; INCOME_EWS needs its barcode. Same validation and duplicate rules as the public endpoint.',
+  ].join(' '),
+  permission: 'registrations.create',
+  request: {
+    multipart: z.object({
+      data: z.string().describe('Registration JSON'),
+      PHOTO: z.string().openapi({ type: 'string', format: 'binary' }).describe('One field per document type code'),
+    }),
+  },
+  response: envelope(z.object({ id: z.string().uuid(), registration_id: z.string(), status: z.string() })),
+  errors: [409, 422],
 });

@@ -73,9 +73,7 @@ export async function seedContactPage(ds: DataSource): Promise<ContactSeedSummar
     if (existing) return { created: false, organizationsCreated: 0 };
 
     const settings = await settingsRepo.save(settingsRepo.create({ ...PAGE, isPublished: true }));
-    await m.getRepository(ContactOrganization).insert(
-      ORGANIZATIONS.map((o) => ({ ...o, settingsId: settings.id })),
-    );
+    await m.getRepository(ContactOrganization).insert(ORGANIZATIONS.map((o) => ({ ...o, settingsId: settings.id })));
 
     return { created: true, organizationsCreated: ORGANIZATIONS.length };
   });

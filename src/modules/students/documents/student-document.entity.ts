@@ -11,8 +11,9 @@ import { AppBaseEntity } from '../../../database/base.entity';
 @Index('IDX_student_documents_row', ['importRowId'])
 @Index('UQ_student_documents_row_type', ['importRowId', 'docType'], { unique: true, where: '"isDelete" = false AND "studentId" IS NULL' })
 export class StudentDocument extends AppBaseEntity {
-  @Column({ type: 'uuid', name: 'batchId' }) batchId!: string;
-  @Column({ type: 'uuid', name: 'importRowId' }) importRowId!: string;
+  /* Null for documents uploaded with an admin-entered registration (no import batch). */
+  @Column({ type: 'uuid', name: 'batchId', nullable: true }) batchId!: string | null;
+  @Column({ type: 'uuid', name: 'importRowId', nullable: true }) importRowId!: string | null;
   @Column({ type: 'uuid', name: 'studentId', nullable: true }) studentId!: string | null;
   @Column({ type: 'varchar', length: 30, name: 'docType' }) docType!: string;
   @Column({ type: 'varchar', length: 300, name: 'storageKey' }) storageKey!: string;

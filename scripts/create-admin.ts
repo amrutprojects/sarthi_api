@@ -15,7 +15,7 @@ import { email as emailSchema, name as nameSchema, password as passwordSchema } 
  *   npm run admin:create -- --email admin@example.org --name "System Administrator"
  * The password is never a command-line argument (it would land in shell history). It is read from
  * ADMIN_INITIAL_PASSWORD if set (for automated provisioning), otherwise typed at a hidden prompt.
- * The account gets the SUPER_ADMIN role. Run `npm run seed` first.
+ * The account gets the SUPER_ADMIN role, or SUMAGO_SUPER_ADMIN with `--role SUMAGO_SUPER_ADMIN`. Run `npm run seed` first.
  */
 
 function arg(name: string): string | undefined {
@@ -39,6 +39,9 @@ function promptHidden(question: string): Promise<string> {
 async function main() {
   const email = emailSchema.parse(arg('email'));
   const name = nameSchema.parse(arg('name') ?? 'System Administrator');
+  const roleCode = arg('role') ?? ROLE_CODES.SUPER_ADMIN;
+  if (roleCode !== ROLE_CODES.SUPER_ADMIN && roleCode !== ROLE_CODES.SUMAGO_SUPER_ADMIN)
+    throw new Error(`--role must be ${ROLE_CODES.SUPER_ADMIN} or ${ROLE_CODES.SUMAGO_SUPER_ADMIN}`);
 
   let password = process.env.ADMIN_INITIAL_PASSWORD;
   if (!password) {
@@ -52,8 +55,8 @@ async function main() {
   await AppDataSource.initialize();
   try {
     await AppDataSource.transaction(async (m) => {
-      const role = await m.getRepository(Role).findOne({ where: { code: ROLE_CODES.SUPER_ADMIN, isDelete: false } });
-      if (!role) throw new Error('SUPER_ADMIN role not found: run `npm run seed` first');
+      const role = await m.getRepository(Role).findOne({ where: { code: roleCode, isDelete: false } });
+      if (!role) throw new Error(`${roleCode} role not found: run \`npm run seed\` first`);
       if (await m.getRepository(User).exists({ where: { email, isDelete: false } })) {
         throw new Error(`A user with email ${email} already exists`);
       }
@@ -66,11 +69,11 @@ async function main() {
           resource: 'user',
           resourceId: user.id,
           outcome: 'SUCCESS',
-          details: { email, via: 'admin:create script', roles: [ROLE_CODES.SUPER_ADMIN] },
+          details: { email, via: 'admin:create script', roles: [roleCode] },
         }),
       );
       // eslint-disable-next-line no-console
-      console.log(`Administrator created: ${email} (id ${user.id}) with role ${ROLE_CODES.SUPER_ADMIN}`);
+      console.log(`Administrator created: ${email} (id ${user.id}) with role ${roleCode}`);
     });
   } finally {
     await AppDataSource.destroy();
