@@ -2,7 +2,8 @@ import { AppDataSource } from '../../../config/database.config';
 import { CENTRES, DOCUMENTS, IMPORT_COLUMNS, TRACKS } from '../student.constants';
 import { Student } from './student.entity';
 import { AppError } from '../../../shared/errors/app-error';
-import { maskAadhaar, maskEmail, maskMobile, withVerhoeffDigit } from '../aadhaar';
+import { maskAadhaar, maskEmail, maskMobile } from '../aadhaar';
+import { templateCsv } from './import-template';
 
 const trackName = (code: string | null) => TRACKS.find((t) => t.code === code)?.name ?? null;
 const centreName = (code: string | null) => CENTRES.find((c) => c.code === code)?.name ?? null;
@@ -86,44 +87,9 @@ export class StudentService {
     return publicStudent(s, true);
   }
 
-  /* CSV template: header row with the internal column names and two entirely synthetic example rows. */
+  /* Templates: see import-template.ts (CSV, Excel with instructions, matching sample documents ZIP). */
   template(): string {
-    const header = IMPORT_COLUMNS.map((c) => c.field);
-    const example = (n: number, first: string, last: string, track: string, centre: string): string[] => {
-      const v: Record<string, string> = {
-        source_record_id: `MA-SYN-${String(n).padStart(6, '0')}`,
-        first_name: first,
-        last_name: last,
-        father_name: `Ramesh ${last}`,
-        mother_name: `Sunita ${last}`,
-        email: `${first.toLowerCase()}.${last.toLowerCase()}@example.invalid`,
-        date_of_birth: '2003-04-12',
-        current_address: 'Flat 0, Test Lane, Sample Nagar',
-        aadhaar_number: withVerhoeffDigit(`23456789${String(100 + n).padStart(3, '0')}`),
-        mobile_number: `90000000${String(n).padStart(2, '0')}`,
-        religion: 'हिंदू',
-        caste: 'मराठी',
-        course_centre: centre,
-        technology: track,
-        education_qualification: 'Graduate',
-        approval_status: 'APPROVED',
-        approved_at: '2026-01-10T06:30:00Z',
-        evidence_ref: `MA-APR-${n}`,
-        declaration_accepted: 'Yes',
-      };
-      for (const d of DOCUMENTS) {
-        v[`doc_${d.key.toLowerCase()}`] = d.required ? 'Yes' : 'No';
-        if (d.barcode) v[`doc_${d.key.toLowerCase()}_barcode`] = d.barcode === 'required' ? `BC-${d.key}-${n}` : '';
-      }
-      return header.map((h) => v[h] ?? '');
-    };
-    const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-    const lines = [
-      header,
-      example(1, 'Asha', 'Synthetic', 'Cyber Security', 'PUN'),
-      example(2, 'Vikram', 'Example', 'AI-ML Engineer', 'Nashik'),
-    ];
-    return String.fromCharCode(0xfeff) + lines.map((l) => l.map(esc).join(',')).join('\r\n') + '\r\n';
+    return templateCsv();
   }
 
   reference() {

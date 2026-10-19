@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { documentEndpoint, envelope, pagedEnvelope, registry } from '../../shared/openapi/registry';
 import {
   batchIdSchema,
+  documentsForm,
+  rowDocumentSchema,
+  rowParamsSchema,
   decideSchema,
   finaliseSchema,
   listBatchesSchema,
@@ -10,7 +13,7 @@ import {
   restoreRowSchema,
   uploadForm,
 } from './import/import.validation';
-import { listStudentsSchema, studentIdSchema } from './register/student.validation';
+import { listStudentsSchema, studentDocumentSchema, studentIdSchema } from './register/student.validation';
 import { BATCH_STATUS, ROW_STATUS } from './student.constants';
 
 const Counts = z.object({
@@ -24,6 +27,32 @@ const Counts = z.object({
   created: z.number().int().optional(),
   linked: z.number().int().optional(),
 });
+const DocumentsReportDto = z.object({
+  zipName: z.string(),
+  uploadedAt: z.string().datetime(),
+  stored: z.number().int(),
+  matchedByPath: z.number().int().optional(),
+  replaced: z.number().int(),
+  studentsWithFiles: z.number().int(),
+  unmatchedFolders: z.array(z.string()),
+  rejected: z.array(z.object({ path: z.string(), reason: z.string() })),
+  missingReferenced: z
+    .array(z.object({ rowNumber: z.number().int(), sourceRecordId: z.string().nullable(), docType: z.string(), path: z.string() }))
+    .optional(),
+});
+export const StudentDocumentDto = registry.register(
+  'StudentDocument',
+  z.object({
+    id: z.string().uuid(),
+    docType: z.string(),
+    label: z.string(),
+    originalName: z.string(),
+    sourcePath: z.string().nullable(),
+    mimeType: z.enum(['application/pdf', 'image/jpeg', 'image/png']),
+    sizeBytes: z.number().int(),
+    uploadedAt: z.string().datetime(),
+  }),
+);
 export const ImportBatchDto = registry.register(
   'ImportBatch',
   z.object({
@@ -38,6 +67,7 @@ export const ImportBatchDto = registry.register(
     columnMapping: z.record(z.string()),
     ignoredColumns: z.array(z.string()),
     failureReason: z.string().nullable(),
+    documentsReport: DocumentsReportDto.nullable(),
     createdById: z.string().uuid(),
     finalisedById: z.string().uuid().nullable(),
     finalisedAt: z.string().datetime().nullable(),
@@ -262,4 +292,75 @@ documentEndpoint({
   request: { params: studentIdSchema.params },
   response: envelope(StudentDto),
   errors: [404],
+});
+
+const docs = 'Student documents';
+documentEndpoint({
+  method: 'post',
+  path: '/imports/:id/documents',
+  tag: docs,
+  summary: 'Upload a documents ZIP for a batch under review',
+  description:
+    'One folder per student named by source_record_id (or files named <id>_<TYPE>.pdf). Files must be PDF, JPG or PNG by content and at most DOCUMENT_MAX_FILE_MB. Documents of the same type are replaced. The batch documentsReport lists stored, rejected and unmatched files.',
+  permission: 'imports.update',
+  status: 200,
+  request: { params: batchIdSchema.params, multipart: documentsForm },
+  response: envelope(ImportBatchDto),
+  errors: [400, 404, 409],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/imports/:id/rows/:rowId/documents',
+  tag: docs,
+  summary: 'Documents staged for a row',
+  permission: 'imports.view',
+  request: { params: rowParamsSchema.params },
+  response: envelope(z.array(StudentDocumentDto)),
+});
+documentEndpoint({
+  method: 'get',
+  path: '/imports/:id/rows/:rowId/documents/:documentId/file',
+  tag: docs,
+  summary: 'Download a staged document (audited)',
+  permission: 'imports.view',
+  request: { params: rowDocumentSchema.params },
+  response: { file: 'application/octet-stream' },
+  errors: [404],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/students/:id/documents',
+  tag: docs,
+  summary: "A student's documents (stored in the student's own folder)",
+  permission: 'imports.view',
+  request: { params: studentIdSchema.params },
+  response: envelope(z.array(StudentDocumentDto)),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/students/:id/documents/:documentId/file',
+  tag: docs,
+  summary: 'Download a student document (audited)',
+  permission: 'imports.view',
+  request: { params: studentDocumentSchema.params },
+  response: { file: 'application/octet-stream' },
+  errors: [404],
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/imports/template.xlsx',
+  tag: 'Student import',
+  summary: 'Download the Excel template (document columns hold file paths inside the ZIP; includes an instructions sheet)',
+  permission: 'imports.view',
+  response: { file: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+});
+documentEndpoint({
+  method: 'get',
+  path: '/imports/sample-documents.zip',
+  tag: 'Student import',
+  summary: 'Download a sample documents ZIP matching the template paths',
+  permission: 'imports.view',
+  response: { file: 'application/zip' },
 });

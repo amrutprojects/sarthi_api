@@ -5,8 +5,13 @@ import { AppError } from '../../../shared/errors/app-error';
 import { ApiResponse } from '../../../shared/http/api-response';
 import { asyncHandler } from '../../../shared/http/async-handler';
 import { buildMeta } from '../../../shared/utils/pagination';
+import { sampleDocumentsZip, templateXlsx } from '../register/import-template';
 import { studentService } from '../register/student.service';
+import fs from 'fs/promises';
+import { documentService } from '../documents/document.service';
+import { sendFile } from '../documents/send-file';
 import { BATCH_STATUS } from '../student.constants';
+import { uploadedFile } from './upload.middleware';
 import { toImportBatchDto } from './import-batch.mapper';
 import { importService } from './import.service';
 import type { DecideBody, ListBatchesQuery, ListRowsQuery } from './import.validation';
@@ -22,6 +27,18 @@ export const importController = {
     res.send(studentService.template());
   },
 
+  templateXlsx: asyncHandler(async (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="student-import-template.xlsx"');
+    res.send(await templateXlsx());
+  }),
+
+  sampleDocuments: asyncHandler(async (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="sample-documents.zip"');
+    res.send(await sampleDocumentsZip());
+  }),
+
   reference: (_req: Request, res: Response) => {
     ApiResponse.ok(
       res,
@@ -36,17 +53,62 @@ export const importController = {
     ApiResponse.ok(res, items.map(toImportBatchDto), 'Import batches', buildMeta(q, total));
   }),
 
+  /* Data file (required) and, optionally, the documents ZIP in the same request. */
   upload: asyncHandler(async (req: Request, res: Response) => {
-    if (!req.file) throw AppError.badRequest('Attach a CSV or XLSX file in the "file" field');
+    const data = uploadedFile(req, 'file');
+    if (!data) throw AppError.badRequest('Attach a CSV or XLSX file in the "file" field');
     const raw: unknown = req.body?.sourceReference;
     const sourceReference = typeof raw === 'string' ? raw.trim().slice(0, 120) || null : null;
-    const { batch, duplicate } = await importService.createFromFile(req.file, sourceReference, req.auth!, req);
+    const buffer = await fs.readFile(data.path);
+    const { batch, duplicate } = await importService.createFromFile(
+      { buffer, originalname: data.originalname, size: data.size },
+      sourceReference,
+      req.auth!,
+      req,
+    );
     if (duplicate) {
       ApiResponse.ok(res, toImportBatchDto(batch), `This file was already uploaded as ${batch.code}; the existing batch is shown`);
       return;
     }
-    const message = batch.status === BATCH_STATUS.IMPORT_FAILED ? `Import failed: ${batch.failureReason}` : 'File received and validated';
-    ApiResponse.created(res, toImportBatchDto(batch), message);
+    if (batch.status === BATCH_STATUS.IMPORT_FAILED) {
+      ApiResponse.created(res, toImportBatchDto(batch), `Import failed: ${batch.failureReason}`);
+      return;
+    }
+    const zip = uploadedFile(req, 'documents');
+    if (!zip) {
+      ApiResponse.created(res, toImportBatchDto(batch), 'File received and validated');
+      return;
+    }
+    const withDocs = await documentService.attachZip(batch.id, zip, req.auth!, req);
+    const r = withDocs.documentsReport!;
+    ApiResponse.created(
+      res,
+      toImportBatchDto(withDocs),
+      `File received and validated; ${r.stored} documents stored for ${r.studentsWithFiles} students`,
+    );
+  }),
+
+  /* Add or replace documents of a batch under review. */
+  uploadDocuments: asyncHandler(async (req: Request, res: Response) => {
+    const zip = uploadedFile(req, 'documents');
+    if (!zip) throw AppError.badRequest('Attach a ZIP file in the "documents" field');
+    const batch = await documentService.attachZip(params<BatchParams>(req).id, zip, req.auth!, req);
+    const r = batch.documentsReport!;
+    ApiResponse.ok(
+      res,
+      toImportBatchDto(batch),
+      `${r.stored} documents stored, ${r.rejected.length} rejected, ${r.unmatchedFolders.length} folders not matched`,
+    );
+  }),
+
+  rowDocuments: asyncHandler(async (req: Request, res: Response) => {
+    const p = params<RowParams>(req);
+    ApiResponse.ok(res, await documentService.listForRow(p.id, p.rowId), 'Row documents');
+  }),
+
+  rowDocumentFile: asyncHandler(async (req: Request, res: Response) => {
+    const p = params<RowParams & { documentId: string }>(req);
+    sendFile(res, await documentService.openStaged(p.id, p.rowId, p.documentId, req));
   }),
 
   get: asyncHandler(async (req: Request, res: Response) => {

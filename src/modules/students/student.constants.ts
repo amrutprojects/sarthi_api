@@ -203,6 +203,7 @@ export const ISSUE_CODES = {
   REF_UNKNOWN: { waivable: true, label: 'Value not in the reference list' },
   TRACK_NOT_OFFERED: { waivable: true, label: 'Technology option is not an approved track (track to be confirmed)' },
   DOC_MISSING: { waivable: true, label: 'Required document not supplied' },
+  DOC_INVALID: { waivable: true, label: 'Document file rejected (type, size or content)' },
   DUPLICATE_IN_FILE: { waivable: false, label: 'Same person appears earlier in this file' },
 } as const;
 export type IssueCode = keyof typeof ISSUE_CODES;

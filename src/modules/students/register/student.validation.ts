@@ -12,5 +12,6 @@ export const listStudentsSchema = {
   }),
 };
 export const studentIdSchema = { params: idParams };
+export const studentDocumentSchema = { params: idParams.extend({ documentId: uuid }) };
 
 export type ListStudentsQuery = z.infer<typeof listStudentsSchema.query>;

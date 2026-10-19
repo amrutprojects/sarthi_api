@@ -22,6 +22,7 @@ PostgreSQL 14+, accessed only by this API through TypeORM ([ADR-0009](../archite
 | `idempotency_keys` | shared | Stored responses for `Idempotency-Key` requests, 24 h |
 | `import_batches`, `import_rows` | students | Student import pipeline |
 | `students` | students | Approved-student register (created only by import finalisation) |
+| `student_documents` | students | Document files: staged per import row, then per student (file metadata, sha256, storage key) |
 | `typeorm_migrations` | — | Applied migrations |
 
 ## Migrations

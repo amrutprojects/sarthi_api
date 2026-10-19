@@ -187,22 +187,44 @@ describe('student import', () => {
     expect((await request(app).get(`${API}/students`).set(auth(op))).body.meta.total).toBe(1);
   });
 
-  it('serves a template that imports cleanly as it is (BOM, synthetic valid values)', async () => {
+  it('serves CSV and Excel templates whose document paths match the sample ZIP; together they import cleanly', async () => {
     const { op } = await people();
-    const tpl = await request(app)
-      .get(`${API}/imports/template.csv`)
+    const download = (path: string) =>
+      request(app)
+        .get(`${API}/imports/${path}`)
+        .set(auth(op))
+        .buffer(true)
+        .parse((res, cb) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (c: Buffer) => chunks.push(c));
+          res.on('end', () => cb(null, Buffer.concat(chunks)));
+        });
+    const csvTpl = await download('template.csv');
+    const xlsxTpl = await download('template.xlsx');
+    const zip = await download('sample-documents.zip');
+    expect([csvTpl.status, xlsxTpl.status, zip.status]).toEqual([200, 200, 200]);
+    expect((csvTpl.body as Buffer).subarray(0, 3).toString('hex')).toBe('efbbbf');
+    expect((xlsxTpl.body as Buffer).subarray(0, 2).toString()).toBe('PK');
+
+    /* Without the ZIP the rows wait for their documents. */
+    const alone = await uploadAs(op, csvTpl.body as Buffer, 'template.csv');
+    expect(alone.body.data.status).toBe('VALIDATED_WITH_EXCEPTIONS');
+    const waiting = await rowsOf(op, alone.body.data.id);
+    expect(waiting[0].issues.find((i: { code: string }) => i.code === 'DOC_MISSING').message).toMatch(
+      /waiting for "MA-SYN-000001\/photo.jpg"/,
+    );
+    await request(app).post(`${API}/imports/${alone.body.data.id}/cancel`).set(auth(op));
+
+    /* The Excel template with the sample ZIP: every referenced file is stored, nothing is left open. */
+    const both = await request(app)
+      .post(`${API}/imports`)
       .set(auth(op))
-      .buffer(true)
-      .parse((res, cb) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (c: Buffer) => chunks.push(c));
-        res.on('end', () => cb(null, Buffer.concat(chunks)));
-      });
-    expect(tpl.status).toBe(200);
-    const file = tpl.body as Buffer;
-    expect(file.subarray(0, 3).toString('hex')).toBe('efbbbf');
-    const up = await uploadAs(op, file, 'template.csv');
-    expect(up.body.data).toMatchObject({ status: 'READY_TO_FINALISE', counts: { total: 2, valid: 2 } });
+      .attach('file', xlsxTpl.body as Buffer, 'template.xlsx')
+      .attach('documents', zip.body as Buffer, 'sample-documents.zip');
+    expect(both.status).toBe(201);
+    expect(both.body.data).toMatchObject({ status: 'READY_TO_FINALISE', counts: { total: 2, valid: 2 } });
+    expect(both.body.data.documentsReport).toMatchObject({ rejected: [], missingReferenced: [], unmatchedFolders: [] });
+    expect(both.body.data.documentsReport.matchedByPath).toBe(both.body.data.documentsReport.stored);
   });
 
   it('requires import permissions', async () => {

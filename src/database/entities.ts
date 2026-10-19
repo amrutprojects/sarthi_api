@@ -11,6 +11,7 @@ import { Student } from '../modules/students/register/student.entity';
 import { UserRole } from '../modules/roles-permissions/user-role.entity';
 import { User } from '../modules/users/user.entity';
 import { IdempotencyKey } from '../shared/idempotency/idempotency-key.entity';
+import { StudentDocument } from '../modules/students/documents/student-document.entity';
 
 export { AppBaseEntity } from './base.entity';
 export { AuditLog, ImportBatch, ImportRow, Permission, RevokedToken, Role, RoleMenuVisibility, RolePermission, Student, User, UserRole };
@@ -30,4 +31,5 @@ export const ENTITIES = [
   ImportRow,
   Student,
   IdempotencyKey,
+  StudentDocument,
 ];
