@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../../config/database.config';
-import { seedContactPage } from './seed-contact-page';
+import { seedMasters } from './seed-masters';
 import { seedRbac } from './seed-rbac';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
@@ -11,11 +11,8 @@ async function main() {
     const summary = await seedRbac(AppDataSource);
     // eslint-disable-next-line no-console
     console.log('RBAC seed complete:', summary);
-
-    /* First run only: writes the Contact page content and never touches it again (see the file). */
-    const contact = await seedContactPage(AppDataSource);
     // eslint-disable-next-line no-console
-    console.log('Contact page seed:', contact.created ? contact : 'already configured — left untouched');
+    console.log('Masters seed complete (rows added):', await seedMasters(AppDataSource));
   } finally {
     await AppDataSource.destroy();
   }
