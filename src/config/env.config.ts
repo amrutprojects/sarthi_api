@@ -58,6 +58,15 @@ const schema = z.object({
 
   /* Student document files (private storage, never served statically). Relative paths are resolved from the backend folder. */
   STORAGE_DIR: z.string().min(1).default('storage'),
+  /* 'local' (STORAGE_DIR on disk) or 's3' (private bucket; keys are the same relative paths). */
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  AWS_REGION: z.string().optional(),
+  AWS_BUCKET_NAME: z.string().optional(),
+  /* Optional: without them the SDK uses its default chain (instance role, AWS profile). */
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  /* Optional folder inside the bucket, e.g. "dev" or "prod". */
+  AWS_KEY_PREFIX: z.string().default(''),
   DOCUMENT_MAX_FILE_MB: z.coerce.number().positive().default(5),
   DOCUMENTS_ZIP_MAX_MB: z.coerce.number().positive().default(500),
   DOCUMENTS_ZIP_MAX_FILES: z.coerce.number().int().positive().default(20_000),
@@ -105,6 +114,12 @@ if (!parsed.success) {
 }
 
 const raw = parsed.data;
+
+if (raw.STORAGE_DRIVER === 's3' && (!raw.AWS_REGION || !raw.AWS_BUCKET_NAME)) {
+  // eslint-disable-next-line no-console
+  console.error('Invalid environment configuration:\n  - STORAGE_DRIVER=s3 needs AWS_REGION and AWS_BUCKET_NAME');
+  process.exit(1);
+}
 
 if (raw.NODE_ENV === 'production' && /CHANGE_ME|REPLACE_WITH/i.test(raw.JWT_SECRET + raw.DB_PASSWORD)) {
   // eslint-disable-next-line no-console

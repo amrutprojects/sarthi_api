@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { listQuerySchema } from '../../../shared/utils/pagination';
-import { idParams } from '../../../shared/validation/common.validation';
+import { idParams, uuid } from '../../../shared/validation/common.validation';
 import { STUDENT_STATUS } from '../student.constants';
 import { registrationBody } from './registration.validation';
 
@@ -15,6 +15,7 @@ export const listRegistrationsSchema = {
 export type ListRegistrationsQuery = z.infer<typeof listRegistrationsSchema.query>;
 
 export const registrationIdSchema = { params: idParams };
+export const registrationDocumentSchema = { params: idParams.extend({ documentId: uuid }) };
 
 /*
  * Admin-entered registration (multipart): field "data" holds this JSON; each document file is sent in a field named
