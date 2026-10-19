@@ -54,6 +54,12 @@ const schema = z.object({
   IMPORT_MAX_FILE_MB: z.coerce.number().positive().default(20),
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(50_000),
 
+  /* Student document files (private storage, never served statically). Relative paths are resolved from the backend folder. */
+  STORAGE_DIR: z.string().min(1).default('storage'),
+  DOCUMENT_MAX_FILE_MB: z.coerce.number().positive().default(5),
+  DOCUMENTS_ZIP_MAX_MB: z.coerce.number().positive().default(500),
+  DOCUMENTS_ZIP_MAX_FILES: z.coerce.number().int().positive().default(20_000),
+
   /* Browser sessions: HttpOnly cookie carrying the access token (ADR-0003). */
   SESSION_COOKIE_NAME: z
     .string()
