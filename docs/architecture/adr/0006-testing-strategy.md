@@ -15,7 +15,7 @@
 | Contract | `tests/contract` | isolated test DB | Every route documented in OpenAPI; real responses match the documented DTOs |
 | E2E | `tests/e2e` | isolated test DB | Whole workflows across modules (e.g. student import: upload → review → second-person finalise → register) |
 
-- Jest projects `unit` and `db`; `npm run test:unit` needs no database.
+- Jest projects `unit` and `db`; `npm run test:unit` needs no database and no `.env.test` (fixed test values from `tests/helpers/unit-env.ts`), so it runs on a fresh CI machine.
 - The test database is configured in `.env.test`; helpers refuse to run unless its name contains `test`. `globalSetup` drops and recreates the schema from the migrations, which also checks that every migration applies cleanly from scratch.
 - Tests never use production data; fixtures are synthetic.
 

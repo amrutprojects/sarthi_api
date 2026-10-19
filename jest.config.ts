@@ -18,7 +18,14 @@ const config: Config = {
   collectCoverageFrom: ['src/**/*.ts', '!src/server.ts', '!src/database/migrations/**', '!src/**/*.openapi.ts'],
   coverageDirectory: 'coverage',
   projects: [
-    { ...shared, displayName: 'unit', roots: ['<rootDir>/tests/unit'], testMatch: ['**/*.test.ts'] },
+    /* unit-env.ts supplies fixed test values, so unit tests need no .env.test and no database. */
+    {
+      ...shared,
+      displayName: 'unit',
+      roots: ['<rootDir>/tests/unit'],
+      testMatch: ['**/*.test.ts'],
+      setupFiles: ['<rootDir>/tests/helpers/unit-env.ts'],
+    },
     {
       ...shared,
       displayName: 'db',
