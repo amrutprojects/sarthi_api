@@ -15,6 +15,7 @@ import {
 } from './import/import.validation';
 import { listStudentsSchema, studentDocumentSchema, studentIdSchema } from './register/student.validation';
 import { BATCH_STATUS, ROW_STATUS } from './student.constants';
+import { registrationBody } from './registration/registration.validation';
 
 const Counts = z.object({
   total: z.number().int(),
@@ -127,7 +128,7 @@ const StudentDto = registry.register(
       mobile: z.string().nullable(),
       email: z.string().nullable(),
       aadhaar: z.string().nullable(),
-      approvedAt: z.string().datetime(),
+      approvedAt: z.string().datetime().nullable(),
       importBatchId: z.string().uuid(),
       createdAt: z.string().datetime(),
       documents: z
@@ -363,4 +364,43 @@ documentEndpoint({
   summary: 'Download a sample documents ZIP matching the template paths',
   permission: 'imports.view',
   response: { file: 'application/zip' },
+});
+
+const RegistrationExample = {
+  first_name: 'Asha',
+  last_name: 'Patil',
+  father_name: 'Ramesh Patil',
+  mother_name: 'Sunita Patil',
+  email: 'asha.patil@example.com',
+  date_of_birth: '2003-04-12',
+  current_address: 'Flat 4, Shivaji Nagar, Pune 411005',
+  aadhaar_number: '<12-digit Aadhaar>',
+  mobile_number: '9876543210',
+  religion: 'हिंदू',
+  caste: 'मराठी',
+  course_centre: 'PUN',
+  technology: 'T03',
+  education_qualification: 'B.Com',
+  declaration_accepted: true as const,
+};
+documentEndpoint({
+  method: 'post',
+  path: '/student-registrations',
+  tag: 'Student registration',
+  summary: 'Submit a student registration from the public website',
+  description: [
+    'Uses the same fields, normalisation and validation as the student import (`validateCandidate`).',
+    'The record is stored in the student register with status `REGISTRATION_PENDING`; it is never approved, allocated or',
+    'linked to the LMS by this call. Client-supplied status, approval or ID fields are rejected (422).',
+    'Same Aadhaar as an existing student or registration → 409. Rate limited per IP.',
+  ].join(' '),
+  permission: 'public',
+  request: { body: registrationBody.openapi({ example: RegistrationExample }) },
+  response: envelope(
+    z.object({
+      registration_id: z.string().openapi({ example: 'REG-000001' }),
+      status: z.string().openapi({ example: 'REGISTRATION_PENDING' }),
+    }),
+  ),
+  errors: [400, 409],
 });

@@ -4,6 +4,7 @@ import { StudentImport1792200000000 } from './1792200000000-StudentImport';
 import { IdempotencyKeys1792300000000 } from './1792300000000-IdempotencyKeys';
 import { StudentDocuments1792400000000 } from './1792400000000-StudentDocuments';
 import { StudentDocumentSourcePath1792500000000 } from './1792500000000-StudentDocumentSourcePath';
+import { StudentRegistration1792600000000 } from './1792600000000-StudentRegistration';
 
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
@@ -13,4 +14,5 @@ export const MIGRATIONS = [
   IdempotencyKeys1792300000000,
   StudentDocuments1792400000000,
   StudentDocumentSourcePath1792500000000,
+  StudentRegistration1792600000000,
 ];
