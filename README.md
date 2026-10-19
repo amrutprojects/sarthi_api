@@ -115,3 +115,23 @@ Validated at startup (`src/config/env.config.ts`); the process exits listing eve
 | `PERMISSION_CACHE_TTL_MS` | 60000 | effective-permission cache |
 | `STUDENT_DATA_KEY` / `STUDENT_INDEX_KEY` | — | 32-byte base64 keys: Aadhaar encryption / blind index |
 | `IMPORT_MAX_FILE_MB` / `IMPORT_MAX_ROWS` | 20 / 50000 | student import limits |
+| `STORAGE_DIR` | storage | private folder for student documents (relative to the backend folder); back it up |
+| `DOCUMENT_MAX_FILE_MB` / `DOCUMENTS_ZIP_MAX_MB` / `DOCUMENTS_ZIP_MAX_FILES` | 5 / 500 / 20000 | documents ZIP limits |
+
+## Student documents (ZIP upload)
+
+Upload a ZIP with the data file (`POST /api/v1/imports`, field `documents`) or later while the batch is under review (`POST /api/v1/imports/:id/documents`).
+
+```
+documents.zip
+├── MA-0001/            ← folder name = the row's source_record_id
+│   ├── PHOTO.jpg       ← file name = document type (PHOTO, SIGNATURE, AADHAAR_CARD, CASTE_CERT, INCOME_EWS, DOMICILE,
+│   ├── AADHAAR_CARD.pdf    PAN_CARD, SCHOOL_LEAVING, NAME_CHANGE, EDU_CERT, FITNESS, SELF_DECLARATION, OTHER; labels and
+│   └── CASTE_CERT.pdf      common aliases such as "aadhar" or "photograph" are recognised)
+└── MA-0002/…           (flat names like MA-0002_PHOTO.jpg also work)
+```
+
+- Files must be PDF, JPG or PNG **by content**, at most `DOCUMENT_MAX_FILE_MB` each. Path traversal, too many files and oversized archives are refused.
+- While under review, files are stored under `STORAGE_DIR/imports/<batch>/<source_record_id>/`. A supplied document clears that row's DOC_MISSING issue; a rejected file adds DOC_INVALID. The batch shows a documents report (stored, rejected with reasons, folders that match no row).
+- On finalise every student gets their own folder, `STORAGE_DIR/students/<STU-code>/<TYPE>.<ext>`; replaced versions are kept under `_replaced/`. Cancelling a batch deletes its staging folder.
+- Files are only served through the API (`GET /students/:id/documents/:documentId/file`, permission `imports.view`), as downloads, and every download is audited. Back up `STORAGE_DIR` together with the database.
