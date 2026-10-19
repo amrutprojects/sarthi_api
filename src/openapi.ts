@@ -8,6 +8,7 @@ import './modules/roles-permissions/roles-permissions.openapi';
 import './modules/audit/audit.openapi';
 import './modules/students/students.openapi';
 import './modules/masters/masters.openapi';
+import './cms/cms.openapi';
 
 export { documentedRoutes } from './shared/openapi/registry';
 

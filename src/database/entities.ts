@@ -13,10 +13,12 @@ import { User } from '../modules/users/user.entity';
 import { IdempotencyKey } from '../shared/idempotency/idempotency-key.entity';
 import { StudentDocument } from '../modules/students/documents/student-document.entity';
 import { Caste, DocumentType, Education, Region } from '../modules/masters/master.entity';
+import { CMS_ENTITIES, ContactOrganization, ContactPageSettings, District, State, Taluka } from '../cms/cms.entities';
 
 export { AppBaseEntity } from './base.entity';
 export { Caste, DocumentType, Education, Region };
 export { AuditLog, ImportBatch, ImportRow, Permission, RevokedToken, Role, RoleMenuVisibility, RolePermission, Student, User, UserRole };
+export { ContactOrganization, ContactPageSettings, District, State, Taluka };
 export type { AuditOutcome } from '../modules/audit';
 
 /* Explicit entity registration for the DataSource (no glob loading). */
@@ -38,4 +40,6 @@ export const ENTITIES = [
   Caste,
   DocumentType,
   Education,
+  /* CMS geography masters and Contact page content (src/cms). */
+  ...CMS_ENTITIES,
 ];

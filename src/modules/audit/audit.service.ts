@@ -14,6 +14,7 @@ export interface AuditEvent {
   actorUserId?: string | null;
 }
 
+
 /* Keys that must never be written to the audit log, at any depth. */
 const SENSITIVE = /pass(word)?|secret|token|authorization|cookie|hash/i;
 
