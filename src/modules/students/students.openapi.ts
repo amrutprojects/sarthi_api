@@ -377,10 +377,11 @@ const RegistrationExample = {
   aadhaar_number: '<12-digit Aadhaar>',
   mobile_number: '9876543210',
   religion: 'हिंदू',
-  caste: 'मराठी',
-  course_centre: 'PUN',
+  caste_id: '3f1c2a9e-5b7d-4e61-9a0b-2c4d6e8f1a01',
+  region_id: '7a2b4c6d-8e0f-4a1b-9c3d-5e7f9a1b3c02',
   technology: 'T03',
-  education_qualification: 'B.Com',
+  education_id: 'b4d6f8a0-2c4e-4f6a-8b0c-1d3e5f7a9b03',
+  documents: [{ document_type_id: 'c5e7a9b1-3d5f-4a7b-9c1d-2e4f6a8b0c04' }],
   declaration_accepted: true as const,
 };
 documentEndpoint({
@@ -392,7 +393,9 @@ documentEndpoint({
     'Uses the same fields, normalisation and validation as the student import (`validateCandidate`).',
     'The record is stored in the student register with status `REGISTRATION_PENDING`; it is never approved, allocated or',
     'linked to the LMS by this call. Client-supplied status, approval or ID fields are rejected (422).',
-    'Same Aadhaar as an existing student or registration → 409. Rate limited per IP.',
+    'Region, caste, education and document types are ids of active master records (see the `/…/options` endpoints);',
+    'an unknown, inactive or deleted id → 422 with the field. Same Aadhaar as an existing student or registration → 409.',
+    'Rate limited per IP.',
   ].join(' '),
   permission: 'public',
   request: { body: registrationBody.openapi({ example: RegistrationExample }) },
@@ -402,5 +405,5 @@ documentEndpoint({
       status: z.string().openapi({ example: 'REGISTRATION_PENDING' }),
     }),
   ),
-  errors: [400, 409],
+  errors: [400, 409, 422],
 });

@@ -15,6 +15,7 @@ import { auditService } from '../../audit';
 import { ImportFileError, parseImportFile } from './file-parser';
 import { documentService } from '../documents/document.service';
 import { rowChecksum, validateRow, type NormalisedRow } from './row-validator';
+import { mastersService } from '../../masters';
 
 export type MatchDecision = 'SAME_PERSON' | 'DIFFERENT_PERSON' | 'HOLD';
 
@@ -133,7 +134,9 @@ export class ImportService {
 
   /* A-14 + A-15: validate every row and detect duplicates, in the file and against the register. One failing row never blocks others. */
   private async validate(batch: ImportBatch, rawRows: Record<string, string>[]) {
-    const results = rawRows.map((raw, i) => ({ rowNumber: i + 2, raw, checksum: rowChecksum(raw), ...validateRow(raw) }));
+    /* Masters are loaded once per batch; validateRow matches against them in memory. */
+    const masters = await mastersService.loadLookup();
+    const results = rawRows.map((raw, i) => ({ rowNumber: i + 2, raw, checksum: rowChecksum(raw), ...validateRow(raw, masters) }));
 
     /* Load only the register rows that could match. */
     const srcIds = [...new Set(results.map((r) => r.row.sourceRecordId).filter((x): x is string => !!x))];
@@ -433,6 +436,9 @@ export class ImportService {
               religion: d.religion,
               caste: d.caste,
               centreCode: d.centreCode,
+              regionId: d.regionId ?? null,
+              casteId: d.casteId ?? null,
+              educationId: d.educationId ?? null,
               trackCode: d.trackCode,
               trackSourceValue: d.trackSourceValue,
               educationQualification: d.educationQualification,

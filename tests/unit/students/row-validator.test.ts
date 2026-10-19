@@ -1,6 +1,9 @@
 import { IMPORT_COLUMNS } from '../../../src/modules/students/student.constants';
 import { rowChecksum, validateRow } from '../../../src/modules/students/import/row-validator';
 import { decryptAadhaar, verhoeffValid, withVerhoeffDigit } from '../../../src/modules/students/aadhaar';
+import { testMasters } from '../../helpers/masters';
+
+const masters = testMasters();
 
 /* A valid source row per the received-data field mapping (spec Table 81). */
 function row(over: Record<string, string> = {}): Record<string, string> {
@@ -27,11 +30,11 @@ function row(over: Record<string, string> = {}): Record<string, string> {
   v.doc_income_ews_barcode = 'BC-1';
   return { ...v, ...over };
 }
-const codes = (r: Record<string, string>) => validateRow(r).issues.map((i) => i.code);
+const codes = (r: Record<string, string>) => validateRow(r, masters).issues.map((i) => i.code);
 
 describe('validateRow', () => {
   it('accepts a valid row and normalises it', () => {
-    const { row: n, issues } = validateRow(row());
+    const { row: n, issues } = validateRow(row(), masters);
     expect(issues).toEqual([]);
     expect(n).toMatchObject({
       email: 'asha.patil@example.org',
@@ -46,7 +49,7 @@ describe('validateRow', () => {
 
   it('protects the Aadhaar number: encrypted, blind-indexed, never in the normalised data', () => {
     const digits = withVerhoeffDigit('23456789012');
-    const { row: n } = validateRow(row({ aadhaar_number: digits.replace(/(\d{4})(?=\d)/g, '$1 ') }));
+    const { row: n } = validateRow(row({ aadhaar_number: digits.replace(/(\d{4})(?=\d)/g, '$1 ') }), masters);
     expect(decryptAadhaar(n.aadhaarEnc!)).toBe(digits);
     expect(n.aadhaarBidx).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify({ ...n, aadhaarEnc: undefined })).not.toContain(digits);
@@ -71,7 +74,7 @@ describe('validateRow', () => {
   });
 
   it('never puts an Aadhaar value in an issue message', () => {
-    const { issues } = validateRow(row({ aadhaar_number: '234567890123' }));
+    const { issues } = validateRow(row({ aadhaar_number: '234567890123' }), masters);
     expect(JSON.stringify(issues)).not.toContain('234567890123');
   });
 

@@ -28,15 +28,38 @@ Source of truth: `src/modules/students/student.constants.ts` (`IMPORT_COLUMNS`) 
 | aadhaar_number | aadhaarEnc / aadhaarBidx / aadhaarLast4 | aadhaar_number | required, 12 digits, not starting 0/1, Verhoeff; stored AES-256-GCM + HMAC index + last 4 | Yes (never returned) |
 | mobile_number | mobile | mobile_number | required, Indian 10-digit starting 6–9, stored `+91…` | Yes |
 | religion | religion | religion | required, in `RELIGIONS` (NFC) | Yes |
-| caste | caste | caste | required, in `CASTES` (NFC) | Yes |
-| course_centre | centreCode | course_centre | required, centre code or name in `CENTRES` | Yes |
+| caste | caste + casteId | caste_id (uuid) | required; import: code or name of an active Caste master record (NFC, case-insensitive) | Yes, by id |
+| course_centre | centreCode + regionId | region_id (uuid) | required; import: code or name of an active Region master record | Yes, by id |
 | technology | trackCode / trackSourceValue | technology | required, approved track code/name/alias | Yes |
-| education_qualification | educationQualification | education_qualification | required, ≤ 150 | Yes |
+| education_qualification | educationQualification + educationId | education_id (uuid) | required; import: code or name of an active Education master record | Yes, by id |
 | approval_status | externalStatus | — | must be `APPROVED` | **Never** from the public |
 | approved_at | approvedAt | — | ISO date-time, not future | **Never** from the public |
 | evidence_ref | evidenceRef | — | optional, ≤ 120 | No (admin evidence) |
 | declaration_accepted | declarationAccepted | declaration_accepted | optional Yes/No | Yes (proposed: must be true) |
-| doc_* (13 docs), doc_*_barcode | documents (jsonb) | — | presence / ZIP path; barcode for INCOME_EWS | See D5 |
+| doc_* (13 docs), doc_*_barcode | documents (jsonb), keyed by document type code, each with documentTypeId | documents: [{ document_type_id }] | import: checked only for active Document type master records; required = the type's isMandatory | Declared by id; no file upload |
+
+## Masters (region, caste, education, document type)
+
+Since migration `1792700000000-Masters`, region, caste, education and document type come from the master tables
+(`regions`, `castes`, `educations`, `document_types`; see `docs/api/masters-field-mapping.md`).
+
+- **Registration API** takes `region_id`, `caste_id`, `education_id` and an optional `documents: [{ document_type_id }]`
+  instead of the free-text `course_centre`, `caste` and `education_qualification`. Each id must belong to an active,
+  non-deleted master record; otherwise the response is 422 with the field (`body.region_id`,
+  `body.documents.1.document_type_id`, …), together with any other field errors.
+- **Stored values:** `students.regionId / casteId / educationId` (nullable FKs, ON DELETE RESTRICT) plus the master's
+  text as before: `centreCode` = region code, `caste` = caste name, `educationQualification` = education name. The text
+  columns stay so older records still display.
+- **Documents:** the declared types are stored in `students.documents` (jsonb), keyed by the type's code, as
+  `{ supplied: false, barcode: null, documentTypeId }`. This fits the existing schema (the import writes the same
+  shape) and needs no new table; `student_documents` stays for stored files, linked to the type by `docType` = code.
+  File upload remains out of scope for the public API.
+- **Import:** the masters are loaded once per batch and passed to `validateRow`. The Excel value matches by code or name,
+  case-insensitively; an unknown or inactive value raises `REF_UNKNOWN` (waivable), as before. Finalisation writes the
+  FK ids. Document columns stay `doc_<code>` (the 13 existing types); a type that is inactive in the master is
+  not checked, and `required` follows its `isMandatory` flag.
+- **Education:** no list was supplied, so the master starts empty. Until records are added, every import row raises
+  `REF_UNKNOWN` on `education_qualification` (waivable), and registrations cannot be submitted.
 
 ## Decisions needed before implementation
 

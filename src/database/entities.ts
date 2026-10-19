@@ -12,8 +12,10 @@ import { UserRole } from '../modules/roles-permissions/user-role.entity';
 import { User } from '../modules/users/user.entity';
 import { IdempotencyKey } from '../shared/idempotency/idempotency-key.entity';
 import { StudentDocument } from '../modules/students/documents/student-document.entity';
+import { Caste, DocumentType, Education, Region } from '../modules/masters/master.entity';
 
 export { AppBaseEntity } from './base.entity';
+export { Caste, DocumentType, Education, Region };
 export { AuditLog, ImportBatch, ImportRow, Permission, RevokedToken, Role, RoleMenuVisibility, RolePermission, Student, User, UserRole };
 export type { AuditOutcome } from '../modules/audit';
 
@@ -32,4 +34,8 @@ export const ENTITIES = [
   Student,
   IdempotencyKey,
   StudentDocument,
+  Region,
+  Caste,
+  DocumentType,
+  Education,
 ];

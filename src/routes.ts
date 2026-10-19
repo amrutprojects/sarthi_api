@@ -10,6 +10,8 @@ import { registrationRouter } from './modules/students/registration/registration
 import { menuVisibilityRouter } from './modules/roles-permissions/menu-visibility/menu-visibility.routes';
 import { roleRouter } from './modules/roles-permissions/roles/role.routes';
 import { userRouter } from './modules/users/user.routes';
+import { MASTERS } from './modules/masters';
+import { masterRouter } from './modules/masters/master.routes';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
 export const apiRouter = Router();
@@ -24,3 +26,4 @@ apiRouter.use('/students', studentRouter);
 apiRouter.use('/student-registrations', registrationRouter);
 apiRouter.use('/permissions', permissionRouter);
 apiRouter.use('/audit-logs', auditLogRouter);
+for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
