@@ -22,6 +22,18 @@ export const listQuerySchema = <S extends readonly [string, ...string[]]>(sortab
       .optional(),
   });
 
+/*
+ * Same as listQuerySchema but ascending by default: master data (and any A–Z catalogue) reads
+ * naturally in ascending order, whereas transactional lists want the newest row first.
+ */
+export const listQueryAscSchema = <S extends readonly [string, ...string[]]>(sortable: S) =>
+  listQuerySchema(sortable).extend({
+    sortOrder: z
+      .enum(['ASC', 'DESC', 'asc', 'desc'])
+      .default('ASC')
+      .transform((v) => v.toUpperCase() as 'ASC' | 'DESC'),
+  });
+
 export interface ListQuery<SortField extends string = string> {
   page: number;
   limit: number;

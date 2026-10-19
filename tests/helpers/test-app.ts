@@ -35,7 +35,8 @@ export async function teardownTestApp(): Promise<void> {
 export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
   await AppDataSource.query(
-    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "import_rows", "students", "import_batches", "idempotency_keys", "role_permissions", "user_roles", "permissions", "roles", "users" RESTART IDENTITY CASCADE',
+    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "role_permissions", "user_roles", "permissions", "roles", "users", '
+    + '"talukas", "districts", "states" RESTART IDENTITY CASCADE',
   );
   await seedRbac(AppDataSource);
   rbacService.invalidate();
