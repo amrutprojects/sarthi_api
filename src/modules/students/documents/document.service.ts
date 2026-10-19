@@ -343,7 +343,7 @@ export class DocumentService {
       details: { documentId, docType: doc.docType },
     });
     return {
-      stream: documentStorage.read(doc.storageKey),
+      stream: await documentStorage.read(doc.storageKey),
       mimeType: doc.mimeType,
       fileName: `${doc.docType}.${doc.storageKey.split('.').pop()}`,
     };
@@ -360,7 +360,7 @@ export class DocumentService {
       details: { documentId, docType: doc.docType },
     });
     const ext = doc.storageKey.split('.').pop();
-    return { stream: documentStorage.read(doc.storageKey), mimeType: doc.mimeType, fileName: `${doc.docType}.${ext}` };
+    return { stream: await documentStorage.read(doc.storageKey), mimeType: doc.mimeType, fileName: `${doc.docType}.${ext}` };
   }
 }
 
