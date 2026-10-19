@@ -5,10 +5,14 @@ export interface DocumentsReport {
   zipName: string;
   uploadedAt: string;
   stored: number;
+  /* Files assigned because the Excel named their path. */
+  matchedByPath: number;
   replaced: number;
   studentsWithFiles: number;
   unmatchedFolders: string[];
   rejected: { path: string; reason: string }[];
+  /* Paths named in the Excel that the ZIP did not contain. */
+  missingReferenced: { rowNumber: number; sourceRecordId: string | null; docType: string; path: string }[];
 }
 
 export interface ImportBatchCounts {

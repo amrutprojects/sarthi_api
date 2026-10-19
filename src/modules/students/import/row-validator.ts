@@ -32,7 +32,8 @@ export interface NormalisedRow {
   approvedAt: string | null;
   evidenceRef: string | null;
   declarationAccepted: boolean | null;
-  documents: Record<string, { supplied: boolean; barcode: string | null }>;
+  /* path: where the Excel says the file is inside the documents ZIP (normalised); supplied turns true when it is stored. */
+  documents: Record<string, { supplied: boolean; barcode: string | null; path?: string }>;
   /* For matching only (Tier 2): lower-case, single-spaced full name. */
   nameKey: string;
 }
@@ -40,6 +41,28 @@ export interface NormalisedRow {
 const collapse = (v: string) => v.replace(/\s+/g, ' ').trim();
 const nfc = (v: string) => v.normalize('NFC').trim();
 const yes = (v: string) => /^(y|yes|true|1|uploaded|available|supplied)$/i.test(v.trim());
+const no = (v: string) => /^(|n|no|false|0|na|n\/a|not supplied|not available)$/i.test(v.trim());
+
+/*
+ * A document column may hold the file's path inside the documents ZIP (e.g. "MA-0001/photo.jpg" or
+ * "scans\kavya\aadhaar.pdf"). Normalised to forward slashes without a leading "./" or "/"; matched
+ * case-insensitively. Returns null for "Yes"/"No" style values and for unsafe paths ("..").
+ */
+export function zipPathFromCell(v: string): string | null {
+  const t = v.trim();
+  if (!t || yes(t) || no(t)) return null;
+  const BACKSLASH = String.fromCharCode(92);
+  if (!t.includes('/') && !t.includes(BACKSLASH) && !/\.[A-Za-z0-9]{2,5}$/.test(t)) return null;
+  const p = t
+    .split(BACKSLASH)
+    .join('/')
+    .replace(/^(\.\/)+/, '')
+    .replace(/^\/+/, '')
+    .replace(/\/{2,}/g, '/');
+  if (!p || p.split('/').includes('..') || p.length > 300) return null;
+  return p;
+}
+export const zipPathKey = (p: string) => p.toLowerCase();
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -183,11 +206,15 @@ export function validateRow(raw: Record<string, string>): { row: NormalisedRow; 
   const documents: NormalisedRow['documents'] = {};
   for (const d of DOCUMENTS) {
     const k = d.key.toLowerCase();
-    const supplied = yes(get(`doc_${k}`));
+    const cell = get(`doc_${k}`);
+    const path = zipPathFromCell(cell);
+    const supplied = !path && yes(cell);
     const barcode = d.barcode ? collapse(get(`doc_${k}_barcode`)).slice(0, 64) || null : null;
-    documents[d.key] = { supplied, barcode };
-    if (d.required && !supplied) add(`doc_${k}`, 'DOC_MISSING', `${d.label} not supplied`);
-    if (d.barcode === 'required' && supplied && !barcode) add(`doc_${k}_barcode`, 'REQUIRED', `${d.label} barcode is required`);
+    documents[d.key] = path ? { supplied: false, barcode, path } : { supplied, barcode };
+    /* A path means the file is expected in the documents ZIP; the issue clears when that file is stored. */
+    if (path) add(`doc_${k}`, 'DOC_MISSING', `${d.label}: waiting for "${path}" in the documents ZIP`);
+    else if (d.required && !supplied) add(`doc_${k}`, 'DOC_MISSING', `${d.label} not supplied`);
+    if (d.barcode === 'required' && (supplied || path) && !barcode) add(`doc_${k}_barcode`, 'REQUIRED', `${d.label} barcode is required`);
   }
 
   return {

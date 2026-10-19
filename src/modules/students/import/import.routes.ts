@@ -26,6 +26,8 @@ export const importRouter = Router();
 importRouter.use(authenticate);
 
 importRouter.get('/template.csv', authorizePermission('imports.view'), c.template);
+importRouter.get('/template.xlsx', authorizePermission('imports.view'), c.templateXlsx);
+importRouter.get('/sample-documents.zip', authorizePermission('imports.view'), c.sampleDocuments);
 importRouter.get('/reference', authorizePermission('imports.view'), c.reference);
 importRouter.get('/', authorizePermission('imports.view'), validateRequest(listBatchesSchema), c.list);
 importRouter.post('/', authorizePermission('imports.create'), receiveImportUpload, c.upload);

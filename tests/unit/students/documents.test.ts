@@ -4,6 +4,7 @@ import path from 'path';
 import { detectFileType, extensionMatches } from '../../../src/modules/students/documents/file-type';
 import { documentTypeFromName, locate, readDocumentsZip, type ZipDocument } from '../../../src/modules/students/documents/zip-reader';
 import { resolveKey, safeSegment } from '../../../src/modules/students/documents/document-storage';
+import { zipPathFromCell } from '../../../src/modules/students/import/row-validator';
 import { buildZip, sampleJpg, samplePdf, samplePng } from '../../helpers/zip';
 
 const limits = { maxFiles: 100, maxFileBytes: 1024, maxTotalBytes: 10 * 1024 };
@@ -109,5 +110,20 @@ describe('storage keys', () => {
     expect(safeSegment('MA/../../etc passwd')).toBe('MA_.._.._etc_passwd');
     expect(() => resolveKey('../outside.txt')).toThrow(/escapes/);
     expect(resolveKey('students/STU-000001/PHOTO.jpg')).toMatch(/students[\\/]STU-000001[\\/]PHOTO\.jpg$/);
+  });
+});
+
+describe('document paths in the Excel', () => {
+  const BS = String.fromCharCode(92);
+  it.each([
+    ['MA-0001/photo.jpg', 'MA-0001/photo.jpg'],
+    [`scans${BS}asha aadhaar.pdf`, 'scans/asha aadhaar.pdf'],
+    ['./docs/a.PDF', 'docs/a.PDF'],
+    ['/docs//a.pdf', 'docs/a.pdf'],
+    ['photo.jpg', 'photo.jpg'],
+  ])('%s → %s', (cell, path) => expect(zipPathFromCell(cell)).toBe(path));
+
+  it.each(['Yes', 'no', 'N/A', '', 'Not supplied', '../etc/passwd.pdf', 'Uploaded'])('%s is not a path', (cell) => {
+    expect(zipPathFromCell(cell)).toBeNull();
   });
 });

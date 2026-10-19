@@ -141,6 +141,52 @@ describe('student import with a documents ZIP', () => {
     expect(Buffer.compare(dl.body as Buffer, photo)).toBe(0);
   });
 
+  it('uses the file paths written in the Excel, whatever the folder and file names, and records each path', async () => {
+    const { op } = await people();
+    const rows = [
+      record('MA-PATH-1', {
+        doc_photo: 'scans/Kavya Front.JPG',
+        doc_aadhaar_card: ['ID proofs', 'kavya-aadhaar.pdf'].join(String.fromCharCode(92)),
+      }), // Windows-style path
+      record('MA-PATH-2', { doc_caste_cert: 'missing/not-in-zip.pdf' }),
+    ];
+    const zip = await buildZip({
+      'scans/kavya front.jpg': sampleJpg(), // matched without regard to case
+      'ID proofs/kavya-aadhaar.pdf': samplePdf('aadhaar'),
+      'unrelated/readme.pdf': samplePdf('x'), // not referenced, and not in a folder named after a student
+    });
+    const up = await request(app)
+      .post(`${API}/imports`)
+      .set(auth(op))
+      .attach('file', csv(rows), 'paths.csv')
+      .attach('documents', zip, 'paths.zip');
+    expect(up.status).toBe(201);
+    const report = up.body.data.documentsReport;
+    expect(report).toMatchObject({ stored: 2, matchedByPath: 2 });
+    expect(report.missingReferenced).toEqual([
+      { rowNumber: 3, sourceRecordId: 'MA-PATH-2', docType: 'CASTE_CERT', path: 'missing/not-in-zip.pdf' },
+    ]);
+    /* Not referenced and its folder matches no row: reported as an unmatched folder. */
+    expect(report.unmatchedFolders).toEqual(['unrelated']);
+    expect(report.rejected).toEqual([]);
+
+    const list = (await request(app).get(`${API}/imports/${up.body.data.id}/rows`).set(auth(op))).body.data;
+    const one = list.find((r: { sourceRecordId: string }) => r.sourceRecordId === 'MA-PATH-1');
+    const two = list.find((r: { sourceRecordId: string }) => r.sourceRecordId === 'MA-PATH-2');
+    expect(one.status).toBe('VALID');
+    expect(two.issues.find((i: { code: string; field: string }) => i.field === 'doc_caste_cert').message).toMatch(
+      /"missing\/not-in-zip.pdf" was not found in paths.zip/,
+    );
+
+    /* Stored under the student's staging folder with a standard name, and the original ZIP path kept in the database. */
+    expect(exists(`imports/${up.body.data.code}/MA-PATH-1/PHOTO.jpg`)).toBe(true);
+    const docs = (await request(app).get(`${API}/imports/${up.body.data.id}/rows/${one.id}/documents`).set(auth(op))).body.data;
+    expect(docs.map((d: { docType: string; sourcePath: string }) => [d.docType, d.sourcePath]).sort()).toEqual([
+      ['AADHAAR_CARD', 'ID proofs/kavya-aadhaar.pdf'],
+      ['PHOTO', 'scans/kavya front.jpg'],
+    ]);
+  });
+
   it('rejects a non-ZIP documents file, and documents need imports permissions', async () => {
     const { op } = await people();
     const up = await request(app)

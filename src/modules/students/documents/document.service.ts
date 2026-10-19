@@ -11,12 +11,13 @@ import { ImportBatch as ImportBatchEntity, type DocumentsReport, type ImportBatc
 import type { ImportRow, StoredIssue } from '../import/import-row.entity';
 import { ImportRow as ImportRowEntity } from '../import/import-row.entity';
 import { importService } from '../import/import.service';
+import { zipPathKey } from '../import/row-validator';
 import { Student } from '../register/student.entity';
 import { BATCH_STATUS, DOCUMENTS, ROW_STATUS } from '../student.constants';
 import { documentStorage, safeSegment } from './document-storage';
 import { detectFileType, extensionMatches } from './file-type';
 import { StudentDocument } from './student-document.entity';
-import { readDocumentsZip, ZipFormatError } from './zip-reader';
+import { readDocumentsZip, ZipFormatError, type ZipDocument } from './zip-reader';
 
 const MB = 1024 * 1024;
 const LABEL = new Map(DOCUMENTS.map((d) => [d.key, d.label]));
@@ -28,6 +29,8 @@ export interface StudentDocumentDto {
   docType: string;
   label: string;
   originalName: string;
+  /* Path of the file inside the uploaded ZIP. */
+  sourcePath: string | null;
   mimeType: string;
   sizeBytes: number;
   uploadedAt: Date;
@@ -37,6 +40,7 @@ const toDto = (d: StudentDocument): StudentDocumentDto => ({
   docType: d.docType,
   label: LABEL.get(d.docType) ?? d.docType,
   originalName: d.originalName,
+  sourcePath: d.sourcePath,
   mimeType: d.mimeType,
   sizeBytes: d.sizeBytes,
   uploadedAt: d.createdAt,
@@ -51,41 +55,109 @@ export class DocumentService {
   }
 
   /*
-   * Attach a documents ZIP to a batch under review. Folders (or file-name prefixes) are matched to rows by
-   * source_record_id; every file is checked by content (PDF/JPG/PNG, ≤ DOCUMENT_MAX_FILE_MB) and staged under
-   * imports/<batch>/<sourceId>/<TYPE>.<ext>. A matched document clears the row's DOC_MISSING issue for that type;
-   * a bad file adds DOC_INVALID. Uploading again replaces documents of the same type.
+   * Attach a documents ZIP to a batch under review. Each file is assigned to a row and document type by:
+   *   1. the Excel: a document column (e.g. doc_photo) holding the file's path inside the ZIP — any folder or name;
+   *   2. otherwise the folder convention: <source_record_id>/<TYPE>.<ext> (or <id>_<TYPE>.<ext>).
+   * Every file is checked by content (PDF/JPG/PNG, ≤ DOCUMENT_MAX_FILE_MB), stored under
+   * imports/<batch>/<sourceId>/<TYPE>.<ext>, and recorded in student_documents with its path in the ZIP.
+   * A stored document clears the row's DOC_MISSING issue for that type; a bad file adds DOC_INVALID; a path named
+   * in the Excel but absent from the ZIP stays DOC_MISSING and is listed in the report. Re-uploading replaces.
    */
   async attachZip(batchId: string, zip: { path: string; originalname: string }, actor: AuthUser, req?: Request): Promise<ImportBatch> {
     const batch = await importService.getBatch(batchId);
     if (!editable(batch)) throw AppError.conflict(`Documents can be added only while the batch is under review (it is ${batch.status})`);
 
     const rows = await AppDataSource.getRepository(ImportRowEntity).find({ where: { batchId, isDelete: false } });
+    const usable = (r: ImportRow) =>
+      r.status !== ROW_STATUS.ROW_REJECTED && r.status !== ROW_STATUS.SKIPPED_UNCHANGED && r.status !== ROW_STATUS.RECONCILED;
     const bySource = new Map(rows.filter((r) => r.sourceRecordId).map((r) => [safeSegment(r.sourceRecordId!).toUpperCase(), r]));
+
+    /* Paths written in the Excel document columns: ZIP path (case-insensitive) → the row and document type expecting it. */
+    const expected = new Map<string, { row: ImportRow; docType: string; path: string }>();
+    for (const r of rows.filter(usable)) {
+      const docs = (r.data.documents ?? {}) as Record<string, { path?: string }>;
+      for (const [docType, d] of Object.entries(docs)) if (d.path) expected.set(zipPathKey(d.path), { row: r, docType, path: d.path });
+    }
+
     const report: DocumentsReport = {
       zipName: zip.originalname.slice(0, 255),
       uploadedAt: new Date().toISOString(),
       stored: 0,
+      matchedByPath: 0,
       replaced: 0,
       studentsWithFiles: 0,
       unmatchedFolders: [],
       rejected: [],
+      missingReferenced: [],
     };
     const touched = new Map<string, ImportRow>();
     const unmatched = new Set<string>();
+    const found = new Set<string>();
 
-    const rejectFor = (row: ImportRow | undefined, docType: string | null, path: string, reason: string) => {
+    const rejectFor = (row: ImportRow, docType: string, path: string, reason: string) => {
       report.rejected.push({ path, reason });
-      if (row && docType) {
-        row.issues = row.issues.filter((i) => !(i.code === 'DOC_INVALID' && i.field === docField(docType)));
-        row.issues.push({
-          field: docField(docType),
-          code: 'DOC_INVALID',
-          message: `${LABEL.get(docType)}: ${reason}`,
-          status: 'OPEN',
-        } as StoredIssue);
-        touched.set(row.id, row);
+      row.issues = row.issues.filter((i) => !(i.code === 'DOC_INVALID' && i.field === docField(docType)));
+      row.issues.push({
+        field: docField(docType),
+        code: 'DOC_INVALID',
+        message: `${LABEL.get(docType)}: ${reason}`,
+        status: 'OPEN',
+      } as StoredIssue);
+      touched.set(row.id, row);
+    };
+
+    /* Check, stage and record one file for a row and document type. */
+    const store = async (row: ImportRow, docType: string, doc: ZipDocument) => {
+      if (!usable(row)) {
+        report.rejected.push({ path: doc.path, reason: `Row ${row.rowNumber} is ${row.status.toLowerCase().replace(/_/g, ' ')}` });
+        return;
       }
+      if (doc.tooLarge || !doc.data) return rejectFor(row, docType, doc.path, `larger than ${env.DOCUMENT_MAX_FILE_MB} MB`);
+      const type = detectFileType(doc.data);
+      if (!type) return rejectFor(row, docType, doc.path, 'not a PDF, JPG or PNG file');
+      if (!extensionMatches(doc.fileName, type)) {
+        return rejectFor(row, docType, doc.path, `file content is ${type.ext.toUpperCase()} but the name says otherwise`);
+      }
+
+      const key = documentStorage.stagingKey(batch.code, row.sourceRecordId ?? `row-${row.rowNumber}`, `${docType}.${type.ext}`);
+      const previous = await this.repo().findOne({ where: { importRowId: row.id, docType, studentId: IsNull(), isDelete: false } });
+      if (previous) {
+        await this.repo().update(previous.id, { isDelete: true, isActive: false });
+        if (previous.storageKey !== key) await documentStorage.remove(previous.storageKey);
+        report.replaced++;
+      }
+      await documentStorage.write(key, doc.data);
+      await this.repo().save(
+        this.repo().create({
+          batchId,
+          importRowId: row.id,
+          docType,
+          storageKey: key,
+          sourcePath: doc.path.slice(0, 300),
+          originalName: doc.fileName.slice(0, 255),
+          mimeType: type.mime,
+          sizeBytes: doc.data.length,
+          sha256: crypto.createHash('sha256').update(doc.data).digest('hex'),
+          uploadedById: actor.id,
+        }),
+      );
+      report.stored++;
+
+      /* The row now has this document: record it and close the matching DOC_MISSING / DOC_INVALID issues. */
+      const docs = (row.data.documents ?? {}) as Record<
+        string,
+        { supplied: boolean; barcode: string | null; path?: string; file?: unknown }
+      >;
+      docs[docType] = {
+        ...(docs[docType] ?? { barcode: null }),
+        supplied: true,
+        file: { name: doc.fileName, sourcePath: doc.path, type: type.mime, size: doc.data.length },
+      };
+      row.data = { ...row.data, documents: docs };
+      row.issues = row.issues.filter(
+        (i) => !((i.code === 'DOC_MISSING' || i.code === 'DOC_INVALID') && i.field === docField(docType) && i.status === 'OPEN'),
+      );
+      touched.set(row.id, row);
     };
 
     try {
@@ -97,76 +169,56 @@ export class DocumentService {
           maxTotalBytes: env.DOCUMENTS_ZIP_MAX_MB * 4 * MB,
         },
         async (doc) => {
-          if (!doc.studentFolder)
-            return void report.rejected.push({
+          /* 1. The Excel names this exact file. */
+          const ref = expected.get(zipPathKey(doc.path));
+          if (ref) {
+            found.add(zipPathKey(doc.path));
+            report.matchedByPath++;
+            return store(ref.row, ref.docType, doc);
+          }
+          /* 2. Folder convention. */
+          if (!doc.studentFolder) {
+            report.rejected.push({
               path: doc.path,
-              reason: 'Put files in a folder named after the student (source_record_id), or name them <id>_<TYPE>.pdf',
+              reason: 'Not referenced in the Excel, and not in a folder named after a source_record_id',
             });
+            return;
+          }
           const row = bySource.get(safeSegment(doc.studentFolder).toUpperCase());
           if (!row) return void unmatched.add(doc.studentFolder);
-          if (
-            row.status === ROW_STATUS.ROW_REJECTED ||
-            row.status === ROW_STATUS.SKIPPED_UNCHANGED ||
-            row.status === ROW_STATUS.RECONCILED
-          ) {
-            return void report.rejected.push({
+          if (!doc.docType) {
+            report.rejected.push({
               path: doc.path,
-              reason: `Row ${row.rowNumber} is ${row.status.toLowerCase().replace(/_/g, ' ')}`,
+              reason: `Unknown document type "${doc.fileName}": give its path in the Excel, or name it PHOTO, SIGNATURE, AADHAAR_CARD…`,
             });
+            return;
           }
-          if (!doc.docType)
-            return void report.rejected.push({
-              path: doc.path,
-              reason: `Unknown document type "${doc.fileName}" (use e.g. PHOTO, SIGNATURE, AADHAAR_CARD)`,
-            });
-          if (doc.tooLarge || !doc.data) return rejectFor(row, doc.docType, doc.path, `larger than ${env.DOCUMENT_MAX_FILE_MB} MB`);
-          const type = detectFileType(doc.data);
-          if (!type) return rejectFor(row, doc.docType, doc.path, 'not a PDF, JPG or PNG file');
-          if (!extensionMatches(doc.fileName, type))
-            return rejectFor(row, doc.docType, doc.path, `file content is ${type.ext.toUpperCase()} but the name says otherwise`);
-
-          const key = documentStorage.stagingKey(batch.code, row.sourceRecordId!, `${doc.docType}.${type.ext}`);
-          const previous = await this.repo().findOne({
-            where: { importRowId: row.id, docType: doc.docType, studentId: IsNull(), isDelete: false },
-          });
-          if (previous) {
-            await this.repo().update(previous.id, { isDelete: true, isActive: false });
-            if (previous.storageKey !== key) await documentStorage.remove(previous.storageKey);
-            report.replaced++;
-          }
-          await documentStorage.write(key, doc.data);
-          await this.repo().save(
-            this.repo().create({
-              batchId,
-              importRowId: row.id,
-              docType: doc.docType,
-              storageKey: key,
-              originalName: doc.fileName.slice(0, 255),
-              mimeType: type.mime,
-              sizeBytes: doc.data.length,
-              sha256: crypto.createHash('sha256').update(doc.data).digest('hex'),
-              uploadedById: actor.id,
-            }),
-          );
-          report.stored++;
-
-          /* The row now has this document: record it and close the matching DOC_MISSING / DOC_INVALID issues. */
-          const docs = (row.data.documents ?? {}) as Record<string, { supplied: boolean; barcode: string | null; file?: unknown }>;
-          docs[doc.docType] = {
-            ...(docs[doc.docType] ?? { barcode: null }),
-            supplied: true,
-            file: { name: doc.fileName, type: type.mime, size: doc.data.length },
-          };
-          row.data = { ...row.data, documents: docs };
-          row.issues = row.issues.filter(
-            (i) => !((i.code === 'DOC_MISSING' || i.code === 'DOC_INVALID') && i.field === docField(doc.docType!) && i.status === 'OPEN'),
-          );
-          touched.set(row.id, row);
+          return store(row, doc.docType, doc);
         },
       );
     } catch (e) {
       if (e instanceof ZipFormatError) throw AppError.badRequest(e.message);
       throw e;
+    }
+
+    /* Files the Excel names but the ZIP does not contain stay DOC_MISSING, with a message naming the path. */
+    for (const [key, ref] of expected) {
+      if (found.has(key)) continue;
+      if (report.missingReferenced.length < 1000) {
+        report.missingReferenced.push({
+          rowNumber: ref.row.rowNumber,
+          sourceRecordId: ref.row.sourceRecordId,
+          docType: ref.docType,
+          path: ref.path,
+        });
+      }
+      const field = docField(ref.docType);
+      ref.row.issues = ref.row.issues.map((i) =>
+        i.code === 'DOC_MISSING' && i.field === field && i.status === 'OPEN'
+          ? { ...i, message: `${LABEL.get(ref.docType)}: "${ref.path}" was not found in ${report.zipName}` }
+          : i,
+      );
+      touched.set(ref.row.id, ref.row);
     }
 
     report.unmatchedFolders = [...unmatched].sort().slice(0, 500);
@@ -193,9 +245,11 @@ export class DocumentService {
         code: batch.code,
         zip: report.zipName,
         stored: report.stored,
+        matchedByPath: report.matchedByPath,
         replaced: report.replaced,
         rejected: report.rejected.length,
         unmatched: report.unmatchedFolders.length,
+        missingReferenced: report.missingReferenced.length,
       },
     });
     return importService.getBatch(batchId);

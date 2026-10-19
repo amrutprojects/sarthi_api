@@ -16,6 +16,8 @@ export class StudentDocument extends AppBaseEntity {
   @Column({ type: 'uuid', name: 'studentId', nullable: true }) studentId!: string | null;
   @Column({ type: 'varchar', length: 30, name: 'docType' }) docType!: string;
   @Column({ type: 'varchar', length: 300, name: 'storageKey' }) storageKey!: string;
+  /* Where the file was inside the uploaded ZIP (as written in the Excel, or found by the folder convention). */
+  @Column({ type: 'varchar', length: 300, name: 'sourcePath', nullable: true }) sourcePath!: string | null;
   @Column({ type: 'varchar', length: 255, name: 'originalName' }) originalName!: string;
   @Column({ type: 'varchar', length: 50, name: 'mimeType' }) mimeType!: string;
   @Column({ type: 'integer', name: 'sizeBytes' }) sizeBytes!: number;

@@ -5,6 +5,7 @@ import { AppError } from '../../../shared/errors/app-error';
 import { ApiResponse } from '../../../shared/http/api-response';
 import { asyncHandler } from '../../../shared/http/async-handler';
 import { buildMeta } from '../../../shared/utils/pagination';
+import { sampleDocumentsZip, templateXlsx } from '../register/import-template';
 import { studentService } from '../register/student.service';
 import fs from 'fs/promises';
 import { documentService } from '../documents/document.service';
@@ -25,6 +26,18 @@ export const importController = {
     res.setHeader('Content-Disposition', 'attachment; filename="student-import-template.csv"');
     res.send(studentService.template());
   },
+
+  templateXlsx: asyncHandler(async (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="student-import-template.xlsx"');
+    res.send(await templateXlsx());
+  }),
+
+  sampleDocuments: asyncHandler(async (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="sample-documents.zip"');
+    res.send(await sampleDocumentsZip());
+  }),
 
   reference: (_req: Request, res: Response) => {
     ApiResponse.ok(

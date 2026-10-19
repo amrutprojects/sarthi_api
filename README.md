@@ -120,18 +120,17 @@ Validated at startup (`src/config/env.config.ts`); the process exits listing eve
 
 ## Student documents (ZIP upload)
 
-Upload a ZIP with the data file (`POST /api/v1/imports`, field `documents`) or later while the batch is under review (`POST /api/v1/imports/:id/documents`).
+Upload a ZIP with the data file (`POST /api/v1/imports`, field `documents`) or later while the batch is under review (`POST /api/v1/imports/:id/documents`). Download the **Excel template** (`GET /api/v1/imports/template.xlsx`, with an instructions sheet) and the matching **sample ZIP** (`GET /api/v1/imports/sample-documents.zip`).
 
-```
-documents.zip
-├── MA-0001/            ← folder name = the row's source_record_id
-│   ├── PHOTO.jpg       ← file name = document type (PHOTO, SIGNATURE, AADHAAR_CARD, CASTE_CERT, INCOME_EWS, DOMICILE,
-│   ├── AADHAAR_CARD.pdf    PAN_CARD, SCHOOL_LEAVING, NAME_CHANGE, EDU_CERT, FITNESS, SELF_DECLARATION, OTHER; labels and
-│   └── CASTE_CERT.pdf      common aliases such as "aadhar" or "photograph" are recognised)
-└── MA-0002/…           (flat names like MA-0002_PHOTO.jpg also work)
-```
+**How files are matched to students (in this order):**
+
+1. **Paths in the Excel** — each document column (`doc_photo`, `doc_aadhaar_card`, …) holds the file's path inside the ZIP, e.g. `scans/asha aadhaar.pdf`. Any folder or file name works; matching ignores case and accepts `\` or `/`.
+2. **Folder convention** — when a column only says `Yes`: `<source_record_id>/<TYPE>.<ext>` (or `<id>_<TYPE>.<ext>`), with TYPE = PHOTO, SIGNATURE, AADHAAR_CARD, CASTE_CERT, INCOME_EWS, DOMICILE, PAN_CARD, SCHOOL_LEAVING, NAME_CHANGE, EDU_CERT, FITNESS, SELF_DECLARATION or OTHER.
+
+**What happens:**
 
 - Files must be PDF, JPG or PNG **by content**, at most `DOCUMENT_MAX_FILE_MB` each. Path traversal, too many files and oversized archives are refused.
-- While under review, files are stored under `STORAGE_DIR/imports/<batch>/<source_record_id>/`. A supplied document clears that row's DOC_MISSING issue; a rejected file adds DOC_INVALID. The batch shows a documents report (stored, rejected with reasons, folders that match no row).
+- A row that names a path waits (DOC_MISSING "waiting for …") until that file is stored; a path missing from the ZIP is listed in the batch's documents report. A rejected file adds DOC_INVALID.
+- Under review, files are stored as `STORAGE_DIR/imports/<batch>/<source_record_id>/<TYPE>.<ext>`; the database (`student_documents`) records the type, original path in the ZIP, size, SHA-256 and storage key.
 - On finalise every student gets their own folder, `STORAGE_DIR/students/<STU-code>/<TYPE>.<ext>`; replaced versions are kept under `_replaced/`. Cancelling a batch deletes its staging folder.
 - Files are only served through the API (`GET /students/:id/documents/:documentId/file`, permission `imports.view`), as downloads, and every download is audited. Back up `STORAGE_DIR` together with the database.

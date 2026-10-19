@@ -31,10 +31,14 @@ const DocumentsReportDto = z.object({
   zipName: z.string(),
   uploadedAt: z.string().datetime(),
   stored: z.number().int(),
+  matchedByPath: z.number().int().optional(),
   replaced: z.number().int(),
   studentsWithFiles: z.number().int(),
   unmatchedFolders: z.array(z.string()),
   rejected: z.array(z.object({ path: z.string(), reason: z.string() })),
+  missingReferenced: z
+    .array(z.object({ rowNumber: z.number().int(), sourceRecordId: z.string().nullable(), docType: z.string(), path: z.string() }))
+    .optional(),
 });
 export const StudentDocumentDto = registry.register(
   'StudentDocument',
@@ -43,6 +47,7 @@ export const StudentDocumentDto = registry.register(
     docType: z.string(),
     label: z.string(),
     originalName: z.string(),
+    sourcePath: z.string().nullable(),
     mimeType: z.enum(['application/pdf', 'image/jpeg', 'image/png']),
     sizeBytes: z.number().int(),
     uploadedAt: z.string().datetime(),
@@ -341,4 +346,21 @@ documentEndpoint({
   request: { params: studentDocumentSchema.params },
   response: { file: 'application/octet-stream' },
   errors: [404],
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/imports/template.xlsx',
+  tag: 'Student import',
+  summary: 'Download the Excel template (document columns hold file paths inside the ZIP; includes an instructions sheet)',
+  permission: 'imports.view',
+  response: { file: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+});
+documentEndpoint({
+  method: 'get',
+  path: '/imports/sample-documents.zip',
+  tag: 'Student import',
+  summary: 'Download a sample documents ZIP matching the template paths',
+  permission: 'imports.view',
+  response: { file: 'application/zip' },
 });
