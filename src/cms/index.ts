@@ -5,7 +5,17 @@ import { footerRouter } from './footer/footer.routes';
 import { modulesRouter } from './modules/modules.routes';
 import { mastersRouter } from './masters';
 
-export { CMS_ENTITIES, ContactOrganization, ContactPageSettings, District, FooterLink, FooterSection, FooterSettings, State, Taluka } from './cms.entities';
+export {
+  CMS_ENTITIES,
+  ContactOrganization,
+  ContactPageSettings,
+  District,
+  FooterLink,
+  FooterSection,
+  FooterSettings,
+  State,
+  Taluka,
+} from './cms.entities';
 export { publicGeographyRouter } from './masters';
 export { publicContactRouter } from './contact/contact.public.routes';
 export { publicFooterRouter } from './footer/footer.public.routes';

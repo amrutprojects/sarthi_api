@@ -15,7 +15,6 @@ const SORT_SQL: Record<DistrictSortField, string> = {
   updatedAt: 'd.updatedAt',
 };
 
-
 export class DistrictRepository extends BaseRepository<District> {
   constructor() {
     super(District);
@@ -40,9 +39,7 @@ export class DistrictRepository extends BaseRepository<District> {
   }
 
   findByCodeInState(stateId: string, code: string, opts: { excludeId?: string; manager?: EntityManager } = {}): Promise<District | null> {
-    const qb = this.query('d', opts.manager)
-      .andWhere('d.stateId = :stateId', { stateId })
-      .andWhere('d.code = :code', { code });
+    const qb = this.query('d', opts.manager).andWhere('d.stateId = :stateId', { stateId }).andWhere('d.code = :code', { code });
     if (opts.excludeId) qb.andWhere('d.id <> :excludeId', { excludeId: opts.excludeId });
     return qb.getOne();
   }
@@ -52,10 +49,11 @@ export class DistrictRepository extends BaseRepository<District> {
     if (q.stateId) qb.andWhere('d.stateId = :stateId', { stateId: q.stateId });
     if (q.search) {
       const term = likePattern(q.search);
-      qb.andWhere(new Brackets((w) => w
-        .where('d.name ILIKE :term', { term })
-        .orWhere('d.code ILIKE :term', { term })
-        .orWhere('s.name ILIKE :term', { term })));
+      qb.andWhere(
+        new Brackets((w) =>
+          w.where('d.name ILIKE :term', { term }).orWhere('d.code ILIKE :term', { term }).orWhere('s.name ILIKE :term', { term }),
+        ),
+      );
     }
     if (q.isActive !== undefined) qb.andWhere('d.isActive = :isActive', { isActive: q.isActive });
     const { skip, take } = toSkipTake(q);

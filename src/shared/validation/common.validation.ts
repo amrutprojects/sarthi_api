@@ -57,8 +57,6 @@ export const masterCode = (max: number, opts: { hyphen?: boolean } = {}) =>
         .max(max, `Must be at most ${max} characters`)
         .regex(
           opts.hyphen ? /^[A-Z][A-Z0-9-]*$/ : /^[A-Z][A-Z0-9]*$/,
-          opts.hyphen
-            ? 'Use A–Z, 0–9 and hyphen, starting with a letter'
-            : 'Use A–Z and 0–9 only, starting with a letter',
+          opts.hyphen ? 'Use A–Z, 0–9 and hyphen, starting with a letter' : 'Use A–Z and 0–9 only, starting with a letter',
         ),
     );

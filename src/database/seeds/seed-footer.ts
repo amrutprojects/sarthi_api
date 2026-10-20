@@ -29,19 +29,15 @@ const SETTINGS = {
   partnerName: 'SUMAGO INFOTECH PVT LTD',
   contactHeadingMr: 'संपर्क माहिती',
   contactHeadingEn: 'Contact Information',
-  contactAddressMr:
-    '५ वा मजला, अमृत इमारत, भीमसेन जोशी सभागृहाजवळ, प्रभाग क्र. ८, पीएमआरडीए, औंध, पुणे, महाराष्ट्र ४११०६७.',
-  contactAddressEn:
-    '5th Floor, AMRUT Building, near Bhimsen Joshi Sabhagruh, Ward No. 8, PMRDA, Aundh, Pune, Maharashtra 411067.',
+  contactAddressMr: '५ वा मजला, अमृत इमारत, भीमसेन जोशी सभागृहाजवळ, प्रभाग क्र. ८, पीएमआरडीए, औंध, पुणे, महाराष्ट्र ४११०६७.',
+  contactAddressEn: '5th Floor, AMRUT Building, near Bhimsen Joshi Sabhagruh, Ward No. 8, PMRDA, Aundh, Pune, Maharashtra 411067.',
   contactEmail: 'info@mahaamrut.org.in',
   contactPhone: '+91 97301 51450',
   /* `{year}` is substituted by the website, so the copyright cannot go stale. */
   copyrightMr: '© {year} AMRUT × SUMAGO INFOTECH PVT LTD — demonstration portal.',
   copyrightEn: '© {year} AMRUT × SUMAGO INFOTECH PVT LTD — demonstration portal.',
-  disclaimerMr:
-    'Illustrative / demo data. No official emblem, seal or government endorsement is reproduced.',
-  disclaimerEn:
-    'Illustrative / demo data. No official emblem, seal or government endorsement is reproduced.',
+  disclaimerMr: 'Illustrative / demo data. No official emblem, seal or government endorsement is reproduced.',
+  disclaimerEn: 'Illustrative / demo data. No official emblem, seal or government endorsement is reproduced.',
 };
 
 /*
@@ -89,9 +85,7 @@ export async function seedFooter(ds: DataSource): Promise<FooterSeedSummary> {
     const existing = await settingsRepo.findOne({ where: { isDelete: false } });
     if (existing) return { created: false, columnsCreated: 0, linksCreated: 0 };
 
-    const settings = await settingsRepo.save(
-      settingsRepo.create({ ...SETTINGS, isPublished: true }),
-    );
+    const settings = await settingsRepo.save(settingsRepo.create({ ...SETTINGS, isPublished: true }));
 
     const sectionRepo = m.getRepository(FooterSection);
     const linkRepo = m.getRepository(FooterLink);
@@ -107,9 +101,7 @@ export async function seedFooter(ds: DataSource): Promise<FooterSeedSummary> {
           displayOrder: index,
         }),
       );
-      await linkRepo.insert(
-        column.links.map((l, order) => ({ ...l, sectionId: section.id, displayOrder: order })),
-      );
+      await linkRepo.insert(column.links.map((l, order) => ({ ...l, sectionId: section.id, displayOrder: order })));
       linksCreated += column.links.length;
     }
 

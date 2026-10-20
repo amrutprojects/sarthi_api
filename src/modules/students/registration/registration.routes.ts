@@ -56,3 +56,10 @@ registrationRouter.get(
   validateRequest(registrationDocumentSchema),
   registrationAdminController.documentFile,
 );
+registrationRouter.post(
+  '/:id/documents/:documentId/verify',
+  authenticate,
+  authorizePermission('registrations.update'),
+  validateRequest(registrationDocumentSchema),
+  registrationAdminController.verifyDocument,
+);

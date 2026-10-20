@@ -73,7 +73,6 @@ export class ProgrammeModuleSettings extends AppBaseEntity {
 
   @OneToMany('ProgrammeModule', (m: ProgrammeModule) => m.settings)
   modules!: ProgrammeModule[];
-
 }
 
 /* One module card. `isElective` is what makes the card open the domain list on the public site. */

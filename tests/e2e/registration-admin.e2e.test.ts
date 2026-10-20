@@ -132,6 +132,25 @@ describe('admin registration entry with documents', () => {
     expect(unknown.body.error.details.map((d: { field: string }) => d.field)).toEqual(['files.PASSPORT']);
   });
 
+  it('verifies one document (audited, idempotent) and shows who verified it', async () => {
+    const token = await sumagoToken();
+    const created = await post(token, await data(), await allMandatory());
+    const id = created.body.data.id as string;
+    const detail = await request(app).get(`${URL}/${id}`).set('Authorization', `Bearer ${token}`);
+    const photo = detail.body.data.files.find((f: { docType: string }) => f.docType === 'PHOTO');
+    expect(photo.verifiedAt).toBeNull();
+
+    const v1 = await request(app).post(`${URL}/${id}/documents/${photo.id}/verify`).set('Authorization', `Bearer ${token}`);
+    expect(v1.status).toBe(HTTP_STATUS.OK);
+    expect(v1.body.data).toMatchObject({ id: photo.id, verifiedAt: expect.any(String), verifiedBy: expect.any(String) });
+    const v2 = await request(app).post(`${URL}/${id}/documents/${photo.id}/verify`).set('Authorization', `Bearer ${token}`);
+    expect(v2.body.data.verifiedAt).toBe(v1.body.data.verifiedAt);
+
+    const viewer = await actorWith(['registrations.view']);
+    const denied = await request(app).post(`${URL}/${id}/documents/${photo.id}/verify`).set('Authorization', `Bearer ${viewer.token}`);
+    expect(denied.status).toBe(HTTP_STATUS.FORBIDDEN);
+  });
+
   it('requires registrations.create to enter and registrations.view to list', async () => {
     const viewer = await actorWith(['registrations.view']);
     expect((await request(app).get(URL).set('Authorization', `Bearer ${viewer.token}`)).status).toBe(HTTP_STATUS.OK);

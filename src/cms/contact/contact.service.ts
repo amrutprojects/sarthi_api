@@ -6,8 +6,13 @@ import { AppError } from '../../shared/errors/app-error';
 import type { ContactOrganization, ContactPageSettings, OrgType } from './contact.model';
 import { contactRepository } from './contact.repository';
 import type {
-  AdminContactPage, AdminOrganization, Bilingual, PublicContactPage, PublicOrganization,
-  UpdateContactPageInput, UpdateOrganizationInput,
+  AdminContactPage,
+  AdminOrganization,
+  Bilingual,
+  PublicContactPage,
+  PublicOrganization,
+  UpdateContactPageInput,
+  UpdateOrganizationInput,
 } from './contact.types';
 
 /* Null when neither half is stored — the two columns are always written together. */
@@ -137,13 +142,17 @@ export class ContactService {
         seen.add(org.orgType);
       }
 
-      await contactRepository.update(settings.id, {
-        pageTitleMr: input.pageTitle.mr,
-        pageTitleEn: input.pageTitle.en,
-        pageSubtitleMr: input.pageSubtitle.mr,
-        pageSubtitleEn: input.pageSubtitle.en,
-        ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished }),
-      }, m);
+      await contactRepository.update(
+        settings.id,
+        {
+          pageTitleMr: input.pageTitle.mr,
+          pageTitleEn: input.pageTitle.en,
+          pageSubtitleMr: input.pageSubtitle.mr,
+          pageSubtitleEn: input.pageSubtitle.en,
+          ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished }),
+        },
+        m,
+      );
 
       const repo = contactRepository.organizations(m);
       const existing = await contactRepository.findOrganizations(settings.id, { manager: m });

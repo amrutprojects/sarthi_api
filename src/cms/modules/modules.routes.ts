@@ -20,4 +20,9 @@ export const modulesRouter = Router();
 
 modulesRouter.get('/', authorizePermission(P.CMS_MODULES_VIEW), modulesController.get);
 modulesRouter.put('/', authorizePermission(P.CMS_MODULES_UPDATE), validateRequest(updateModulesPageSchema), modulesController.update);
-modulesRouter.patch('/status', authorizePermission(P.CMS_MODULES_UPDATE), validateRequest(modulesStatusSchema), modulesController.setPublished);
+modulesRouter.patch(
+  '/status',
+  authorizePermission(P.CMS_MODULES_UPDATE),
+  validateRequest(modulesStatusSchema),
+  modulesController.setPublished,
+);

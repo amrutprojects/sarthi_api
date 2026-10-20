@@ -7,8 +7,4 @@ export { ProgrammeElectiveDomain, ProgrammeModule, ProgrammeModuleSettings };
  * A leaf module for the same reason as contact.entities.ts and footer.entities.ts: the entity
  * registry must never reach the HTTP layer, or the DataSource and the router end up in a cycle.
  */
-export const PROGRAMME_MODULE_ENTITIES = [
-  ProgrammeModuleSettings,
-  ProgrammeModule,
-  ProgrammeElectiveDomain,
-];
+export const PROGRAMME_MODULE_ENTITIES = [ProgrammeModuleSettings, ProgrammeModule, ProgrammeElectiveDomain];

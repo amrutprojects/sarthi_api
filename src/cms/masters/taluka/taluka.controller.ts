@@ -22,7 +22,11 @@ export const talukaController = {
   }),
 
   update: asyncHandler(async (req: Request, res: Response) => {
-    ApiResponse.ok(res, await talukaService.update(params<IdParams>(req).id, body<UpdateTalukaBody>(req), req), 'Taluka updated successfully');
+    ApiResponse.ok(
+      res,
+      await talukaService.update(params<IdParams>(req).id, body<UpdateTalukaBody>(req), req),
+      'Taluka updated successfully',
+    );
   }),
 
   setStatus: asyncHandler(async (req: Request, res: Response) => {

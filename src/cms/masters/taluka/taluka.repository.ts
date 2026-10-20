@@ -14,7 +14,6 @@ const SORT_SQL: Record<TalukaSortField, string> = {
   updatedAt: 't.updatedAt',
 };
 
-
 export class TalukaRepository extends BaseRepository<Taluka> {
   constructor() {
     super(Taluka);
@@ -29,7 +28,11 @@ export class TalukaRepository extends BaseRepository<Taluka> {
     return this.withParents(manager).andWhere('t.id = :id', { id }).getOne();
   }
 
-  findByNameInDistrict(districtId: string, name: string, opts: { excludeId?: string; manager?: EntityManager } = {}): Promise<Taluka | null> {
+  findByNameInDistrict(
+    districtId: string,
+    name: string,
+    opts: { excludeId?: string; manager?: EntityManager } = {},
+  ): Promise<Taluka | null> {
     const qb = this.query('t', opts.manager)
       .andWhere('t.districtId = :districtId', { districtId })
       .andWhere('lower(t.name) = lower(:name)', { name });
@@ -37,10 +40,12 @@ export class TalukaRepository extends BaseRepository<Taluka> {
     return qb.getOne();
   }
 
-  findByCodeInDistrict(districtId: string, code: string, opts: { excludeId?: string; manager?: EntityManager } = {}): Promise<Taluka | null> {
-    const qb = this.query('t', opts.manager)
-      .andWhere('t.districtId = :districtId', { districtId })
-      .andWhere('t.code = :code', { code });
+  findByCodeInDistrict(
+    districtId: string,
+    code: string,
+    opts: { excludeId?: string; manager?: EntityManager } = {},
+  ): Promise<Taluka | null> {
+    const qb = this.query('t', opts.manager).andWhere('t.districtId = :districtId', { districtId }).andWhere('t.code = :code', { code });
     if (opts.excludeId) qb.andWhere('t.id <> :excludeId', { excludeId: opts.excludeId });
     return qb.getOne();
   }
@@ -51,11 +56,15 @@ export class TalukaRepository extends BaseRepository<Taluka> {
     if (q.stateId) qb.andWhere('d.stateId = :stateId', { stateId: q.stateId });
     if (q.search) {
       const term = likePattern(q.search);
-      qb.andWhere(new Brackets((w) => w
-        .where('t.name ILIKE :term', { term })
-        .orWhere('t.code ILIKE :term', { term })
-        .orWhere('d.name ILIKE :term', { term })
-        .orWhere('s.name ILIKE :term', { term })));
+      qb.andWhere(
+        new Brackets((w) =>
+          w
+            .where('t.name ILIKE :term', { term })
+            .orWhere('t.code ILIKE :term', { term })
+            .orWhere('d.name ILIKE :term', { term })
+            .orWhere('s.name ILIKE :term', { term }),
+        ),
+      );
     }
     if (q.isActive !== undefined) qb.andWhere('t.isActive = :isActive', { isActive: q.isActive });
     const { skip, take } = toSkipTake(q);

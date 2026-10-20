@@ -138,7 +138,8 @@ export class StateService {
       const existing = await stateRepository.findByIdIncludingDeleted(id, m);
       if (!existing) throw AppError.notFound('State not found');
       if (!existing.isDelete) throw AppError.conflict('State is not deleted');
-      if (await stateRepository.findByName(existing.name, { manager: m })) throw AppError.conflict('Another active state already uses this name');
+      if (await stateRepository.findByName(existing.name, { manager: m }))
+        throw AppError.conflict('Another active state already uses this name');
       if (await stateRepository.findByCode(existing.code, m)) throw AppError.conflict('Another active state already uses this code');
       await stateRepository.restore(id, m);
       await auditService.recordInTx(m, req, {

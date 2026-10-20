@@ -16,8 +16,7 @@ import type {
   UpdateModulesPageInput,
 } from './modules.types';
 
-const NOT_CONFIGURED =
-  'The Modules page has not been configured yet. Run the database seed to create it.';
+const NOT_CONFIGURED = 'The Modules page has not been configured yet. Run the database seed to create it.';
 
 const toAdminDomain = (d: ProgrammeElectiveDomain): AdminElectiveDomain => ({
   id: d.id,
@@ -209,14 +208,11 @@ export class ModulesService {
       for (const [index, item] of input.modules.entries()) {
         const code = item.code.trim().toUpperCase();
         if (seenCodes.has(code)) {
-          throw AppError.badRequest(`Duplicate module code ${item.code}`, [
-            { field: `modules.${index}.code`, message: 'Duplicate code' },
-          ]);
+          throw AppError.badRequest(`Duplicate module code ${item.code}`, [{ field: `modules.${index}.code`, message: 'Duplicate code' }]);
         }
         seenCodes.add(code);
 
         const domains = item.electives ?? [];
-
 
         const seenNumbers = new Set<number>();
         for (const [k, d] of domains.entries()) {
@@ -234,9 +230,7 @@ export class ModulesService {
           await moduleRepo.update(current.id, toModuleColumns(item, index));
           moduleId = current.id;
         } else {
-          const created = await moduleRepo.save(
-            moduleRepo.create({ settingsId: settings.id, ...toModuleColumns(item, index) }),
-          );
+          const created = await moduleRepo.save(moduleRepo.create({ settingsId: settings.id, ...toModuleColumns(item, index) }));
           moduleId = created.id;
         }
 
@@ -262,9 +256,7 @@ export class ModulesService {
           isPublished: input.isPublished ?? settings.isPublished,
           modules: input.modules.map((x) => x.code),
           retired: retired.map((x) => x.code),
-          domains: Object.fromEntries(
-            input.modules.map((x) => [x.code, x.electives?.length ?? 0]),
-          ),
+          domains: Object.fromEntries(input.modules.map((x) => [x.code, x.electives?.length ?? 0])),
         },
       });
     });
