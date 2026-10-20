@@ -5,7 +5,11 @@ import { validateRequest } from '../../../middleware/validate-request.middleware
 import { parentIdParams } from '../../../shared/validation/common.validation';
 import { districtController } from './district.controller';
 import {
-  createDistrictSchema, districtIdSchema, districtStatusSchema, listDistrictsSchema, updateDistrictSchema,
+  createDistrictSchema,
+  districtIdSchema,
+  districtStatusSchema,
+  listDistrictsSchema,
+  updateDistrictSchema,
 } from './district.validator';
 
 /* /api/v1/cms/districts — District Master. See state.routes.ts for the shared conventions. */
@@ -16,9 +20,19 @@ districtRouter.post('/', authorizePermission(P.CMS_DISTRICTS_CREATE), validateRe
 districtRouter.get('/:id', authorizePermission(P.CMS_DISTRICTS_VIEW), validateRequest(districtIdSchema), districtController.get);
 districtRouter.put('/:id', authorizePermission(P.CMS_DISTRICTS_UPDATE), validateRequest(updateDistrictSchema), districtController.update);
 districtRouter.patch('/:id', authorizePermission(P.CMS_DISTRICTS_UPDATE), validateRequest(updateDistrictSchema), districtController.update);
-districtRouter.patch('/:id/status', authorizePermission(P.CMS_DISTRICTS_UPDATE), validateRequest(districtStatusSchema), districtController.setStatus);
+districtRouter.patch(
+  '/:id/status',
+  authorizePermission(P.CMS_DISTRICTS_UPDATE),
+  validateRequest(districtStatusSchema),
+  districtController.setStatus,
+);
 districtRouter.delete('/:id', authorizePermission(P.CMS_DISTRICTS_DELETE), validateRequest(districtIdSchema), districtController.remove);
-districtRouter.post('/:id/restore', authorizePermission(P.CMS_DISTRICTS_DELETE), validateRequest(districtIdSchema), districtController.restore);
+districtRouter.post(
+  '/:id/restore',
+  authorizePermission(P.CMS_DISTRICTS_DELETE),
+  validateRequest(districtIdSchema),
+  districtController.restore,
+);
 
 /* Nested dropdown feed for the Taluka form. */
 districtRouter.get(

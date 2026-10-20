@@ -33,8 +33,7 @@ const toAdminLink = (l: FooterLink): AdminFooterLink => ({
  * data/footer.ts). Translating here rather than there keeps the storage convention — SCREAMING_CASE
  * enums, as everywhere else in this API — without making the site carry a mapping for one endpoint.
  */
-const toPublicKind = (kind: FooterLink['kind']): PublicFooterLinkKind =>
-  kind.toLowerCase() as PublicFooterLinkKind;
+const toPublicKind = (kind: FooterLink['kind']): PublicFooterLinkKind => kind.toLowerCase() as PublicFooterLinkKind;
 
 /* Only what the footer prints. `href` is absent rather than null so the site can test presence. */
 const toPublicItem = (l: FooterLink): PublicFooterItem => ({
@@ -77,13 +76,8 @@ export class FooterService {
     return this.toAdmin(settings, sections, links);
   }
 
-  private toAdmin(
-    settings: FooterSettings,
-    sections: FooterSection[],
-    links: FooterLink[],
-  ): AdminFooter {
-    const linksOf = (sectionId: string) =>
-      links.filter((l) => l.sectionId === sectionId).map(toAdminLink);
+  private toAdmin(settings: FooterSettings, sections: FooterSection[], links: FooterLink[]): AdminFooter {
+    const linksOf = (sectionId: string) => links.filter((l) => l.sectionId === sectionId).map(toAdminLink);
 
     const columns: AdminFooterColumn[] = sections
       .filter((s) => s.kind === 'LINK_COLUMN')
@@ -140,8 +134,7 @@ export class FooterService {
       sections.map((s) => s.id),
       { activeOnly: true },
     );
-    const itemsOf = (sectionId: string) =>
-      links.filter((l) => l.sectionId === sectionId).map(toPublicItem);
+    const itemsOf = (sectionId: string) => links.filter((l) => l.sectionId === sectionId).map(toPublicItem);
 
     const contactSection = sections.find((s) => s.kind === 'CONTACT');
 
@@ -185,10 +178,9 @@ export class FooterService {
    */
   async update(input: UpdateFooterInput, req?: Request): Promise<AdminFooter> {
     if (input.linkColumns.length > MAX_LINK_COLUMNS) {
-      throw AppError.badRequest(
-        `The footer layout holds at most ${MAX_LINK_COLUMNS} link columns`,
-        [{ field: 'linkColumns', message: `At most ${MAX_LINK_COLUMNS} columns` }],
-      );
+      throw AppError.badRequest(`The footer layout holds at most ${MAX_LINK_COLUMNS} link columns`, [
+        { field: 'linkColumns', message: `At most ${MAX_LINK_COLUMNS} columns` },
+      ]);
     }
 
     await AppDataSource.transaction(async (m) => {
@@ -240,9 +232,7 @@ export class FooterService {
           await sectionRepo.update(current.id, columns);
           columnIds.push(current.id);
         } else {
-          const created = await sectionRepo.save(
-            sectionRepo.create({ settingsId: settings.id, ...columns }),
-          );
+          const created = await sectionRepo.save(sectionRepo.create({ settingsId: settings.id, ...columns }));
           columnIds.push(created.id);
         }
       }

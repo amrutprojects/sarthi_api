@@ -29,7 +29,11 @@ export const stateController = {
 
   setStatus: asyncHandler(async (req: Request, res: Response) => {
     const { isActive } = body<{ isActive: boolean }>(req);
-    ApiResponse.ok(res, await stateService.setStatus(params<IdParams>(req).id, isActive, req), isActive ? 'State activated' : 'State deactivated');
+    ApiResponse.ok(
+      res,
+      await stateService.setStatus(params<IdParams>(req).id, isActive, req),
+      isActive ? 'State activated' : 'State deactivated',
+    );
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {

@@ -12,21 +12,12 @@ import { z } from 'zod';
 const bilingual = (max: number, label: string) =>
   z
     .object({
-      mr: z
-        .string()
-        .trim()
-        .min(1, `${label} (Marathi) is required`)
-        .max(max, `${label} (Marathi) must be at most ${max} characters`),
-      en: z
-        .string()
-        .trim()
-        .min(1, `${label} (English) is required`)
-        .max(max, `${label} (English) must be at most ${max} characters`),
+      mr: z.string().trim().min(1, `${label} (Marathi) is required`).max(max, `${label} (Marathi) must be at most ${max} characters`),
+      en: z.string().trim().min(1, `${label} (English) is required`).max(max, `${label} (English) must be at most ${max} characters`),
     })
     .strict();
 
-const certificate = (label: string) =>
-  z.string().trim().min(1, `${label} is required`).max(300, `${label} must be at most 300 characters`);
+const certificate = (label: string) => z.string().trim().min(1, `${label} is required`).max(300, `${label} must be at most 300 characters`);
 
 const count = (label: string, max: number) =>
   z.coerce.number().int().min(0, `${label} cannot be negative`).max(max, `${label} is too large`);
@@ -44,11 +35,7 @@ const electiveDomain = z
 const moduleItem = z
   .object({
     no: count('Module number', 99),
-    code: z
-      .string()
-      .trim()
-      .min(1, 'Module code is required')
-      .max(32, 'Module code must be at most 32 characters'),
+    code: z.string().trim().min(1, 'Module code is required').max(32, 'Module code must be at most 32 characters'),
     name: bilingual(300, 'Module name'),
     description: bilingual(600, 'Module description'),
     elective: z.boolean().optional(),
@@ -148,7 +135,6 @@ export const updateModulesPageSchema = {
             seen.add(code);
           });
         }),
-
 
       timeSplit,
       learningPath,

@@ -63,9 +63,7 @@ export class CmsFooter1792800000000 implements MigrationInterface {
      * row, so a concurrent second INSERT fails at the database rather than silently creating a
      * rival configuration that the public endpoint might pick instead.
      */
-    await q.query(
-      `CREATE UNIQUE INDEX "UQ_footer_settings_singleton" ON "footer_settings" ((true)) WHERE "isDelete" = false`,
-    );
+    await q.query(`CREATE UNIQUE INDEX "UQ_footer_settings_singleton" ON "footer_settings" ((true)) WHERE "isDelete" = false`);
 
     await q.query(`
       CREATE TABLE "footer_sections" (${base},
@@ -94,9 +92,7 @@ export class CmsFooter1792800000000 implements MigrationInterface {
     await q.query(
       `CREATE UNIQUE INDEX "UQ_footer_sections_contact_singleton" ON "footer_sections" ("settingsId") WHERE "isDelete" = false AND "kind" = 'CONTACT'`,
     );
-    await q.query(
-      `CREATE INDEX "IDX_footer_sections_settingsId" ON "footer_sections" ("settingsId")`,
-    );
+    await q.query(`CREATE INDEX "IDX_footer_sections_settingsId" ON "footer_sections" ("settingsId")`);
 
     await q.query(`
       CREATE TABLE "footer_links" (${base},
@@ -135,9 +131,7 @@ export class CmsFooter1792800000000 implements MigrationInterface {
     await q.query(`CREATE INDEX "IDX_footer_links_sectionId" ON "footer_links" ("sectionId")`);
 
     for (const t of ['footer_settings', 'footer_sections', 'footer_links']) {
-      await q.query(
-        `CREATE TRIGGER "TRG_${t}_updated_at" BEFORE UPDATE ON "${t}" FOR EACH ROW EXECUTE FUNCTION "set_updated_at"()`,
-      );
+      await q.query(`CREATE TRIGGER "TRG_${t}_updated_at" BEFORE UPDATE ON "${t}" FOR EACH ROW EXECUTE FUNCTION "set_updated_at"()`);
     }
   }
 

@@ -13,16 +13,8 @@ import { FOOTER_LINK_KINDS, MAX_LINK_COLUMNS } from './footer.model';
 const bilingual = (max: number, label: string) =>
   z
     .object({
-      mr: z
-        .string()
-        .trim()
-        .min(1, `${label} (Marathi) is required`)
-        .max(max, `${label} (Marathi) must be at most ${max} characters`),
-      en: z
-        .string()
-        .trim()
-        .min(1, `${label} (English) is required`)
-        .max(max, `${label} (English) must be at most ${max} characters`),
+      mr: z.string().trim().min(1, `${label} (Marathi) is required`).max(max, `${label} (Marathi) must be at most ${max} characters`),
+      en: z.string().trim().min(1, `${label} (English) is required`).max(max, `${label} (English) must be at most ${max} characters`),
     })
     .strict();
 
@@ -33,10 +25,7 @@ const footerPhone = z
   .string()
   .trim()
   .max(32)
-  .regex(
-    /^\+?[0-9 ()-]+$/,
-    'Use digits, spaces, brackets and hyphens only, optionally starting with +',
-  )
+  .regex(/^\+?[0-9 ()-]+$/, 'Use digits, spaces, brackets and hyphens only, optionally starting with +')
   .refine((v) => {
     const digits = v.replace(/\D/g, '').length;
     return digits >= 6 && digits <= 20;
@@ -60,8 +49,7 @@ const link = z
   })
   .strict()
   .superRefine((l, ctx) => {
-    const fail = (message: string) =>
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['href'], message });
+    const fail = (message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['href'], message });
 
     if (l.kind === 'TEXT' || l.kind === 'UNAVAILABLE') {
       if (l.href) fail(`A ${l.kind} line has no destination, so it must not carry a link`);
@@ -107,11 +95,7 @@ export const updateFooterSchema = {
           heading: bilingual(200, 'About heading'),
           body: bilingual(2000, 'About text'),
           partnerLabel: bilingual(120, 'Partner label'),
-          partnerName: z
-            .string()
-            .trim()
-            .min(1, 'Partner name is required')
-            .max(150, 'Partner name must be at most 150 characters'),
+          partnerName: z.string().trim().min(1, 'Partner name is required').max(150, 'Partner name must be at most 150 characters'),
         })
         .strict(),
 

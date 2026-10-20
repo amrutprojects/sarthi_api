@@ -422,6 +422,8 @@ const RegistrationDetailDto = registry.register(
         mimeType: z.string(),
         sizeBytes: z.number().int(),
         uploadedAt: z.string().datetime(),
+        verifiedAt: z.string().datetime().nullable(),
+        verifiedBy: z.string().nullable().describe('Name of the reviewer who verified it'),
       }),
     ),
   }),
@@ -476,5 +478,15 @@ documentEndpoint({
   permission: 'registrations.view',
   request: { params: registrationDocumentSchema.params },
   response: { file: 'application/pdf | image/jpeg | image/png' },
+  errors: [404],
+});
+documentEndpoint({
+  method: 'post',
+  path: '/student-registrations/:id/documents/:documentId/verify',
+  tag: regTag,
+  summary: 'Mark one uploaded document as verified (audited; repeat calls keep the first verification)',
+  permission: 'registrations.update',
+  request: { params: registrationDocumentSchema.params },
+  response: envelope(z.object({ id: z.string().uuid(), docType: z.string(), verifiedAt: z.string().datetime().nullable() }).passthrough()),
   errors: [404],
 });

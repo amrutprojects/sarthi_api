@@ -81,12 +81,8 @@ export class CmsModulesPage1792900000000 implements MigrationInterface {
       )`);
 
     /* The code identifies a module across the programme, so it cannot repeat among live rows. */
-    await q.query(
-      `CREATE UNIQUE INDEX "UQ_programme_modules_code" ON "programme_modules" ("settingsId", "code") WHERE "isDelete" = false`,
-    );
-    await q.query(
-      `CREATE INDEX "IDX_programme_modules_settingsId" ON "programme_modules" ("settingsId")`,
-    );
+    await q.query(`CREATE UNIQUE INDEX "UQ_programme_modules_code" ON "programme_modules" ("settingsId", "code") WHERE "isDelete" = false`);
+    await q.query(`CREATE INDEX "IDX_programme_modules_settingsId" ON "programme_modules" ("settingsId")`);
 
     await q.query(`
       CREATE TABLE "programme_elective_domains" (${base},
@@ -111,18 +107,10 @@ export class CmsModulesPage1792900000000 implements MigrationInterface {
         CONSTRAINT "CHK_programme_elective_domains_order" CHECK ("displayOrder" >= 0 AND "no" >= 0)
       )`);
 
-    await q.query(
-      `CREATE INDEX "IDX_programme_elective_domains_settingsId" ON "programme_elective_domains" ("settingsId")`,
-    );
+    await q.query(`CREATE INDEX "IDX_programme_elective_domains_settingsId" ON "programme_elective_domains" ("settingsId")`);
 
-    for (const t of [
-      'programme_module_settings',
-      'programme_modules',
-      'programme_elective_domains',
-    ]) {
-      await q.query(
-        `CREATE TRIGGER "TRG_${t}_updated_at" BEFORE UPDATE ON "${t}" FOR EACH ROW EXECUTE FUNCTION "set_updated_at"()`,
-      );
+    for (const t of ['programme_module_settings', 'programme_modules', 'programme_elective_domains']) {
+      await q.query(`CREATE TRIGGER "TRG_${t}_updated_at" BEFORE UPDATE ON "${t}" FOR EACH ROW EXECUTE FUNCTION "set_updated_at"()`);
     }
   }
 

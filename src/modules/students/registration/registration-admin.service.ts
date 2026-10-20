@@ -5,6 +5,7 @@ import { MESSAGES } from '../../../constants/api-response.constants';
 import { AppDataSource } from '../../../config/database.config';
 import { AppError } from '../../../shared/errors/app-error';
 import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../../shared/utils/pagination';
+import { auditService } from '../../audit';
 import { mastersService } from '../../masters';
 import { detectFileType, extensionMatches } from '../documents/file-type';
 import { StudentDocument } from '../documents/student-document.entity';
@@ -47,6 +48,14 @@ export const registrationAdminService = {
       where: { studentId: id, isDelete: false },
       order: { docType: 'ASC' },
     });
+    const verifierIds = [...new Set(files.map((f) => f.verifiedById).filter((x): x is string => !!x))];
+    const verifiers = new Map<string, string>(
+      verifierIds.length
+        ? (await AppDataSource.query(`SELECT "id", "name" FROM "users" WHERE "id" = ANY($1)`, [verifierIds])).map(
+            (u: { id: string; name: string }) => [u.id, u.name],
+          )
+        : [],
+    );
     return {
       ...publicStudent(s, true),
       files: files.map((f) => ({
@@ -56,8 +65,28 @@ export const registrationAdminService = {
         mimeType: f.mimeType,
         sizeBytes: f.sizeBytes,
         uploadedAt: f.createdAt,
+        verifiedAt: f.verifiedAt,
+        verifiedBy: f.verifiedById ? (verifiers.get(f.verifiedById) ?? null) : null,
       })),
     };
+  },
+
+  /* Marks one uploaded document as checked. Verifying again is a no-op that keeps the first reviewer and time. */
+  async verifyDocument(req: Request, id: string, documentId: string) {
+    await this.get(id);
+    const repo = AppDataSource.getRepository(StudentDocument);
+    const doc = await repo.findOne({ where: { id: documentId, studentId: id, isDelete: false } });
+    if (!doc) throw AppError.notFound(MESSAGES.notFound('Document'));
+    if (!doc.verifiedAt) {
+      await repo.update(doc.id, { verifiedAt: new Date(), verifiedById: req.auth!.id });
+      await auditService.record(req, {
+        action: 'student.document.verified',
+        resource: 'student',
+        resourceId: id,
+        details: { documentId, docType: doc.docType },
+      });
+    }
+    return (await this.get(id)).files.find((f) => f.id === documentId)!;
   },
 
   /*

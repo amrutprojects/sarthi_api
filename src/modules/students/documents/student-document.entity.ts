@@ -24,4 +24,7 @@ export class StudentDocument extends AppBaseEntity {
   @Column({ type: 'integer', name: 'sizeBytes' }) sizeBytes!: number;
   @Column({ type: 'char', length: 64 }) sha256!: string;
   @Column({ type: 'uuid', name: 'uploadedById' }) uploadedById!: string;
+  /* Set when a reviewer has checked the file against the registration. */
+  @Column({ type: 'timestamptz', name: 'verifiedAt', nullable: true }) verifiedAt!: Date | null;
+  @Column({ type: 'uuid', name: 'verifiedById', nullable: true }) verifiedById!: string | null;
 }

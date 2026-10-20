@@ -144,7 +144,14 @@ export const PERMISSIONS = {
 } as const satisfies Record<string, PermissionDefinition>;
 
 /* The CMS sidebar keys, in menu order. */
-export const CMS_MENUS = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-states', 'cms-districts', 'cms-talukas'] as const satisfies readonly MenuKey[];
+export const CMS_MENUS = [
+  'cms-contact',
+  'cms-footer',
+  'cms-modules',
+  'cms-states',
+  'cms-districts',
+  'cms-talukas',
+] as const satisfies readonly MenuKey[];
 
 export type PermissionKey = keyof typeof PERMISSIONS;
 export type PermissionCode = string;

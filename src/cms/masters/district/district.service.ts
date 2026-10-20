@@ -9,9 +9,7 @@ import { AppError } from '../../../shared/errors/app-error';
 import type { Paginated } from '../../../shared/utils/pagination';
 import { auditService } from '../../../modules/audit/audit.service';
 import { assertUsableState } from '../state/state.service';
-import type {
-  CreateDistrictInput, DistrictListQuery, PublicDistrictDetail, UpdateDistrictInput,
-} from './district.types';
+import type { CreateDistrictInput, DistrictListQuery, PublicDistrictDetail, UpdateDistrictInput } from './district.types';
 
 /* Requires the state relation to be joined (every read path in DistrictRepository joins it). */
 const toPublic = (d: District): PublicDistrictDetail => ({
@@ -26,7 +24,6 @@ const toPublic = (d: District): PublicDistrictDetail => ({
   createdAt: d.createdAt,
   updatedAt: d.updatedAt,
 });
-
 
 /*
  * District master. A district always belongs to exactly one state: the foreign key is NOT NULL, and
@@ -61,7 +58,8 @@ export class DistrictService {
    */
   async assertUsable(districtId: string, manager?: EntityManager): Promise<District> {
     const district = await districtRepository.findById(districtId, { manager });
-    if (!district) throw AppError.badRequest('The selected district does not exist', [{ field: 'districtId', message: 'Unknown district' }]);
+    if (!district)
+      throw AppError.badRequest('The selected district does not exist', [{ field: 'districtId', message: 'Unknown district' }]);
     if (!district.isActive) {
       throw AppError.badRequest('The selected district is inactive', [{ field: 'districtId', message: 'Choose an active district' }]);
     }

@@ -24,7 +24,11 @@ export const districtController = {
   }),
 
   update: asyncHandler(async (req: Request, res: Response) => {
-    ApiResponse.ok(res, await districtService.update(params<IdParams>(req).id, body<UpdateDistrictBody>(req), req), 'District updated successfully');
+    ApiResponse.ok(
+      res,
+      await districtService.update(params<IdParams>(req).id, body<UpdateDistrictBody>(req), req),
+      'District updated successfully',
+    );
   }),
 
   setStatus: asyncHandler(async (req: Request, res: Response) => {

@@ -64,9 +64,9 @@ documentEndpoint({
   tag,
   summary: 'Published Contact page content',
   description:
-    'The banner and the organisation cards shown on the public Contact page, in Marathi and English. '
-    + '`data` is null when the page is unpublished or has not been configured — a normal state, not an '
-    + 'error: the website then renders its own bundled copy.',
+    'The banner and the organisation cards shown on the public Contact page, in Marathi and English. ' +
+    '`data` is null when the page is unpublished or has not been configured — a normal state, not an ' +
+    'error: the website then renders its own bundled copy.',
   permission: 'public',
   response: envelope(
     z
@@ -88,4 +88,24 @@ documentEndpoint({
       })
       .nullable(),
   ),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/footer',
+  tag,
+  summary: 'Published site footer',
+  description: 'Footer columns and links for the public website, in Marathi and English. `data` is null when unpublished.',
+  permission: 'public',
+  response: envelope(z.object({}).passthrough().nullable()),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/modules',
+  tag,
+  summary: 'Published programme modules page',
+  description: 'Programme modules, hours and elective domains for the public website. `data` is null when unpublished.',
+  permission: 'public',
+  response: envelope(z.object({}).passthrough().nullable()),
 });

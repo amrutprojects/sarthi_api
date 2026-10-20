@@ -20,4 +20,9 @@ export const contactRouter = Router();
 
 contactRouter.get('/', authorizePermission(P.CMS_CONTACT_VIEW), contactController.get);
 contactRouter.put('/', authorizePermission(P.CMS_CONTACT_UPDATE), validateRequest(updateContactPageSchema), contactController.update);
-contactRouter.patch('/status', authorizePermission(P.CMS_CONTACT_UPDATE), validateRequest(contactStatusSchema), contactController.setPublished);
+contactRouter.patch(
+  '/status',
+  authorizePermission(P.CMS_CONTACT_UPDATE),
+  validateRequest(contactStatusSchema),
+  contactController.setPublished,
+);

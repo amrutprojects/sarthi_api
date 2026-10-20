@@ -79,10 +79,7 @@ export class MasterService {
     for (const field of ['code', 'name'] as const) {
       const value = input[field];
       if (value === undefined) continue;
-      const qb = m
-        .getRepository(this.def.entity)
-        .createQueryBuilder('m')
-        .where(`lower(m.${field}) = lower(:value)`, { value });
+      const qb = m.getRepository(this.def.entity).createQueryBuilder('m').where(`lower(m.${field}) = lower(:value)`, { value });
       if (exceptId) qb.andWhere('m.id <> :exceptId', { exceptId });
       const other = await qb.getOne();
       if (other) {
@@ -166,10 +163,7 @@ export class MasterService {
   }
 }
 
-export const masterServices = Object.fromEntries(MASTER_LIST.map((d) => [d.key, new MasterService(d)])) as Record<
-  MasterKey,
-  MasterService
->;
+export const masterServices = Object.fromEntries(MASTER_LIST.map((d) => [d.key, new MasterService(d)])) as Record<MasterKey, MasterService>;
 
 export const mastersService = {
   /* Active masters for the import and the registration API: loaded once per batch / request, then matched in memory. */

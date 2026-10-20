@@ -27,6 +27,11 @@ export const registrationAdminController = {
     sendFile(res, await documentService.openForDownload(p.id, p.documentId, req));
   }),
 
+  verifyDocument: asyncHandler(async (req: Request, res: Response) => {
+    const p = params<{ id: string; documentId: string }>(req);
+    ApiResponse.ok(res, await registrationAdminService.verifyDocument(req, p.id, p.documentId), 'Document verified');
+  }),
+
   create: asyncHandler(async (req: Request, res: Response) => {
     const result = await registrationAdminService.create(req, (req.body as { data?: unknown })?.data, uploadedFiles(req));
     ApiResponse.created(res, result, REGISTRATION_MESSAGES.CREATED);

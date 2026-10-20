@@ -21,10 +21,7 @@ export class FooterRepository extends BaseRepository<FooterSettings> {
    * `activeOnly` is what separates the public read from the admin read: the admin edits inactive
    * columns, the website never sees them.
    */
-  findSections(
-    settingsId: string,
-    opts: { activeOnly?: boolean; manager?: EntityManager } = {},
-  ): Promise<FooterSection[]> {
+  findSections(settingsId: string, opts: { activeOnly?: boolean; manager?: EntityManager } = {}): Promise<FooterSection[]> {
     const qb = (opts.manager ?? this.repo().manager)
       .getRepository(FooterSection)
       .createQueryBuilder('s')
@@ -37,10 +34,7 @@ export class FooterRepository extends BaseRepository<FooterSettings> {
   }
 
   /* Every link belonging to the given columns, ordered as they are rendered. */
-  findLinks(
-    sectionIds: string[],
-    opts: { activeOnly?: boolean; manager?: EntityManager } = {},
-  ): Promise<FooterLink[]> {
+  findLinks(sectionIds: string[], opts: { activeOnly?: boolean; manager?: EntityManager } = {}): Promise<FooterLink[]> {
     if (sectionIds.length === 0) return Promise.resolve([]);
     const qb = (opts.manager ?? this.repo().manager)
       .getRepository(FooterLink)
