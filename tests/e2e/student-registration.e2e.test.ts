@@ -74,7 +74,7 @@ describe('POST /student-registrations', () => {
       message: 'Registration submitted successfully',
       data: {
         registration_id: expect.stringMatching(/^REG-\d{6}$/),
-        registration_number: expect.stringMatching(/^\d{23}$/),
+        registration_number: expect.stringMatching(/^\d{16}$/),
         status: 'REGISTRATION_PENDING',
       },
     });
@@ -219,39 +219,45 @@ describe('POST /student-registrations', () => {
     expect((flagged?.details as { possibleDuplicateOf?: string }).possibleDuplicateOf).toMatch(/^REG-/);
   });
 
-  it('generates YYYYMMDDHHmmssSSSffffff in Asia/Kolkata from the database clock and stores it', async () => {
+  it('generates MMDDHHmmssSSSfff in Asia/Kolkata from the database clock and stores it', async () => {
     const before = Date.now();
     const res = await request(app).post(URL).send(registration());
     const after = Date.now();
     const num = res.body.data.registration_number as string;
-    expect(num).toMatch(/^\d{23}$/);
-    /* SSS (ms) is the first three digits of ffffff (microseconds of the same second). */
-    expect(num.slice(14, 17)).toBe(num.slice(17, 20));
-    /* Read back as Asia/Kolkata (UTC+05:30, no DST) wall time and compare with the request window. */
-    const [y, mo, d, h, mi, se] = [
-      num.slice(0, 4),
+    expect(num).toMatch(/^\d{16}$/);
+    /* Read back as Asia/Kolkata (UTC+05:30, no DST) wall time in the current year and compare with the request window. */
+    const year = new Date(before + 330 * 60_000).getUTCFullYear();
+    const [mo, d, h, mi, se, ms] = [
+      num.slice(0, 2),
+      num.slice(2, 4),
       num.slice(4, 6),
       num.slice(6, 8),
       num.slice(8, 10),
-      num.slice(10, 12),
-      num.slice(12, 14),
+      num.slice(10, 13),
     ].map(Number);
-    const utcMs = Date.UTC(y, mo - 1, d, h, mi, se, Number(num.slice(14, 17))) - 330 * 60_000;
+    const utcMs = Date.UTC(year, mo - 1, d, h, mi, se, ms) - 330 * 60_000;
     expect(utcMs).toBeGreaterThanOrEqual(before - 2_000);
     expect(utcMs).toBeLessThanOrEqual(after + 2_000);
     const s = await AppDataSource.getRepository(Student).findOneByOrFail({ code: res.body.data.registration_id });
     expect(s.registrationNumber).toBe(num);
   });
 
+  it('converts an earlier 23-digit number the way migration 1793400000000 does', async () => {
+    const [row] = await AppDataSource.query(`SELECT substr($1::text, 5, 13) || substr($1::text, 21, 3) AS converted`, [
+      '20261019175233598598595',
+    ]);
+    expect(row.converted).toBe('1019175233598595');
+  });
+
   it('never accepts a registration number from the client', async () => {
     const res = await request(app)
       .post(URL)
-      .send(registration({ registration_number: '20261021123045127127456' }));
+      .send(registration({ registration_number: '1021123045127456' }));
     expect(res.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     expect(await AppDataSource.getRepository(Student).count()).toBe(0);
   });
 
-  it('gives concurrent registrations distinct, increasing numbers', async () => {
+  it('gives concurrent registrations distinct numbers', async () => {
     const results = await Promise.all(Array.from({ length: 12 }, () => request(app).post(URL).send(registration())));
     expect(results.map((r) => r.status)).toEqual(Array(12).fill(201));
     const nums = results.map((r) => r.body.data.registration_number as string);

@@ -32,7 +32,7 @@ const schema = z.object({
   DB_SSL: bool,
   DB_POOL_MAX: z.coerce.number().int().positive().default(10),
   DB_LOGGING: bool,
-  /* Timezone of student registration numbers (YYYYMMDDHHmmssSSSffffff). Must be an IANA name, e.g. Asia/Kolkata. */
+  /* Timezone of student registration numbers (MMDDHHmmssSSSfff). Must be an IANA name, e.g. Asia/Kolkata. */
   APP_TIMEZONE: z
     .string()
     .default('Asia/Kolkata')
