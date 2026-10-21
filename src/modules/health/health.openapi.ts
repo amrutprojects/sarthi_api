@@ -7,6 +7,7 @@ const Ready = envelope(
     status: z.enum(['ok', 'degraded']),
     database: z.enum(['up', 'down']),
     migrations: z.enum(['current', 'pending', 'unknown']),
+    readReplica: z.enum(['up', 'down', 'off']).describe("Read replica (DB_READ_HOST): 'off' when not configured"),
     uptimeSeconds: z.number(),
   }),
 );
