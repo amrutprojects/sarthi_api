@@ -97,3 +97,19 @@ Since migration `1792700000000-Masters`, region, caste, education and document t
   (every permission); Super Admin's "all permissions" sync leaves them out. Any role can be granted them in Roles &
   Permissions. Create the first SUMAGO Super Admin with `npm run admin:create -- --email … --role SUMAGO_SUPER_ADMIN`
   (a Super Admin cannot assign that role: it grants permissions Super Admin does not hold).
+
+## Registration number
+
+Every registration (public website or admin form) gets a backend-generated **registration number**,
+`YYYYMMDDHHmmssSSSffffff` (23 digits, e.g. `20261021123045127127456`), stored in `students.registrationNumber`
+(CHECK: 23 digits; UNIQUE across all rows, deleted ones included). It is returned as `registration_number` and is
+never accepted from the client (the request schema is strict).
+
+- **Time source:** PostgreSQL `clock_timestamp()`, which has real microsecond resolution, converted to `APP_TIMEZONE`
+  (default `Asia/Kolkata`). `SSS` is the milliseconds and `ffffff` the microseconds of the second, so `ffffff` starts
+  with the same three digits as `SSS`. No digit is padded or invented.
+- **Concurrency:** allocation takes a transaction-scoped advisory lock and reads the clock until it is strictly greater
+  than the highest number issued, so concurrent registrations get distinct, increasing numbers. If the clock never
+  moves past it (e.g. it was set back), the request fails with 503 rather than reusing or inventing a number.
+- **Unchanged:** the primary key, `code` (`REG-000001`) and imported students' identifiers. Imported students have no
+  registration number. Existing registrations were backfilled from their `createdAt` (migration `1793300000000`).

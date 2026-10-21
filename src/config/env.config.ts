@@ -32,6 +32,18 @@ const schema = z.object({
   DB_SSL: bool,
   DB_POOL_MAX: z.coerce.number().int().positive().default(10),
   DB_LOGGING: bool,
+  /* Timezone of student registration numbers (YYYYMMDDHHmmssSSSffffff). Must be an IANA name, e.g. Asia/Kolkata. */
+  APP_TIMEZONE: z
+    .string()
+    .default('Asia/Kolkata')
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat('en', { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'APP_TIMEZONE must be an IANA timezone such as Asia/Kolkata'),
   /*
    * Optional read replica (a streaming copy of the main database). When DB_READ_HOST is set, plain reads go to the
    * replica and every write, transaction and migration goes to the main database. Unset = one database for everything.

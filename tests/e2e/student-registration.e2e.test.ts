@@ -72,7 +72,11 @@ describe('POST /student-registrations', () => {
       success: true,
       status: 201,
       message: 'Registration submitted successfully',
-      data: { registration_id: expect.stringMatching(/^REG-\d{6}$/), status: 'REGISTRATION_PENDING' },
+      data: {
+        registration_id: expect.stringMatching(/^REG-\d{6}$/),
+        registration_number: expect.stringMatching(/^\d{23}$/),
+        status: 'REGISTRATION_PENDING',
+      },
     });
     expect(JSON.stringify(res.body)).not.toContain(body.aadhaar_number as string);
 
@@ -213,6 +217,64 @@ describe('POST /student-registrations', () => {
     const audits = await AppDataSource.getRepository(AuditLog).find({ where: { action: 'student.registration.create' } });
     const flagged = audits.find((a) => (a.details as { code?: string })?.code === similar.body.data.registration_id);
     expect((flagged?.details as { possibleDuplicateOf?: string }).possibleDuplicateOf).toMatch(/^REG-/);
+  });
+
+  it('generates YYYYMMDDHHmmssSSSffffff in Asia/Kolkata from the database clock and stores it', async () => {
+    const before = Date.now();
+    const res = await request(app).post(URL).send(registration());
+    const after = Date.now();
+    const num = res.body.data.registration_number as string;
+    expect(num).toMatch(/^\d{23}$/);
+    /* SSS (ms) is the first three digits of ffffff (microseconds of the same second). */
+    expect(num.slice(14, 17)).toBe(num.slice(17, 20));
+    /* Read back as Asia/Kolkata (UTC+05:30, no DST) wall time and compare with the request window. */
+    const [y, mo, d, h, mi, se] = [
+      num.slice(0, 4),
+      num.slice(4, 6),
+      num.slice(6, 8),
+      num.slice(8, 10),
+      num.slice(10, 12),
+      num.slice(12, 14),
+    ].map(Number);
+    const utcMs = Date.UTC(y, mo - 1, d, h, mi, se, Number(num.slice(14, 17))) - 330 * 60_000;
+    expect(utcMs).toBeGreaterThanOrEqual(before - 2_000);
+    expect(utcMs).toBeLessThanOrEqual(after + 2_000);
+    const s = await AppDataSource.getRepository(Student).findOneByOrFail({ code: res.body.data.registration_id });
+    expect(s.registrationNumber).toBe(num);
+  });
+
+  it('never accepts a registration number from the client', async () => {
+    const res = await request(app)
+      .post(URL)
+      .send(registration({ registration_number: '20261021123045127127456' }));
+    expect(res.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(await AppDataSource.getRepository(Student).count()).toBe(0);
+  });
+
+  it('gives concurrent registrations distinct, increasing numbers', async () => {
+    const results = await Promise.all(Array.from({ length: 12 }, () => request(app).post(URL).send(registration())));
+    expect(results.map((r) => r.status)).toEqual(Array(12).fill(201));
+    const nums = results.map((r) => r.body.data.registration_number as string);
+    expect(new Set(nums).size).toBe(12);
+    const stored = (await AppDataSource.query(`SELECT "registrationNumber" AS n FROM "students" ORDER BY "createdAt", "code"`)).map(
+      (r: { n: string }) => r.n,
+    );
+    expect([...stored].sort()).toEqual([...nums].sort());
+  });
+
+  it('the database refuses a duplicate or malformed registration number', async () => {
+    const res = await request(app).post(URL).send(registration());
+    const num = res.body.data.registration_number as string;
+    const other = await request(app).post(URL).send(registration());
+    const dup = await AppDataSource.query(`UPDATE "students" SET "registrationNumber" = $1 WHERE "code" = $2`, [
+      num,
+      other.body.data.registration_id,
+    ]).catch((e: { driverError?: { code?: string } }) => e.driverError?.code);
+    expect(dup).toBe('23505');
+    const bad = await AppDataSource.query(`UPDATE "students" SET "registrationNumber" = '123' WHERE "code" = $1`, [
+      other.body.data.registration_id,
+    ]).catch((e: { driverError?: { code?: string } }) => e.driverError?.code);
+    expect(bad).toBe('23514');
   });
 
   it('allows only one of several concurrent submissions with the same Aadhaar', async () => {

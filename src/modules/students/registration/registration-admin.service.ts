@@ -36,7 +36,7 @@ export const registrationAdminService = {
       const t = q.search.trim();
       /* Mobile is searchable by its last four digits only. */
       qb.andWhere(
-        `(s.code ILIKE :s OR (s.firstName || ' ' || s.lastName) ILIKE :s OR s.email ILIKE :s ${/^\d{4}$/.test(t) ? 'OR right(s.mobile, 4) = :last4' : ''})`,
+        `(s.code ILIKE :s OR s.registrationNumber LIKE :s OR (s.firstName || ' ' || s.lastName) ILIKE :s OR s.email ILIKE :s ${/^\d{4}$/.test(t) ? 'OR right(s.mobile, 4) = :last4' : ''})`,
         { s: likePattern(t), last4: t },
       );
     }
@@ -55,6 +55,7 @@ export const registrationAdminService = {
         ...publicStudent(s),
         source: s.source,
         isActive: s.isActive,
+        registrationNumber: s.registrationNumber,
         ...(opts.unmask ? { unmasked: { email: s.email, mobile: s.mobile } } : {}),
       })),
       meta: buildMeta(q, total),
@@ -102,6 +103,7 @@ export const registrationAdminService = {
       ...publicStudent(s, true),
       source: s.source,
       isActive: s.isActive,
+      registrationNumber: s.registrationNumber,
       regionId: s.regionId,
       casteId: s.casteId,
       educationId: s.educationId,
@@ -275,6 +277,11 @@ export const registrationAdminService = {
 
     const { barcodes: _barcodes, ...body } = data;
     const result = await registrationService.register(req, body, { actorUserId: req.auth!.id, files: prepared });
-    return { id: result.studentId, registration_id: result.registration_id, status: result.status };
+    return {
+      id: result.studentId,
+      registration_id: result.registration_id,
+      registration_number: result.registration_number,
+      status: result.status,
+    };
   },
 };
