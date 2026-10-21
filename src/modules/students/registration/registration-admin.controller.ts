@@ -12,7 +12,8 @@ import { sendFile } from '../documents/send-file';
 
 export const registrationAdminController = {
   list: asyncHandler(async (req: Request, res: Response) => {
-    const page = await registrationAdminService.list(query<ListRegistrationsQuery>(req));
+    const unmask = req.auth!.permissions.has('registrations.update');
+    const page = await registrationAdminService.list(query<ListRegistrationsQuery>(req), { unmask, req });
     ApiResponse.ok(res, page.items, MESSAGES.retrieved('Registrations'), page.meta);
   }),
 

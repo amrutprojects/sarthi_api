@@ -17,12 +17,16 @@ import type { ListRegistrationsQuery } from './registration-admin.validation';
 import { registrationService, type PreparedDocument } from './registration.service';
 import { adminRegistrationData } from './registration-admin.validation';
 
-type ListItem = ReturnType<typeof publicStudent>;
+type ListItem = ReturnType<typeof publicStudent> & { unmasked?: { email: string | null; mobile: string | null } };
 const BARCODE = new Map(DOCUMENTS.map((d) => [d.key, d.barcode]));
 
 /* Registrations as the admin panel sees them (Student Registration menu): list, detail and admin entry with documents. */
 export const registrationAdminService = {
-  async list(q: ListRegistrationsQuery): Promise<Paginated<ListItem>> {
+  /*
+   * With `unmask` (callers holding registrations.update), each row also carries the full email and mobile; one audit row
+   * per list request records which registrations were shown unmasked. Others get masked values only.
+   */
+  async list(q: ListRegistrationsQuery, opts: { unmask?: boolean; req?: Request } = {}): Promise<Paginated<ListItem>> {
     const qb = AppDataSource.getRepository(Student)
       .createQueryBuilder('s')
       .where('s.isDelete = false AND s.source = :source', { source: STUDENT_SOURCE.PUBLIC_REGISTRATION });
@@ -37,7 +41,18 @@ export const registrationAdminService = {
     }
     const { skip, take } = toSkipTake(q);
     const [items, total] = await qb.orderBy(`s.${q.sortBy}`, q.sortOrder).addOrderBy('s.id').skip(skip).take(take).getManyAndCount();
-    return { items: items.map((s) => publicStudent(s)), meta: buildMeta(q, total) };
+    if (opts.unmask && items.length) {
+      await auditService.record(opts.req, {
+        action: 'student.registration.unmasked_list',
+        resource: 'student',
+        resourceId: null,
+        details: { codes: items.map((s) => s.code), fields: ['email', 'mobile'] },
+      });
+    }
+    return {
+      items: items.map((s) => ({ ...publicStudent(s), ...(opts.unmask ? { unmasked: { email: s.email, mobile: s.mobile } } : {}) })),
+      meta: buildMeta(q, total),
+    };
   },
 
   /*
