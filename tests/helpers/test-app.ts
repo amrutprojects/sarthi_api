@@ -31,13 +31,22 @@ export async function teardownTestApp(): Promise<void> {
   if (AppDataSource.isInitialized) await AppDataSource.destroy();
 }
 
+/*
+ * Tables whose rows come from a migration (reference lists with no other re-seed) and the migrations table itself;
+ * everything else is emptied between test files so no file sees another file's records.
+ */
+const KEEP_ON_RESET = new Set(['typeorm_migrations', 'training_centre_types', 'technology_tracks']);
+
 /* audit_logs is append-only (UPDATE/DELETE blocked by trigger), but TRUNCATE is allowed for tests. */
 export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
-  await AppDataSource.query(
-    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "role_permissions", "user_roles", "permissions", "roles", "users", '
-    + '"talukas", "districts", "states" RESTART IDENTITY CASCADE',
-  );
+  const tables: { tablename: string }[] = await AppDataSource.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`);
+  const list = tables
+    .map((t) => t.tablename)
+    .filter((t) => !KEEP_ON_RESET.has(t))
+    .map((t) => `"${t}"`)
+    .join(', ');
+  await AppDataSource.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
   await seedRbac(AppDataSource);
   rbacService.invalidate();
 }

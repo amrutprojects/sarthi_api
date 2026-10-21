@@ -114,3 +114,62 @@ describe('seed script', () => {
     expect(res.body.data.permissions).toEqual(expect.arrayContaining(ALL_PERMISSIONS.map((p) => p.code)));
   });
 });
+
+describe('seed carry-over of a kept code to its new counterpart (LEGACY_CODE_MAP)', () => {
+  /* An upgraded database: the new code has never existed (no row at all, not even a soft-deleted one). */
+  const forgetCode = async (code: string) => {
+    await AppDataSource.query(
+      `DELETE FROM "role_permissions" WHERE "permissionId" IN (SELECT "id" FROM "permissions" WHERE "code" = $1)`,
+      [code],
+    );
+    await AppDataSource.query(`DELETE FROM "permissions" WHERE "code" = $1`, [code]);
+  };
+  const activeNew = async (code: string) =>
+    AppDataSource.getRepository(Permission).findOneByOrFail({ code, isDelete: false });
+  const roleHolds = async (roleId: string, permissionId: string) =>
+    Number(
+      (
+        await AppDataSource.query(
+          `SELECT count(*)::int AS n FROM "role_permissions" WHERE "roleId" = $1 AND "permissionId" = $2 AND "isDelete" = false`,
+          [roleId, permissionId],
+        )
+      )[0].n,
+    );
+
+  it('copies an active old code to the first-time new code', async () => {
+    const role = await createRoleWith(['lms-calendars.view']);
+    await forgetCode('lms-learning-config.view');
+    await seedRbac(AppDataSource);
+    const created = await activeNew('lms-learning-config.view');
+    expect(created.isActive).toBe(true);
+    expect(await roleHolds(role.id, created.id)).toBe(1);
+  });
+
+  it('carries an admin deactivation over: the new code of a deactivated old code starts inactive', async () => {
+    const role = await createRoleWith(['lms-branding.update']);
+    const oldId = await permissionId('lms-branding.update');
+    await request(app).patch(`${API}/permissions/${oldId}/status`).set(auth(admin.token)).send({ isActive: false }).expect(200);
+    await forgetCode('lms-branding.update-settings');
+    await seedRbac(AppDataSource);
+    const created = await activeNew('lms-branding.update-settings');
+    /* The grant follows, but grants nothing until an admin activates the code. */
+    expect(created.isActive).toBe(false);
+    expect(await roleHolds(role.id, created.id)).toBe(1);
+    await request(app).patch(`${API}/permissions/${oldId}/status`).set(auth(admin.token)).send({ isActive: true }).expect(200);
+    await AppDataSource.getRepository(Permission).update(created.id, { isActive: true });
+  });
+
+  it('does not re-grant a new code an admin deleted: it is re-created for the catalogue only', async () => {
+    const role = await createRoleWith(['lms-calendars.update']);
+    const deletedId = await permissionId('lms-learning-config.update');
+    await request(app).delete(`${API}/permissions/${deletedId}`).set(auth(admin.token)).expect(200);
+    const run = await seedRbac(AppDataSource);
+    expect(run.permissionsCreated).toBe(1);
+    const recreated = await activeNew('lms-learning-config.update');
+    expect(recreated.id).not.toBe(deletedId);
+    expect(await roleHolds(role.id, recreated.id)).toBe(0);
+    /* SUPER_ADMIN still holds every catalogue permission (documented re-sync). */
+    const superAdminRole = await AppDataSource.getRepository(Role).findOneByOrFail({ code: 'SUPER_ADMIN', isDelete: false });
+    expect(await roleHolds(superAdminRole.id, recreated.id)).toBe(1);
+  });
+});

@@ -2,8 +2,8 @@ import type { EntityManager, SelectQueryBuilder } from 'typeorm';
 import { Brackets } from 'typeorm';
 import { District } from './district.model';
 import { Taluka } from '../taluka/taluka.model';
-import { BaseRepository } from '../../repositories/base.repository';
-import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../utils/pagination';
+import { BaseRepository } from '../../database/base.repository';
+import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../shared/utils/pagination';
 import type { DistrictListQuery, DistrictSortField } from './district.types';
 
 /* sortBy to SQL expression, so the state name is sortable without exposing a column name to clients. */

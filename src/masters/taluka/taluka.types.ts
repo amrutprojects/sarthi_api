@@ -1,4 +1,4 @@
-import type { ListQuery } from '../../utils/pagination';
+import type { ListQuery } from '../../shared/utils/pagination';
 
 /* Columns a client may sort by (?sortBy=). districtName / stateName sort on the joined parents. */
 export type TalukaSortField = 'name' | 'code' | 'districtName' | 'stateName' | 'createdAt' | 'updatedAt';

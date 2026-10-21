@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { idParams, masterCode, masterName, statusBody, uuid } from '../../validators/common.validator';
-import { listQueryAscSchema } from '../../utils/pagination';
+import { idParams, masterCode, masterName, statusBody, uuid } from '../../shared/validation/common.validation';
+import { listQueryAscSchema } from '../../shared/utils/pagination';
 
 /*
  * A taluka code is optional: published taluka code lists are often unavailable, and forcing one would

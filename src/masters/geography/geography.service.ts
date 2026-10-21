@@ -1,7 +1,7 @@
 import { districtRepository } from '../district/district.repository';
 import { stateRepository } from '../state/state.repository';
 import { talukaRepository } from '../taluka/taluka.repository';
-import { AppError } from '../../utils/app-error';
+import { AppError } from '../../shared/errors/app-error';
 import type { DistrictOption, GeoOption, TalukaOption } from './geography.types';
 
 /*

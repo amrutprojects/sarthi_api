@@ -22,7 +22,11 @@ import {
  * imports.view (read) · imports.create (upload) · imports.update (resolve rows, decide matches) ·
  * imports.delete (cancel a batch) · imports.approve (finalise, by a second person).
  */
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: env.IMPORT_MAX_FILE_MB * 1024 * 1024, files: 1 } });
+/* multer 2 refuses (at startup) a limit that is not a whole number, and IMPORT_MAX_FILE_MB may be fractional. */
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: Math.floor(env.IMPORT_MAX_FILE_MB * 1024 * 1024), files: 1 },
+});
 const receiveFile = (req: Request, res: Response, next: NextFunction) =>
   upload.single('file')(req, res, (err: unknown) => {
     if (err instanceof multer.MulterError) {

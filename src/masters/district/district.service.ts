@@ -1,14 +1,18 @@
 import type { Request } from 'express';
 import type { EntityManager } from 'typeorm';
 import { AppDataSource } from '../../config/database.config';
-import { AUDIT_ACTIONS } from '../../constants/app.constants';
-import type { District } from './district.model';
+import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
+import { District } from './district.model';
 import { districtRepository } from './district.repository';
 import { stateRepository } from '../state/state.repository';
-import { AppError } from '../../utils/app-error';
-import type { Paginated } from '../../utils/pagination';
-import { auditService } from '../../services/audit.service';
+import { AppError } from '../../shared/errors/app-error';
+import type { Paginated } from '../../shared/utils/pagination';
+import { auditService } from '../../modules/audit';
 import { assertUsableState } from '../state/state.service';
+import { College } from '../college/college.model';
+import { MasterDocument } from '../document/document.model';
+import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate } from '../shared/master-refs';
+import { TrainingCentre } from '../training-centre/training-centre.model';
 import type {
   CreateDistrictInput, DistrictListQuery, PublicDistrictDetail, UpdateDistrictInput,
 } from './district.types';
@@ -57,15 +61,11 @@ export class DistrictService {
    *
    * This runs on the server for every taluka write, independently of what the dropdown offered: a
    * client can post any districtId it likes, so cascading dropdowns are a convenience, never the
-   * integrity check.
+   * integrity check. The district is read FOR SHARE (assertUsableRef), so it cannot be deleted under a
+   * taluka being saved; see remove() for the other half.
    */
-  async assertUsable(districtId: string, manager?: EntityManager): Promise<District> {
-    const district = await districtRepository.findById(districtId, { manager });
-    if (!district) throw AppError.badRequest('The selected district does not exist', [{ field: 'districtId', message: 'Unknown district' }]);
-    if (!district.isActive) {
-      throw AppError.badRequest('The selected district is inactive', [{ field: 'districtId', message: 'Choose an active district' }]);
-    }
-    return district;
+  assertUsable(districtId: string, manager: EntityManager): Promise<District> {
+    return assertUsableRef(manager, District, districtId, 'districtId', 'district');
   }
 
   /* Name and code must be free within the target state. */
@@ -152,18 +152,28 @@ export class DistrictService {
     return this.get(id);
   }
 
-  /* Soft-deletes the district. Refused while any taluka still references it. */
+  /*
+   * Soft-deletes the district. Refused while any taluka still references it. The row is locked FOR
+   * UPDATE before counting, so a child being saved under it concurrently is either counted here or
+   * refused by its own locked parent check (assertUsableRef).
+   */
   async remove(id: string, req?: Request): Promise<void> {
     await AppDataSource.transaction(async (m) => {
-      const district = await districtRepository.findById(id, { manager: m });
+      const district = await lockForUpdate(m, District, id);
       if (!district) throw AppError.notFound('District not found');
       const talukas = await districtRepository.countTalukas(id, { manager: m });
       if (talukas > 0) {
         const plural = talukas === 1 ? 'taluka' : 'talukas';
         throw AppError.conflict(
-          `This district cannot be deleted while ${talukas} ${plural} reference it. Deactivate it instead, or move or delete the talukas first.`,
+          `This district cannot be deleted while ${talukas} ${plural} ${talukas === 1 ? 'references' : 'reference'} it. Deactivate it instead, or move or delete the talukas first.`,
         );
       }
+      /* The Masters group also points at districts; soft delete must not leave them referencing a deleted row. */
+      assertNoRefs('district', [
+        { count: await countRefs(m, College, 'districtId', id), one: 'college' },
+        { count: await countRefs(m, TrainingCentre, 'districtId', id), one: 'training centre' },
+        { count: await countRefs(m, MasterDocument, 'districtId', id), one: 'document' },
+      ]);
       await districtRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.DISTRICT_DELETE,

@@ -1,5 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
-import { AppBaseEntity } from '../../entities/base.entity';
+import { AppBaseEntity } from '../../database/base.entity';
 import type { State } from '../state/state.model';
 import type { Taluka } from '../taluka/taluka.model';
 

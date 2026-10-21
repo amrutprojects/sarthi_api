@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { P } from '../../constants/permission.constants';
+import { P } from '../../modules/roles-permissions';
 import { authorizePermission } from '../../middleware/authorize-permission.middleware';
 import { validateRequest } from '../../middleware/validate-request.middleware';
 import { talukaController } from './taluka.controller';

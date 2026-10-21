@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { idParams, masterCode, masterName, statusBody, uuid } from '../../validators/common.validator';
-import { listQueryAscSchema } from '../../utils/pagination';
+import { idParams, masterCode, masterName, statusBody, uuid } from '../../shared/validation/common.validation';
+import { listQueryAscSchema } from '../../shared/utils/pagination';
 
 /* District codes allow a hyphen so a prefixed form such as MH-PUN is possible. */
 const districtCode = masterCode(20, { hyphen: true });
