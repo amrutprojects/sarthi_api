@@ -5,9 +5,9 @@ import { AppBaseEntity } from '../../database/base.entity';
  * The home page's programme section: the band headed "AMRUT KALASH — Skill Development Diploma",
  * its tagline, its objectives and the certification line.
  *
- * The fact sheet beside it on the page is NOT here. Several of those figures are summed from the
- * modules, so they live with the Modules content; storing them again would be a second place for
- * the same numbers to disagree.
+ * The fact sheet beside it on the page is NOT here. Its totals are summed from the modules, and its
+ * entered figures (duration, validity, deposit, partner) live with the Programme page content;
+ * storing them again would be a second place for the same numbers to disagree.
  */
 @Entity({ name: 'programme_highlight' })
 export class ProgrammeHighlight extends AppBaseEntity {

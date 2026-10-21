@@ -132,21 +132,6 @@ const learningPath = z
     }
   });
 
-/* The fact sheet on /programme. Hours and counts are summed from the modules, never entered. */
-const facts = z
-  .object({
-    idealMonths: count('Ideal duration', 120),
-    validityMonths: count('Validity', 240),
-    securityDeposit: count('Security deposit', 10_000_000),
-    applyLeadDays: count('Apply before', 365),
-    partnerName: z
-      .string()
-      .trim()
-      .min(1, 'Partner name is required')
-      .max(150, 'Partner name must be at most 150 characters'),
-  })
-  .strict();
-
 export const updateModulesPageSchema = {
   body: z
     .object({
@@ -174,7 +159,6 @@ export const updateModulesPageSchema = {
         }),
 
       learningPath,
-      facts,
       isPublished: z.boolean().optional(),
     })
     .strict(),

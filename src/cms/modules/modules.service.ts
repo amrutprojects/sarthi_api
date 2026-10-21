@@ -14,7 +14,6 @@ import type {
   AdminModulesPage,
   LearningPath,
   ModuleTimeSplit,
-  ProgrammeFacts,
   ProgrammeStats,
   PublicModulesPage,
   UpdateElectiveDomainInput,
@@ -54,14 +53,6 @@ const toLearningPath = (s: ProgrammeModuleSettings): LearningPath => ({
   sessionLabel: { mr: s.sessionLabelMr, en: s.sessionLabelEn },
   fixedPathPct: s.fixedPathPct,
   selfPathPct: s.selfPathPct,
-});
-
-const toFacts = (s: ProgrammeModuleSettings): ProgrammeFacts => ({
-  idealMonths: s.idealMonths,
-  validityMonths: s.validityMonths,
-  securityDeposit: s.securityDeposit,
-  applyLeadDays: s.applyLeadDays,
-  partnerName: s.partnerName,
 });
 
 const toStats = (s: ProgrammeModuleSettings): ProgrammeStats => ({
@@ -137,7 +128,6 @@ export class ModulesService {
         electives: domains.filter((d) => d.moduleId === m.id).map(toAdminDomain),
       })),
       learningPath: toLearningPath(settings),
-      facts: toFacts(settings),
       stats: toStats(settings),
       isPublished: settings.isPublished,
       createdAt: settings.createdAt,
@@ -179,13 +169,12 @@ export class ModulesService {
           })),
       })),
       learningPath: toLearningPath(settings),
-      facts: toFacts(settings),
       stats: toStats(settings),
     };
   }
 
   /*
-   * Replaces the whole page in one transaction: the heading, the fact sheet, every module's
+   * Replaces the whole page in one transaction: the heading, the learning path, every module's
    * timetable and every module's domains commit together or not at all.
    *
    * Modules are matched by CODE, which is what identifies a module across the programme — renaming
@@ -230,11 +219,6 @@ export class ModulesService {
           sessionLabelEn: learningPath.sessionLabel.en,
           fixedPathPct: learningPath.fixedPathPct,
           selfPathPct: learningPath.selfPathPct,
-          idealMonths: input.facts.idealMonths,
-          validityMonths: input.facts.validityMonths,
-          securityDeposit: input.facts.securityDeposit,
-          applyLeadDays: input.facts.applyLeadDays,
-          partnerName: input.facts.partnerName,
           ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished }),
         },
         m,

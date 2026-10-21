@@ -40,12 +40,6 @@ const SETTINGS = {
   sessionLabelEn: 'per session',
   fixedPathPct: 40,
   selfPathPct: 60,
-  /* The fact sheet on /programme. */
-  idealMonths: 6,
-  validityMonths: 12,
-  securityDeposit: 2000,
-  applyLeadDays: 30,
-  partnerName: "SUMAGO INFOTECH PVT LTD",
   /* The headline district figure on the home page; the programme dataset draws 36 map tiles. */
   districtCount: 36,
 };

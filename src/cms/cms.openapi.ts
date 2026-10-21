@@ -110,6 +110,17 @@ documentEndpoint({
   response: envelope(z.object({}).passthrough().nullable()),
 });
 
+documentEndpoint({
+  method: 'get',
+  path: '/public/highlight',
+  tag,
+  summary: 'Published home page programme section',
+  description:
+    'The home page band: heading, tagline, objectives and certification line, in Marathi and English. `data` is null when unpublished.',
+  permission: 'public',
+  response: envelope(z.object({}).passthrough().nullable()),
+});
+
 const ProgrammePage = z.object({
   intro: Bilingual,
   objectives: z.array(Bilingual),
@@ -122,6 +133,14 @@ const ProgrammePage = z.object({
     modes: z.array(z.object({ name: Bilingual, description: Bilingual })),
     note: Bilingual,
   }),
+  /* The entered figures only; total hours, the module line and the elective count are summed from /public/modules. */
+  facts: z.object({
+    idealMonths: z.number().int(),
+    validityMonths: z.number().int(),
+    securityDeposit: z.number().int(),
+    applyLeadDays: z.number().int(),
+    partnerName: z.string(),
+  }),
 });
 
 documentEndpoint({
@@ -130,7 +149,8 @@ documentEndpoint({
   tag,
   summary: 'Published Programme page content',
   description:
-    'Introduction, objectives, learning methodology, assessment criteria and certification for the public /programme page, ' +
+    'Introduction, objectives, learning methodology, assessment criteria, certification and the programme fact sheet ' +
+    'for the public /programme page, ' +
     'in Marathi and English. `data` is null when unpublished; the website then renders its bundled copy.',
   permission: 'public',
   response: envelope(ProgrammePage.nullable()),

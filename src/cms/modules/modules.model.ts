@@ -27,7 +27,8 @@ export const MODULE_KINDS = ['MAIN', 'ELECTIVE'] as const;
 export type ModuleKind = (typeof MODULE_KINDS)[number];
 
 /*
- * The page's single-valued content, the programme fact sheet, and the publication state.
+ * The page's single-valued content and the publication state. The programme fact sheet shown on
+ * /programme is not here: it belongs to the Programme page (programme_page_settings).
  * A singleton, enforced the same way the Contact page and footer are: a unique index on a
  * constant expression.
  */
@@ -65,25 +66,6 @@ export class ProgrammeModuleSettings extends AppBaseEntity {
 
   @Column({ type: 'integer', name: 'selfPathPct' })
   selfPathPct!: number;
-
-  /*
-   * The programme fact sheet shown on /programme. Total hours and the elective count are not
-   * here: they are summed from the modules, so they cannot contradict them.
-   */
-  @Column({ type: 'integer', name: 'idealMonths' })
-  idealMonths!: number;
-
-  @Column({ type: 'integer', name: 'validityMonths' })
-  validityMonths!: number;
-
-  @Column({ type: 'integer', name: 'securityDeposit' })
-  securityDeposit!: number;
-
-  @Column({ type: 'integer', name: 'applyLeadDays' })
-  applyLeadDays!: number;
-
-  @Column({ type: 'varchar', length: 150, name: 'partnerName' })
-  partnerName!: string;
 
   /*
    * The district figure on the home page's "at a glance" card. Stored rather than derived: the

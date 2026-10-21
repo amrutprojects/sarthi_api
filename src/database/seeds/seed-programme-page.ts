@@ -114,6 +114,15 @@ const PAGE = {
       en: 'A candidate is enrolled in exactly one mode. There is no combined track.',
     },
   },
+  /*
+   * The fact sheet's entered figures. Total hours, the module line and the elective count are NOT seeded: the site
+   * sums them from the modules, so they cannot contradict them.
+   */
+  idealMonths: 6,
+  validityMonths: 12,
+  securityDeposit: 2000,
+  applyLeadDays: 30,
+  partnerName: 'SUMAGO INFOTECH PVT LTD',
 };
 
 export async function seedProgrammePage(ds: DataSource): Promise<ProgrammeSeedSummary> {

@@ -34,7 +34,16 @@ const validPayload = () => ({
     modes: [{ name: pair('ऑफलाइन', 'OFFLINE'), description: pair('केंद्रावर', 'At a centre') }],
     note: pair('एकच', 'Exactly one'),
   },
+  facts: { idealMonths: 8, validityMonths: 18, securityDeposit: 2500, applyLeadDays: 45, partnerName: 'Partner Pvt Ltd' },
 });
+/* The fact sheet the seed writes, which is what the website showed before it was managed. */
+const SEEDED_FACTS = {
+  idealMonths: 6,
+  validityMonths: 12,
+  securityDeposit: 2000,
+  applyLeadDays: 30,
+  partnerName: 'SUMAGO INFOTECH PVT LTD',
+};
 
 /* resetData() truncates programme_page_settings, so this file re-seeds the singleton it edits. */
 beforeAll(async () => {
@@ -70,7 +79,9 @@ describe('Programme page seed', () => {
     expect(res.body.data.certification).toHaveLength(5);
     expect(res.body.data.trainingModes.modes.map((m: { name: { en: string } }) => m.name.en)).toEqual(['OFFLINE', 'ONLINE']);
     expect(res.body.data.trainingModes.note.en).toBe('A candidate is enrolled in exactly one mode. There is no combined track.');
+    expect(res.body.data.facts).toEqual(SEEDED_FACTS);
     expect(res.body.data.isPublished).toBe(true);
+    expect((await request(app).get(PUBLIC_URL)).body.data.facts).toEqual(SEEDED_FACTS);
   });
 
   it('never overwrites administrator edits on a later run', async () => {
@@ -112,6 +123,51 @@ describe('Programme page management', () => {
     expect(res.status).toBe(422);
     const fields = res.body.error.details.map((d: { field: string }) => d.field);
     expect(fields).toEqual(expect.arrayContaining(['body.intro.mr', 'body.objectives', 'body.assessment.0.min']));
+  });
+
+  it('stores the fact sheet, returns it to the admin screen and serves it publicly', async () => {
+    const facts = { idealMonths: 7, validityMonths: 24, securityDeposit: 3000, applyLeadDays: 15, partnerName: '  Another Partner  ' };
+    const res = await request(app)
+      .put(ADMIN_URL)
+      .set(auth(admin.token))
+      .send({ ...validPayload(), facts });
+    expect(res.status).toBe(200);
+    const stored = { ...facts, partnerName: 'Another Partner' };
+    expect(res.body.data.facts).toEqual(stored);
+    expect((await request(app).get(ADMIN_URL).set(auth(admin.token))).body.data.facts).toEqual(stored);
+    expect((await request(app).get(PUBLIC_URL)).body.data.facts).toEqual(stored);
+    /* Only the entered figures are stored; totals are summed from the modules by the site. */
+    expect(Object.keys(res.body.data.facts).sort()).toEqual([
+      'applyLeadDays',
+      'idealMonths',
+      'partnerName',
+      'securityDeposit',
+      'validityMonths',
+    ]);
+  });
+
+  it('requires the fact sheet, with non-negative figures and a partner name', async () => {
+    const { facts: _omitted, ...withoutFacts } = validPayload();
+    const missing = await request(app).put(ADMIN_URL).set(auth(admin.token)).send(withoutFacts);
+    expect(missing.status).toBe(422);
+    expect(missing.body.error.details.map((d: { field: string }) => d.field)).toContain('body.facts');
+
+    const bad = { ...validPayload(), facts: { ...validPayload().facts, securityDeposit: -1, partnerName: '   ' } };
+    const res = await request(app).put(ADMIN_URL).set(auth(admin.token)).send(bad);
+    expect(res.status).toBe(422);
+    const details = res.body.error.details as { field: string; message: string }[];
+    expect(details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'body.facts.securityDeposit', message: 'Security deposit cannot be negative' }),
+        expect.objectContaining({ field: 'body.facts.partnerName', message: 'Partner name is required' }),
+      ]),
+    );
+
+    const tooLarge = { ...validPayload(), facts: { ...validPayload().facts, idealMonths: 121, unknown: 1 } };
+    const fields = (await request(app).put(ADMIN_URL).set(auth(admin.token)).send(tooLarge)).body.error.details.map(
+      (d: { field: string }) => d.field,
+    );
+    expect(fields).toEqual(expect.arrayContaining(['body.facts.idealMonths', 'body.facts']));
   });
 
   it('enforces the CMS permissions', async () => {
