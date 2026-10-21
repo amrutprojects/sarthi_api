@@ -431,9 +431,9 @@ const RegistrationDto = registry.register(
     isActive: z.boolean(),
     registrationNumber: z.string().nullable().describe('MMDDHHmmssSSSfff (registrations only)'),
     unmasked: z
-      .object({ email: z.string().nullable(), mobile: z.string().nullable() })
+      .object({ email: z.string().nullable(), mobile: z.string().nullable(), aadhaar: z.string().nullable() })
       .optional()
-      .describe('Full email and mobile, only for callers holding registrations.update (audited)'),
+      .describe('Full email, mobile and Aadhaar, only for callers holding registrations.update (audited)'),
   }),
 );
 const RegistrationDetailDto = registry.register(

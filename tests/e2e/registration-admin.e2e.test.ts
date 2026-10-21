@@ -181,7 +181,12 @@ describe('admin registration entry with documents', () => {
     const body = await data();
     await post(token, body, await allMandatory());
     const list = await request(app).get(URL).set('Authorization', `Bearer ${token}`);
-    expect(list.body.data[0].unmasked).toEqual({ email: body.email, mobile: `+91${body.mobile_number}` });
+    const digits = (body.aadhaar_number as string).replace(/\D/g, '');
+    expect(list.body.data[0].unmasked).toEqual({
+      email: body.email,
+      mobile: `+91${body.mobile_number}`,
+      aadhaar: digits.replace(/(\d{4})(?=\d)/g, '$1 '),
+    });
     const audits = await AppDataSource.query(`SELECT 1 FROM "audit_logs" WHERE "action" = 'student.registration.unmasked_list'`);
     expect(audits.length).toBe(1);
 
@@ -282,6 +287,10 @@ describe('admin registration entry with documents', () => {
     );
     const STUDENTS = `${API}/students`;
     const all = await request(app).get(STUDENTS).set('Authorization', `Bearer ${token}`);
+    const regInList = all.body.data.find((r: { id: string }) => r.id === reg);
+    expect(regInList.unmasked.aadhaar).toMatch(/^\d{4} \d{4} \d{4}$/);
+    const audits = await AppDataSource.query(`SELECT 1 FROM "audit_logs" WHERE "action" = 'student.register.unmasked_list'`);
+    expect(audits.length).toBeGreaterThan(0);
     expect(all.status).toBe(HTTP_STATUS.OK);
     const byId = new Map(all.body.data.map((r: { id: string; source: string }) => [r.id, r.source]));
     expect(byId.get(reg)).toBe('PUBLIC_REGISTRATION');
