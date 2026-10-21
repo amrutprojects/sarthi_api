@@ -101,15 +101,16 @@ Since migration `1792700000000-Masters`, region, caste, education and document t
 ## Registration number
 
 Every registration (public website or admin form) gets a backend-generated **registration number**,
-`YYYYMMDDHHmmssSSSffffff` (23 digits, e.g. `20261021123045127127456`), stored in `students.registrationNumber`
-(CHECK: 23 digits; UNIQUE across all rows, deleted ones included). It is returned as `registration_number` and is
-never accepted from the client (the request schema is strict).
+`MMDDHHmmssSSSfff` (16 digits, e.g. `1019175233598595` = 19 Oct, 17:52:33, 598 ms, 595 µs), stored in
+`students.registrationNumber` (CHECK: 16 digits; UNIQUE across all rows, deleted ones included). It is returned as
+`registration_number` and is never accepted from the client (the request schema is strict).
 
 - **Time source:** PostgreSQL `clock_timestamp()`, which has real microsecond resolution, converted to `APP_TIMEZONE`
-  (default `Asia/Kolkata`). `SSS` is the milliseconds and `ffffff` the microseconds of the second, so `ffffff` starts
-  with the same three digits as `SSS`. No digit is padded or invented.
-- **Concurrency:** allocation takes a transaction-scoped advisory lock and reads the clock until it is strictly greater
-  than the highest number issued, so concurrent registrations get distinct, increasing numbers. If the clock never
-  moves past it (e.g. it was set back), the request fails with 503 rather than reusing or inventing a number.
+  (default `Asia/Kolkata`). `SSS` = milliseconds, `fff` = microseconds within that millisecond. No digit is padded or
+  invented. The format has **no year** (decision of 2026-10-21).
+- **Uniqueness and concurrency:** allocation takes a transaction-scoped advisory lock and reads the clock until it
+  gives a number no student has yet, so concurrent registrations get distinct numbers. Because there is no year, the
+  same instant in a later year maps to the same number; that number is then taken and the next microsecond is used.
+  If no free number is found, the request fails with 503 rather than reusing or inventing one.
 - **Unchanged:** the primary key, `code` (`REG-000001`) and imported students' identifiers. Imported students have no
-  registration number. Existing registrations were backfilled from their `createdAt` (migration `1793300000000`).
+  registration number. Migration `1793400000000` converted the earlier 23-digit numbers.
