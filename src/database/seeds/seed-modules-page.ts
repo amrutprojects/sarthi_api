@@ -177,9 +177,8 @@ export async function seedModulesPage(ds: DataSource): Promise<ModulesSeedSummar
     const existing = await settingsRepo.findOne({ where: { isDelete: false } });
     if (existing) return { created: false, modulesCreated: 0, electivesCreated: 0 };
 
-    const settings = await settingsRepo.save(
-      settingsRepo.create({ ...SETTINGS, isPublished: true }),
-    );
+    /* No isPublished: the Modules page has no publish switch, and the column keeps its default. */
+    const settings = await settingsRepo.save(settingsRepo.create(SETTINGS));
 
     const moduleRepo = m.getRepository(ProgrammeModule);
     const domainRepo = m.getRepository(ProgrammeElectiveDomain);

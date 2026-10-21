@@ -27,7 +27,7 @@ export const MODULE_KINDS = ['MAIN', 'ELECTIVE'] as const;
 export type ModuleKind = (typeof MODULE_KINDS)[number];
 
 /*
- * The page's single-valued content and the publication state. The programme fact sheet shown on
+ * The page's single-valued content. The programme fact sheet shown on
  * /programme is not here: it belongs to the Programme page (programme_page_settings).
  * A singleton, enforced the same way the Contact page and footer are: a unique index on a
  * constant expression.
@@ -74,6 +74,11 @@ export class ProgrammeModuleSettings extends AppBaseEntity {
   @Column({ type: 'integer', name: 'districtCount', default: 36 })
   districtCount!: number;
 
+  /*
+   * No longer read or written for this page: the website always shows the Modules content, so
+   * there is no publish switch. The column stays for the rows and history that carry it; migration
+   * 1793900000000 set it to true everywhere.
+   */
   @Column({ type: 'boolean', name: 'isPublished', default: true })
   isPublished!: boolean;
 
@@ -99,6 +104,15 @@ export class ProgrammeModule extends AppBaseEntity {
   /* MAIN or ELECTIVE. Offered as a dropdown in the admin panel. */
   @Column({ type: 'varchar', length: 16, name: 'kind' })
   kind!: ModuleKind;
+
+  /*
+   * Whether the website prints the "Elective" badge on this module's card. Only meaningful for an
+   * ELECTIVE — a MAIN module never shows the badge — but kept for every module so switching the
+   * kind back and forth keeps the administrator's choice. Hiding the badge changes nothing else:
+   * the module is still an elective in its domain table, its counts and its text.
+   */
+  @Column({ type: 'boolean', name: 'showElectiveLabel', default: true })
+  showElectiveLabel!: boolean;
 
   /* The full certificate name. */
   @Column({ type: 'varchar', length: 300, name: 'nameMr' })

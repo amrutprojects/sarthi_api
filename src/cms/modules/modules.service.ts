@@ -63,6 +63,7 @@ const toModuleColumns = (input: UpdateModuleInput, order: number) => ({
   no: input.no,
   code: input.code.trim().toUpperCase(),
   kind: input.kind,
+  showElectiveLabel: input.showElectiveLabel ?? true,
   nameMr: input.name.mr,
   nameEn: input.name.en,
   descriptionMr: input.description.mr,
@@ -93,7 +94,10 @@ const toDomainColumns = (input: UpdateElectiveDomainInput, order: number) => ({
  * The configuration is a singleton enforced by the database, so there is no create endpoint: the
  * row is written once by the seed and edited thereafter. A missing row is a deployment problem (the
  * seed has not run), not something a request should silently repair — the admin read reports it
- * plainly and the public read degrades to "nothing published" so the website shows its own copy.
+ * plainly and the public read degrades to "nothing to show" so the website shows its own copy.
+ *
+ * There is no publish switch: whatever is saved here is what the website shows. The settings row's
+ * isPublished column is no longer read or written for this page.
  *
  * Each module carries its OWN timetable and its OWN employment domains, so one module can run
  * longer than another and editing one leaves the others alone.
@@ -120,6 +124,7 @@ export class ModulesService {
         no: m.no,
         code: m.code,
         kind: m.kind,
+        showElectiveLabel: m.showElectiveLabel,
         name: { mr: m.nameMr, en: m.nameEn },
         description: { mr: m.descriptionMr, en: m.descriptionEn },
         timeSplit: toTimeSplit(m),
@@ -129,20 +134,20 @@ export class ModulesService {
       })),
       learningPath: toLearningPath(settings),
       stats: toStats(settings),
-      isPublished: settings.isPublished,
       createdAt: settings.createdAt,
       updatedAt: settings.updatedAt,
     };
   }
 
   /*
-   * What the website reads. Returns null — not an error — when the page is unpublished or has never
-   * been configured, because "there is nothing to show" is a normal state the site handles by
-   * rendering its own bundled copy.
+   * What the website reads. Always the saved content: there is no publish switch, so isPublished
+   * is not consulted. Returns null — not an error — only when the page has never been configured
+   * or its settings row is inactive, because "there is nothing to show" is a normal state the site
+   * handles by rendering its own bundled copy.
    */
   async getPublic(): Promise<PublicModulesPage | null> {
     const settings = await modulesRepository.findSettings();
-    if (!settings || !settings.isPublished || !settings.isActive) return null;
+    if (!settings || !settings.isActive) return null;
 
     const modules = await modulesRepository.findModules(settings.id, { activeOnly: true });
     const domains = await modulesRepository.findElectives(
@@ -157,6 +162,7 @@ export class ModulesService {
         no: m.no,
         code: m.code,
         kind: m.kind,
+        showElectiveLabel: m.showElectiveLabel,
         name: { mr: m.nameMr, en: m.nameEn },
         description: { mr: m.descriptionMr, en: m.descriptionEn },
         timeSplit: toTimeSplit(m),
@@ -219,7 +225,6 @@ export class ModulesService {
           sessionLabelEn: learningPath.sessionLabel.en,
           fixedPathPct: learningPath.fixedPathPct,
           selfPathPct: learningPath.selfPathPct,
-          ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished }),
         },
         m,
       );
@@ -281,31 +286,14 @@ export class ModulesService {
         resource: 'modules-page',
         resourceId: settings.id,
         details: {
-          isPublished: input.isPublished ?? settings.isPublished,
           modules: input.modules.map((x) => `${x.code}:${x.kind}:${x.timeSplit.moduleHours}h`),
+          hiddenElectiveLabels: input.modules.filter((x) => x.kind === 'ELECTIVE' && x.showElectiveLabel === false).map((x) => x.code),
           retired: retired.map((x) => x.code),
           domains: Object.fromEntries(input.modules.map((x) => [x.code, x.electives?.length ?? 0])),
         },
       });
     });
 
-    return this.getForAdmin();
-  }
-
-  /* Publish / unpublish on its own, so visibility can be changed without resubmitting the content. */
-  async setPublished(isPublished: boolean, req?: Request): Promise<AdminModulesPage> {
-    await AppDataSource.transaction(async (m) => {
-      const settings = await modulesRepository.findSettings(m);
-      if (!settings) throw AppError.notFound(NOT_CONFIGURED);
-
-      await modulesRepository.update(settings.id, { isPublished }, m);
-      await auditService.recordInTx(m, req, {
-        action: AUDIT_ACTIONS.MODULES_PAGE_STATUS,
-        resource: 'modules-page',
-        resourceId: settings.id,
-        details: { isPublished },
-      });
-    });
     return this.getForAdmin();
   }
 }

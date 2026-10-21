@@ -60,7 +60,6 @@ export const AUDIT_ACTIONS = {
   FOOTER_UPDATE: 'cms.footer.update',
   FOOTER_STATUS: 'cms.footer.status',
   MODULES_PAGE_UPDATE: 'cms.modules-page.update',
-  MODULES_PAGE_STATUS: 'cms.modules-page.status',
   HOME_GLANCE_UPDATE: 'cms.home-glance.update',
   HIGHLIGHT_UPDATE: 'cms.programme-highlight.update',
   HIGHLIGHT_STATUS: 'cms.programme-highlight.status',

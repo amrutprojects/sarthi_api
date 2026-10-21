@@ -104,8 +104,12 @@ documentEndpoint({
   method: 'get',
   path: '/public/modules',
   tag,
-  summary: 'Published programme modules page',
-  description: 'Programme modules, hours and elective domains for the public website. `data` is null when unpublished.',
+  summary: 'Programme modules page',
+  description:
+    'Programme modules, hours and elective domains for the public website. The Modules page has no publish switch, ' +
+    'so this is always the saved content; each module carries `showElectiveLabel`, which decides whether the site ' +
+    'prints the "Elective" badge on an elective card. `data` is null only when the page has not been configured ' +
+    '(no active settings row).',
   permission: 'public',
   response: envelope(z.object({}).passthrough().nullable()),
 });

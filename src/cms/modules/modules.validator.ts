@@ -85,6 +85,12 @@ const moduleItem = z
       .min(1, 'Module code is required')
       .max(32, 'Module code must be at most 32 characters'),
     kind: z.enum(MODULE_KINDS),
+    /*
+     * The "Show 'Elective' label on website" tick box. Optional and defaulting to true, so a
+     * client that does not know about it keeps the badge. Accepted for a MAIN module too, where it
+     * has no effect, so switching the kind back and forth keeps the administrator's choice.
+     */
+    showElectiveLabel: z.boolean().optional(),
     name: bilingual(300, 'Module name'),
     description: bilingual(600, 'Module description'),
     timeSplit,
@@ -159,15 +165,13 @@ export const updateModulesPageSchema = {
         }),
 
       learningPath,
-      isPublished: z.boolean().optional(),
     })
+    /*
+     * Strict, so a field this page no longer has is refused rather than silently dropped:
+     * `isPublished` (the website always shows the Modules content) and `facts` (the fact sheet
+     * belongs to the Programme page).
+     */
     .strict(),
 };
 
-/* Publish / unpublish on its own, so visibility changes need not resubmit the whole page. */
-export const modulesStatusSchema = {
-  body: z.object({ isPublished: z.boolean() }).strict(),
-};
-
 export type UpdateModulesPageBody = z.infer<typeof updateModulesPageSchema.body>;
-export type ModulesStatusBody = z.infer<typeof modulesStatusSchema.body>;

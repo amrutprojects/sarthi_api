@@ -49,6 +49,8 @@ export interface AdminModule {
   no: number;
   code: string;
   kind: ModuleKind;
+  /* Whether the website prints the "Elective" badge on this card. Read only for an ELECTIVE. */
+  showElectiveLabel: boolean;
   name: Bilingual;
   description: Bilingual;
   /* This module's own timetable. */
@@ -71,7 +73,6 @@ export interface AdminModulesPage {
   modules: AdminModule[];
   learningPath: LearningPath;
   stats: ProgrammeStats;
-  isPublished: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,8 +81,8 @@ export interface AdminModulesPage {
 
 /*
  * What the website receives. Narrower than the admin shape on purpose: no ids, no timestamps, no
- * publication flag, no soft-delete state. Only active modules and domains are included, which is
- * what makes an unticked elective vanish from both the page and the totals.
+ * soft-delete state. Only active modules and domains are included, which is what makes an
+ * unticked elective vanish from both the page and the totals.
  */
 export interface PublicElectiveDomain {
   no: number;
@@ -93,6 +94,8 @@ export interface PublicModule {
   no: number;
   code: string;
   kind: ModuleKind;
+  /* The site prints the "Elective" badge on an ELECTIVE card only when this is true. */
+  showElectiveLabel: boolean;
   name: Bilingual;
   description: Bilingual;
   timeSplit: ModuleTimeSplit;
@@ -121,6 +124,8 @@ export interface UpdateModuleInput {
   no: number;
   code: string;
   kind: ModuleKind;
+  /* Defaults to true when omitted, so a client that does not send it keeps the badge. */
+  showElectiveLabel?: boolean;
   name: Bilingual;
   description: Bilingual;
   timeSplit: ModuleTimeSplit;
@@ -138,5 +143,4 @@ export interface UpdateModulesPageInput {
   pageSubtitle: Bilingual;
   modules: UpdateModuleInput[];
   learningPath: LearningPath;
-  isPublished?: boolean;
 }
