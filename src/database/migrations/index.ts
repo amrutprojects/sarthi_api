@@ -18,6 +18,7 @@ import { DocumentVerification1793200000000 } from './1793200000000-DocumentVerif
 import { RegistrationNumber1793300000000 } from './1793300000000-RegistrationNumber';
 import { RegistrationNumberShort1793400000000 } from './1793400000000-RegistrationNumberShort';
 import { ImportedRegistrationNumbers1793500000000 } from './1793500000000-ImportedRegistrationNumbers';
+import { RemainingRegistrationNumbers1793600000000 } from './1793600000000-RemainingRegistrationNumbers';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -48,4 +49,5 @@ export const MIGRATIONS = [
   RegistrationNumber1793300000000,
   RegistrationNumberShort1793400000000,
   ImportedRegistrationNumbers1793500000000,
+  RemainingRegistrationNumbers1793600000000,
 ];
