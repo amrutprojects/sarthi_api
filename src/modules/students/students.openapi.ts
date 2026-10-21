@@ -136,7 +136,9 @@ const StudentDto = registry.register(
       email: z.string().nullable(),
       aadhaar: z.string().nullable(),
       approvedAt: z.string().datetime().nullable(),
-      importBatchId: z.string().uuid(),
+      importBatchId: z.string().uuid().nullable(),
+      source: z.enum(['IMPORT', 'PUBLIC_REGISTRATION']),
+      registrationNumber: z.string().nullable(),
       createdAt: z.string().datetime(),
       documents: z
         .array(
@@ -549,4 +551,25 @@ documentEndpoint({
   request: { params: registrationIdSchema.params },
   response: envelope(z.null()),
   errors: [404],
+});
+documentEndpoint({
+  method: 'post',
+  path: '/student-registrations/:id/documents',
+  tag: regTag,
+  summary: "Replace or add a student's documents and barcodes (edit form)",
+  description: [
+    'multipart/form-data: optional field `data` = JSON `{ barcodes: { CODE: "…" } }`; one file per document type code.',
+    'Same file rules as registration. A replaced file is archived and its record soft-deleted; the new file is unverified.',
+    'Mandatory types must still have a file; required barcodes stay required. Audited.',
+  ].join(' '),
+  permission: 'registrations.update',
+  request: {
+    params: registrationIdSchema.params,
+    multipart: z.object({
+      data: z.string().optional().describe('JSON with barcodes'),
+      PHOTO: z.string().openapi({ type: 'string', format: 'binary' }).optional().describe('One field per document type code'),
+    }),
+  },
+  response: envelope(RegistrationDetailDto),
+  errors: [404, 422],
 });

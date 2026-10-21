@@ -55,6 +55,6 @@ export class Student extends AppBaseEntity {
   @Column({ type: 'uuid', name: 'regionId', nullable: true }) regionId!: string | null;
   @Column({ type: 'uuid', name: 'casteId', nullable: true }) casteId!: string | null;
   @Column({ type: 'uuid', name: 'educationId', nullable: true }) educationId!: string | null;
-  /* MMDDHHmmssSSSfff, allocated by the backend for registrations (registration-number.ts); never from the client. */
+  /* MMDDHHmmssSSSfff, allocated by the backend for registrations and at import finalisation (registration-number.ts). */
   @Column({ type: 'varchar', length: 16, name: 'registrationNumber', nullable: true }) registrationNumber!: string | null;
 }

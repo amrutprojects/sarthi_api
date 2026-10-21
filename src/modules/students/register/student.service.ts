@@ -27,6 +27,9 @@ export function publicStudent(s: Student, detail = false) {
     aadhaar: maskAadhaar(s.aadhaarLast4),
     approvedAt: s.approvedAt,
     importBatchId: s.importBatchId,
+    /* IMPORT or PUBLIC_REGISTRATION (one students table), and the registration number of registrations. */
+    source: s.source,
+    registrationNumber: s.registrationNumber,
     createdAt: s.createdAt,
   };
   if (!detail) return base;
@@ -58,18 +61,19 @@ export class StudentService {
     return AppDataSource.getRepository(Student);
   }
 
-  async list(q: { page: number; limit: number; search?: string; centre?: string; track?: string; batch?: string }) {
+  async list(q: { page: number; limit: number; search?: string; centre?: string; track?: string; batch?: string; source?: string }) {
     const qb = this.repo().createQueryBuilder('s').where('s.isDelete = false');
     if (q.centre) qb.andWhere('s.centreCode = :centre', { centre: q.centre });
     if (q.track === 'TBC') qb.andWhere('s.trackCode IS NULL');
     else if (q.track) qb.andWhere('s.trackCode = :track', { track: q.track });
     if (q.batch) qb.andWhere('s.importBatchId = :batch', { batch: q.batch });
+    if (q.source) qb.andWhere('s.source = :source', { source: q.source });
     if (q.search) {
       const t = q.search.trim();
       const s = `%${t.replace(/[%_\\]/g, '\\$&')}%`;
       /* Mobile is searchable by its last four digits only. */
       qb.andWhere(
-        `(s.code ILIKE :s OR s.sourceRecordId ILIKE :s OR (s.firstName || ' ' || s.lastName) ILIKE :s OR s.email ILIKE :s ${/^\d{4}$/.test(t) ? 'OR right(s.mobile, 4) = :last4' : ''})`,
+        `(s.code ILIKE :s OR s.registrationNumber LIKE :s OR s.sourceRecordId ILIKE :s OR (s.firstName || ' ' || s.lastName) ILIKE :s OR s.email ILIKE :s ${/^\d{4}$/.test(t) ? 'OR right(s.mobile, 4) = :last4' : ''})`,
         { s, last4: t },
       );
     }
