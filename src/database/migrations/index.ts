@@ -15,6 +15,7 @@ import { ElectiveDomainsPerModule1793000000000 } from './1793000000000-ElectiveD
 import { DomainsForAllModules1793100000000 } from './1793100000000-DomainsForAllModules';
 
 import { DocumentVerification1793200000000 } from './1793200000000-DocumentVerification';
+import { RegistrationNumber1793300000000 } from './1793300000000-RegistrationNumber';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -42,4 +43,5 @@ export const MIGRATIONS = [
   ElectiveDomainsPerModule1793000000000,
   DomainsForAllModules1793100000000,
   DocumentVerification1793200000000,
+  RegistrationNumber1793300000000,
 ];

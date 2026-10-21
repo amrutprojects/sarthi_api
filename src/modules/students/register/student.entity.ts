@@ -10,6 +10,7 @@ import { AppBaseEntity } from '../../../database/base.entity';
 @Index('UQ_students_code', ['code'], { unique: true })
 @Index('UQ_students_source_record', ['sourceRecordId'], { unique: true, where: '"isDelete" = false AND "sourceRecordId" IS NOT NULL' })
 @Index('IDX_students_bidx', ['aadhaarBidx'])
+@Index('UQ_students_registration_number', ['registrationNumber'], { unique: true })
 @Index('IDX_students_regionId', ['regionId'])
 @Index('IDX_students_casteId', ['casteId'])
 @Index('IDX_students_educationId', ['educationId'])
@@ -54,4 +55,6 @@ export class Student extends AppBaseEntity {
   @Column({ type: 'uuid', name: 'regionId', nullable: true }) regionId!: string | null;
   @Column({ type: 'uuid', name: 'casteId', nullable: true }) casteId!: string | null;
   @Column({ type: 'uuid', name: 'educationId', nullable: true }) educationId!: string | null;
+  /* YYYYMMDDHHmmssSSSffffff, allocated by the backend for registrations (registration-number.ts); never from the client. */
+  @Column({ type: 'varchar', length: 23, name: 'registrationNumber', nullable: true }) registrationNumber!: string | null;
 }
