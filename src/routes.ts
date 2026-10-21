@@ -12,7 +12,7 @@ import { roleRouter } from './modules/roles-permissions/roles/role.routes';
 import { userRouter } from './modules/users/user.routes';
 import { MASTERS } from './modules/masters';
 import { masterRouter } from './modules/masters/master.routes';
-import { cmsRouter, publicContactRouter, publicFooterRouter, publicGeographyRouter, publicModulesRouter } from './cms';
+import { cmsRouter, publicContactRouter, publicFooterRouter, publicGeographyRouter, publicModulesRouter, publicHighlightRouter } from './cms';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
 export const apiRouter = Router();
@@ -37,3 +37,4 @@ apiRouter.use('/public/geography', publicGeographyRouter);
 apiRouter.use('/public/contact', publicContactRouter);
 apiRouter.use('/public/footer', publicFooterRouter);
 apiRouter.use('/public/modules', publicModulesRouter);
+apiRouter.use('/public/highlight', publicHighlightRouter);
