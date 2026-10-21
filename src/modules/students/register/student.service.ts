@@ -73,7 +73,7 @@ export class StudentService {
       const s = `%${t.replace(/[%_\\]/g, '\\$&')}%`;
       /* Mobile is searchable by its last four digits only. */
       qb.andWhere(
-        `(s.code ILIKE :s OR s.sourceRecordId ILIKE :s OR (s.firstName || ' ' || s.lastName) ILIKE :s OR s.email ILIKE :s ${/^\d{4}$/.test(t) ? 'OR right(s.mobile, 4) = :last4' : ''})`,
+        `(s.code ILIKE :s OR s.registrationNumber LIKE :s OR s.sourceRecordId ILIKE :s OR (s.firstName || ' ' || s.lastName) ILIKE :s OR s.email ILIKE :s ${/^\d{4}$/.test(t) ? 'OR right(s.mobile, 4) = :last4' : ''})`,
         { s, last4: t },
       );
     }

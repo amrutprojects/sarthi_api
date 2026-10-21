@@ -16,6 +16,7 @@ import { ImportFileError, parseImportFile } from './file-parser';
 import { documentService } from '../documents/document.service';
 import { rowChecksum, validateRow, type NormalisedRow } from './row-validator';
 import { mastersService } from '../../masters';
+import { allocateRegistrationNumber } from '../registration/registration-number';
 
 export type MatchDecision = 'SAME_PERSON' | 'DIFFERENT_PERSON' | 'HOLD';
 
@@ -417,9 +418,12 @@ export class ImportService {
         } else {
           const d = row.data as unknown as NormalisedRow;
           const seq = await m.query(`SELECT nextval('students_code_seq') AS n`);
+          /* Same registration number as public registrations (lock held until this finalisation commits). */
+          const registrationNumber = await allocateRegistrationNumber(m);
           const student = await m.getRepository(Student).save(
             m.getRepository(Student).create({
               code: 'STU-' + String(seq[0].n).padStart(6, '0'),
+              registrationNumber,
               sourceRecordId: row.decision === 'DIFFERENT_PERSON' && row.matchTier === 'T0' ? null : d.sourceRecordId,
               sourceChecksum: row.checksum,
               firstName: d.firstName,

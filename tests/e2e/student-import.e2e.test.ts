@@ -97,6 +97,10 @@ describe('student import', () => {
     expect(JSON.stringify(reg.body.data)).not.toContain(recs[0].aadhaar_number);
 
     const stored = await AppDataSource.getRepository(Student).findOneByOrFail({ sourceRecordId: recs[0].source_record_id });
+    /* Imported students get a registration number too (MMDDHHmmssSSSfff), distinct per student. */
+    expect(stored.registrationNumber).toMatch(/^\d{16}$/);
+    const numbers = (await AppDataSource.getRepository(Student).find()).map((x) => x.registrationNumber);
+    expect(new Set(numbers).size).toBe(numbers.length);
     expect(decryptAadhaar(stored.aadhaarEnc!)).toBe(recs[0].aadhaar_number);
     expect(stored.mobile).toMatch(/^\+91[6-9]\d{9}$/);
   });
