@@ -17,7 +17,7 @@ import {
   publicContactRouter,
   publicFooterRouter,
   publicGeographyRouter,
-  publicModulesRouter,
+  publicModulesRouter, publicHighlightRouter,
   publicProgrammeRouter,
 } from './cms';
 
@@ -44,4 +44,5 @@ apiRouter.use('/public/geography', publicGeographyRouter);
 apiRouter.use('/public/contact', publicContactRouter);
 apiRouter.use('/public/footer', publicFooterRouter);
 apiRouter.use('/public/modules', publicModulesRouter);
+apiRouter.use('/public/highlight', publicHighlightRouter);
 apiRouter.use('/public/programme', publicProgrammeRouter);

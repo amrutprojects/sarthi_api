@@ -3,6 +3,8 @@ import { authenticate } from '../middleware/authenticate.middleware';
 import { contactRouter } from './contact/contact.routes';
 import { footerRouter } from './footer/footer.routes';
 import { modulesRouter } from './modules/modules.routes';
+import { homeRouter } from './home/home.routes';
+import { highlightRouter } from './highlight/highlight.routes';
 import { programmeRouter } from './programme/programme.routes';
 import { mastersRouter } from './masters';
 
@@ -21,6 +23,7 @@ export { publicGeographyRouter } from './masters';
 export { publicContactRouter } from './contact/contact.public.routes';
 export { publicFooterRouter } from './footer/footer.public.routes';
 export { publicModulesRouter } from './modules/modules.public.routes';
+export { publicHighlightRouter } from './highlight/highlight.public.routes';
 export { publicProgrammeRouter } from './programme/programme.public.routes';
 
 /*
@@ -36,6 +39,8 @@ cmsRouter.use(authenticate);
 cmsRouter.use('/contact', contactRouter);
 cmsRouter.use('/footer', footerRouter);
 cmsRouter.use('/modules', modulesRouter);
+cmsRouter.use('/home', homeRouter);
+cmsRouter.use('/highlight', highlightRouter);
 cmsRouter.use('/programme', programmeRouter);
 /* Mounted at the root: the masters router carries its own /states, /districts and /talukas paths. */
 cmsRouter.use('/', mastersRouter);

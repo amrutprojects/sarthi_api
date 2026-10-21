@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MODULE_KINDS } from './modules.model';
 
 /*
  * Modules page request contract.
@@ -12,12 +13,25 @@ import { z } from 'zod';
 const bilingual = (max: number, label: string) =>
   z
     .object({
-      mr: z.string().trim().min(1, `${label} (Marathi) is required`).max(max, `${label} (Marathi) must be at most ${max} characters`),
-      en: z.string().trim().min(1, `${label} (English) is required`).max(max, `${label} (English) must be at most ${max} characters`),
+      mr: z
+        .string()
+        .trim()
+        .min(1, `${label} (Marathi) is required`)
+        .max(max, `${label} (Marathi) must be at most ${max} characters`),
+      en: z
+        .string()
+        .trim()
+        .min(1, `${label} (English) is required`)
+        .max(max, `${label} (English) must be at most ${max} characters`),
     })
     .strict();
 
-const certificate = (label: string) => z.string().trim().min(1, `${label} is required`).max(300, `${label} must be at most 300 characters`);
+const certificate = (label: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required`)
+    .max(300, `${label} must be at most 300 characters`);
 
 const count = (label: string, max: number) =>
   z.coerce.number().int().min(0, `${label} cannot be negative`).max(max, `${label} is too large`);
@@ -32,43 +46,11 @@ const electiveDomain = z
   })
   .strict();
 
-const moduleItem = z
-  .object({
-    no: count('Module number', 99),
-    code: z.string().trim().min(1, 'Module code is required').max(32, 'Module code must be at most 32 characters'),
-    name: bilingual(300, 'Module name'),
-    description: bilingual(600, 'Module description'),
-    elective: z.boolean().optional(),
-    displayOrder: count('Display order', 999).optional(),
-    isActive: z.boolean().optional(),
-    /* This module's own domains. Every module carries its own list, elective or not. */
-    electives: z.array(electiveDomain).max(50, 'At most 50 employment domains per module').optional(),
-  })
-  .strict()
-  .superRefine((m, ctx) => {
-    const domains = m.electives ?? [];
-
-    /* The number is how a domain is listed in this module's table, so it cannot repeat. */
-    const seen = new Set<number>();
-    domains.forEach((d, index) => {
-      if (seen.has(d.no)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['electives', index, 'no'],
-          message: `Duplicate domain number ${d.no}`,
-        });
-      }
-      seen.add(d.no);
-    });
-  });
-
 /*
- * The hours.
+ * One module's timetable.
  *
- * The two parts must add up to the module total — that is the programme's own arithmetic (99
- * training + 21 assessment = 120), and a page that contradicts itself is worse than one that
- * refuses to save. Checked as a whole-object rule so the message lands on the group rather than on
- * an arbitrary one of the three fields.
+ * Training plus assessment must equal the module total — the programme's own arithmetic, now
+ * checked per module. A module that contradicts itself is worse than one that refuses to save.
  */
 const timeSplit = z
   .object({
@@ -94,6 +76,43 @@ const timeSplit = z
     }
   });
 
+const moduleItem = z
+  .object({
+    no: count('Module number', 99),
+    code: z
+      .string()
+      .trim()
+      .min(1, 'Module code is required')
+      .max(32, 'Module code must be at most 32 characters'),
+    kind: z.enum(MODULE_KINDS),
+    name: bilingual(300, 'Module name'),
+    description: bilingual(600, 'Module description'),
+    timeSplit,
+    displayOrder: count('Display order', 999).optional(),
+    /* For an elective this is the "show it and count it" tick box. */
+    isActive: z.boolean().optional(),
+    /* This module's own domains. Every module carries its own list. */
+    electives: z
+      .array(electiveDomain)
+      .max(50, 'At most 50 employment domains per module')
+      .optional(),
+  })
+  .strict()
+  .superRefine((m, ctx) => {
+    /* The number is how a domain is listed in this module's table, so it cannot repeat. */
+    const seen = new Set<number>();
+    (m.electives ?? []).forEach((d, index) => {
+      if (seen.has(d.no)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['electives', index, 'no'],
+          message: `Duplicate domain number ${d.no}`,
+        });
+      }
+      seen.add(d.no);
+    });
+  });
+
 /* The two shares of the learning-path donut. A chart whose shares do not total 100 misstates it. */
 const learningPath = z
   .object({
@@ -113,9 +132,27 @@ const learningPath = z
     }
   });
 
+/* The fact sheet on /programme. Hours and counts are summed from the modules, never entered. */
+const facts = z
+  .object({
+    idealMonths: count('Ideal duration', 120),
+    validityMonths: count('Validity', 240),
+    securityDeposit: count('Security deposit', 10_000_000),
+    applyLeadDays: count('Apply before', 365),
+    partnerName: z
+      .string()
+      .trim()
+      .min(1, 'Partner name is required')
+      .max(150, 'Partner name must be at most 150 characters'),
+  })
+  .strict();
+
 export const updateModulesPageSchema = {
   body: z
     .object({
+      pageTitle: bilingual(200, 'Page title'),
+      pageSubtitle: bilingual(500, 'Page subtitle'),
+
       modules: z
         .array(moduleItem)
         .min(1, 'At least one module is required')
@@ -136,8 +173,8 @@ export const updateModulesPageSchema = {
           });
         }),
 
-      timeSplit,
       learningPath,
+      facts,
       isPublished: z.boolean().optional(),
     })
     .strict(),
