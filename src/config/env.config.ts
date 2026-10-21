@@ -32,6 +32,15 @@ const schema = z.object({
   DB_SSL: bool,
   DB_POOL_MAX: z.coerce.number().int().positive().default(10),
   DB_LOGGING: bool,
+  /*
+   * Optional read replica (a streaming copy of the main database). When DB_READ_HOST is set, plain reads go to the
+   * replica and every write, transaction and migration goes to the main database. Unset = one database for everything.
+   * Port, user and password default to the main database's.
+   */
+  DB_READ_HOST: z.string().optional(),
+  DB_READ_PORT: z.coerce.number().int().positive().optional(),
+  DB_READ_USERNAME: z.string().optional(),
+  DB_READ_PASSWORD: z.string().optional(),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('15m'),
