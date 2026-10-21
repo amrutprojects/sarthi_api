@@ -1,5 +1,9 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../../config/database.config';
+import { seedContactPage } from './seed-contact-page';
+import { seedFooter } from './seed-footer';
+import { seedMasters } from './seed-masters';
+import { seedModulesPage } from './seed-modules-page';
 import { seedRbac } from './seed-rbac';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
@@ -10,6 +14,15 @@ async function main() {
     const summary = await seedRbac(AppDataSource);
     // eslint-disable-next-line no-console
     console.log('RBAC seed complete:', summary);
+    // eslint-disable-next-line no-console
+    console.log('Masters seed complete (rows added):', await seedMasters(AppDataSource));
+    /* The CMS page content. Each is idempotent and does nothing once configured. */
+    // eslint-disable-next-line no-console
+    console.log('Contact page seed complete:', await seedContactPage(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Footer seed complete:', await seedFooter(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Modules page seed complete:', await seedModulesPage(AppDataSource));
   } finally {
     await AppDataSource.destroy();
   }

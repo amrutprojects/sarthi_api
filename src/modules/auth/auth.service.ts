@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { RESPONSE_MESSAGES } from '../../constants/api-response.constants';
 import bcrypt from 'bcrypt';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import type { Request } from 'express';
@@ -16,7 +17,7 @@ import { toPublicUser } from '../users';
 import { csrfTokenFor } from './session';
 
 /* Same message for unknown email, wrong password and disabled account, so accounts cannot be enumerated. */
-const INVALID_CREDENTIALS = 'Invalid email or password';
+const INVALID_CREDENTIALS = RESPONSE_MESSAGES.INVALID_CREDENTIALS;
 
 /*
  * A real bcrypt hash of a random value. Compared against when the email is unknown so that a
@@ -83,7 +84,7 @@ export class AuthService {
       if (!decoded.sub || !decoded.jti || !decoded.exp || !decoded.sid || !decoded.sst) throw new Error('missing claims');
       return decoded as AccessTokenPayload;
     } catch {
-      throw AppError.unauthorized('Invalid or expired token');
+      throw AppError.unauthorized(RESPONSE_MESSAGES.INVALID_TOKEN);
     }
   }
 
@@ -94,10 +95,10 @@ export class AuthService {
   async resolvePrincipal(payload: AccessTokenPayload, via: AuthUser['via'] = 'bearer'): Promise<AuthUser> {
     /* Logout revokes the whole session (sid), which also covers tokens issued by earlier renewals. */
     const revoked = await AppDataSource.getRepository(RevokedToken).exists({ where: [{ jti: payload.jti }, { jti: payload.sid }] });
-    if (revoked) throw AppError.unauthorized('Token has been revoked');
+    if (revoked) throw AppError.unauthorized(RESPONSE_MESSAGES.TOKEN_REVOKED);
 
     const user = await userService.findAccount(payload.sub);
-    if (!user || !user.isActive) throw AppError.unauthorized('Account is not active');
+    if (!user || !user.isActive) throw AppError.unauthorized(RESPONSE_MESSAGES.ACCOUNT_INACTIVE);
 
     const { permissions, roleCodes } = await rbacService.getAuthorization(user.id);
     return {

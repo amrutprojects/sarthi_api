@@ -1,6 +1,20 @@
 import { Column, Entity, Index } from 'typeorm';
 import { AppBaseEntity } from '../../../database/base.entity';
 
+export interface DocumentsReport {
+  zipName: string;
+  uploadedAt: string;
+  stored: number;
+  /* Files assigned because the Excel named their path. */
+  matchedByPath: number;
+  replaced: number;
+  studentsWithFiles: number;
+  unmatchedFolders: string[];
+  rejected: { path: string; reason: string }[];
+  /* Paths named in the Excel that the ZIP did not contain. */
+  missingReferenced: { rowNumber: number; sourceRecordId: string | null; docType: string; path: string }[];
+}
+
 export interface ImportBatchCounts {
   total: number;
   valid: number;
@@ -33,4 +47,6 @@ export class ImportBatch extends AppBaseEntity {
   @Column({ type: 'uuid', name: 'finalisedById', nullable: true }) finalisedById!: string | null;
   @Column({ type: 'timestamptz', name: 'finalisedAt', nullable: true }) finalisedAt!: Date | null;
   @Column({ type: 'uuid', name: 'cancelledById', nullable: true }) cancelledById!: string | null;
+  /* Result of the last documents ZIP upload (see documents/document.service.ts). */
+  @Column({ type: 'jsonb', name: 'documentsReport', nullable: true }) documentsReport!: DocumentsReport | null;
 }

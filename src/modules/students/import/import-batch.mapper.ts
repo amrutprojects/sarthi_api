@@ -13,6 +13,7 @@ export const toImportBatchDto = (b: ImportBatch) => ({
   columnMapping: b.columnMapping,
   ignoredColumns: b.ignoredColumns,
   failureReason: b.failureReason,
+  documentsReport: b.documentsReport ?? null,
   createdById: b.createdById,
   finalisedById: b.finalisedById,
   finalisedAt: b.finalisedAt,

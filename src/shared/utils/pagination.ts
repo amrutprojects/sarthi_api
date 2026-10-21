@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { PAGINATION } from '../constants/app.constants';
-import type { PaginationMeta } from '../http/api-response';
+import type { PaginationMeta } from '../../utils/api-response';
 
 /*
  * Shared list-query schema: page, limit, free-text search, sort field / order and an optional

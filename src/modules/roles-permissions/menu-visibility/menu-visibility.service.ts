@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import { In } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
 import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
@@ -59,7 +60,7 @@ export class MenuVisibilityService {
     await AppDataSource.transaction(async (m) => {
       const roleIds = [...new Set(changes.map((c) => c.roleId))];
       const roles = await m.getRepository(Role).find({ where: { id: In(roleIds), isDelete: false } });
-      if (roles.length !== roleIds.length) throw AppError.notFound('Role not found');
+      if (roles.length !== roleIds.length) throw AppError.notFound(MESSAGES.notFound('Role'));
       const superAdmin = roles.find((r) => r.code === ROLE_CODES.SUPER_ADMIN);
       if (superAdmin && changes.some((c) => c.roleId === superAdmin.id && !c.visible && SUPER_ADMIN_LOCKED.includes(c.menuKey))) {
         throw AppError.forbidden('The Users & Roles menu cannot be hidden from Super Admin');

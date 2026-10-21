@@ -17,6 +17,7 @@ export const appConfig = {
     windowMs: env.RATE_LIMIT_WINDOW_MS,
     max: env.RATE_LIMIT_MAX,
     loginMax: env.LOGIN_RATE_LIMIT_MAX,
+    registrationMax: env.REGISTRATION_RATE_LIMIT_MAX,
   },
   permissionCacheTtlMs: env.PERMISSION_CACHE_TTL_MS,
   session: {

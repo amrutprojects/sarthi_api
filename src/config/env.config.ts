@@ -8,8 +8,12 @@ import { z } from 'zod';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'development';
 
-/* .env.test is used for the test run; .env for everything else. Real environments set variables directly. */
-dotenv.config({ path: path.resolve(__dirname, '../..', NODE_ENV === 'test' ? '.env.test' : '.env') });
+/*
+ * The backend folder, whether this file runs from src/config (ts-node) or from the build in dist/src/config
+ * (production commands). .env.test is used for the test run; .env for everything else.
+ */
+export const backendRoot = path.resolve(__dirname, '../..', path.basename(path.resolve(__dirname, '../..')) === 'dist' ? '..' : '');
+dotenv.config({ path: path.join(backendRoot, NODE_ENV === 'test' ? '.env.test' : '.env') });
 
 const bool = z
   .enum(['true', 'false'])
@@ -28,6 +32,27 @@ const schema = z.object({
   DB_SSL: bool,
   DB_POOL_MAX: z.coerce.number().int().positive().default(10),
   DB_LOGGING: bool,
+  /* Timezone of student registration numbers (MMDDHHmmssSSSfff). Must be an IANA name, e.g. Asia/Kolkata. */
+  APP_TIMEZONE: z
+    .string()
+    .default('Asia/Kolkata')
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat('en', { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'APP_TIMEZONE must be an IANA timezone such as Asia/Kolkata'),
+  /*
+   * Optional read replica (a streaming copy of the main database). When DB_READ_HOST is set, plain reads go to the
+   * replica and every write, transaction and migration goes to the main database. Unset = one database for everything.
+   * Port, user and password default to the main database's.
+   */
+  DB_READ_HOST: z.string().optional(),
+  DB_READ_PORT: z.coerce.number().int().positive().optional(),
+  DB_READ_USERNAME: z.string().optional(),
+  DB_READ_PASSWORD: z.string().optional(),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('15m'),
@@ -46,6 +71,8 @@ const schema = z.object({
     .default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  /* Public student registrations per IP per rate-limit window. */
+  REGISTRATION_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   PERMISSION_CACHE_TTL_MS: z.coerce.number().int().min(0).default(60_000),
 
   /* Student data protection: 32-byte keys, base64. DATA encrypts Aadhaar (AES-256-GCM); INDEX keys the blind index (HMAC-SHA256). */
@@ -53,6 +80,21 @@ const schema = z.object({
   STUDENT_INDEX_KEY: z.string().refine((v) => Buffer.from(v, 'base64').length === 32, 'STUDENT_INDEX_KEY must be 32 bytes, base64-encoded'),
   IMPORT_MAX_FILE_MB: z.coerce.number().positive().default(20),
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(50_000),
+
+  /* Student document files (private storage, never served statically). Relative paths are resolved from the backend folder. */
+  STORAGE_DIR: z.string().min(1).default('storage'),
+  /* 'local' (STORAGE_DIR on disk) or 's3' (private bucket; keys are the same relative paths). */
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  AWS_REGION: z.string().optional(),
+  AWS_BUCKET_NAME: z.string().optional(),
+  /* Optional: without them the SDK uses its default chain (instance role, AWS profile). */
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  /* Optional folder inside the bucket, e.g. "dev" or "prod". */
+  AWS_KEY_PREFIX: z.string().default(''),
+  DOCUMENT_MAX_FILE_MB: z.coerce.number().positive().default(5),
+  DOCUMENTS_ZIP_MAX_MB: z.coerce.number().positive().default(500),
+  DOCUMENTS_ZIP_MAX_FILES: z.coerce.number().int().positive().default(20_000),
 
   /* Document Master uploads: private directory outside the web root (relative to the working directory) and size cap. */
   DOCUMENT_STORAGE_DIR: z.string().min(1).default('storage/documents'),
@@ -108,6 +150,12 @@ if (!parsed.success) {
 }
 
 const raw = parsed.data;
+
+if (raw.STORAGE_DRIVER === 's3' && (!raw.AWS_REGION || !raw.AWS_BUCKET_NAME)) {
+  // eslint-disable-next-line no-console
+  console.error('Invalid environment configuration:\n  - STORAGE_DRIVER=s3 needs AWS_REGION and AWS_BUCKET_NAME');
+  process.exit(1);
+}
 
 if (raw.NODE_ENV === 'production' && /CHANGE_ME|REPLACE_WITH/i.test(raw.JWT_SECRET + raw.DB_PASSWORD)) {
   // eslint-disable-next-line no-console

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { MESSAGES } from '../../../constants/api-response.constants';
 import type { Request } from 'express';
 import { In, type EntityManager } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
@@ -12,7 +13,10 @@ import { AppError } from '../../../shared/errors/app-error';
 import { maskAadhaar, maskEmail, maskMobile } from '../aadhaar';
 import { auditService } from '../../audit';
 import { ImportFileError, parseImportFile } from './file-parser';
+import { documentService } from '../documents/document.service';
 import { rowChecksum, validateRow, type NormalisedRow } from './row-validator';
+import { mastersService } from '../../masters';
+import { allocateRegistrationNumber } from '../registration/registration-number';
 
 export type MatchDecision = 'SAME_PERSON' | 'DIFFERENT_PERSON' | 'HOLD';
 
@@ -69,7 +73,7 @@ export class ImportService {
 
   async getBatch(id: string, m?: EntityManager): Promise<ImportBatch> {
     const b = await this.batches(m).findOne({ where: { id, isDelete: false } });
-    if (!b) throw AppError.notFound('Import batch not found');
+    if (!b) throw AppError.notFound(MESSAGES.notFound('Import batch'));
     return b;
   }
 
@@ -131,7 +135,9 @@ export class ImportService {
 
   /* A-14 + A-15: validate every row and detect duplicates, in the file and against the register. One failing row never blocks others. */
   private async validate(batch: ImportBatch, rawRows: Record<string, string>[]) {
-    const results = rawRows.map((raw, i) => ({ rowNumber: i + 2, raw, checksum: rowChecksum(raw), ...validateRow(raw) }));
+    /* Masters are loaded once per batch; validateRow matches against them in memory. */
+    const masters = await mastersService.loadLookup();
+    const results = rawRows.map((raw, i) => ({ rowNumber: i + 2, raw, checksum: rowChecksum(raw), ...validateRow(raw, masters) }));
 
     /* Load only the register rows that could match. */
     const srcIds = [...new Set(results.map((r) => r.row.sourceRecordId).filter((x): x is string => !!x))];
@@ -282,12 +288,13 @@ export class ImportService {
     const row = await m
       .getRepository(ImportRow)
       .findOne({ where: { id: rowId, batchId, isDelete: false }, lock: { mode: 'pessimistic_write' } });
-    if (!row) throw AppError.notFound('Row not found');
+    if (!row) throw AppError.notFound(MESSAGES.notFound('Row'));
     return { batch, row };
   }
 
   /* After a change: VALID once no issue is open and no identity match is undecided or on hold. */
-  private settle(row: ImportRow) {
+  /* After a change: VALID once no issue is open and no identity match is undecided (also used by the documents service). */
+  settleRow(row: ImportRow) {
     if (row.status === ROW_STATUS.ROW_REJECTED) return;
     const open = row.issues.some((i) => i.status === 'OPEN');
     const undecided = !!row.matchStudentId && (!row.decision || row.decision === 'HOLD');
@@ -307,7 +314,7 @@ export class ImportService {
         );
       const at = new Date().toISOString();
       row.issues = row.issues.map((i) => (i.status === 'OPEN' ? { ...i, status: 'ACCEPTED', reason, by: actor.id, at } : i));
-      this.settle(row);
+      this.settleRow(row);
       await m.getRepository(ImportRow).save(row);
       await this.refreshBatch(batchId, m);
       return row;
@@ -347,7 +354,7 @@ export class ImportService {
       if (row.status !== ROW_STATUS.ROW_REJECTED) throw AppError.conflict('Only rejected rows can be restored');
       row.status = ROW_STATUS.DATA_VALIDATION_PENDING;
       row.rejectReason = null;
-      this.settle(row);
+      this.settleRow(row);
       await m.getRepository(ImportRow).save(row);
       await this.refreshBatch(batchId, m);
       return row;
@@ -368,7 +375,7 @@ export class ImportService {
       if (!row.matchStudentId) throw AppError.conflict('This row has no identity match to decide');
       if (row.status === ROW_STATUS.ROW_REJECTED) throw AppError.conflict('The row is rejected');
       Object.assign(row, { decision, decisionReason: reason, decidedById: actor.id, decidedAt: new Date() });
-      this.settle(row);
+      this.settleRow(row);
       await m.getRepository(ImportRow).save(row);
       await this.refreshBatch(batchId, m);
       return row;
@@ -384,9 +391,10 @@ export class ImportService {
 
   /* A-12: second person (SOD-01) types the batch code; one transaction writes every VALID row or none. */
   async finalise(batchId: string, confirmCode: string, actor: AuthUser, req?: Request) {
+    let docs = null as { commit: () => Promise<void>; undo: () => Promise<void> } | null;
     const result = await AppDataSource.transaction(async (m) => {
       const batch = await this.batches(m).findOne({ where: { id: batchId, isDelete: false }, lock: { mode: 'pessimistic_write' } });
-      if (!batch) throw AppError.notFound('Import batch not found');
+      if (!batch) throw AppError.notFound(MESSAGES.notFound('Import batch'));
       if (batch.status !== BATCH_STATUS.READY_TO_FINALISE)
         throw AppError.conflict(
           batch.status === BATCH_STATUS.VALIDATED_WITH_EXCEPTIONS
@@ -410,9 +418,12 @@ export class ImportService {
         } else {
           const d = row.data as unknown as NormalisedRow;
           const seq = await m.query(`SELECT nextval('students_code_seq') AS n`);
+          /* Same registration number as public registrations (lock held until this finalisation commits). */
+          const registrationNumber = await allocateRegistrationNumber(m);
           const student = await m.getRepository(Student).save(
             m.getRepository(Student).create({
               code: 'STU-' + String(seq[0].n).padStart(6, '0'),
+              registrationNumber,
               sourceRecordId: row.decision === 'DIFFERENT_PERSON' && row.matchTier === 'T0' ? null : d.sourceRecordId,
               sourceChecksum: row.checksum,
               firstName: d.firstName,
@@ -429,6 +440,9 @@ export class ImportService {
               religion: d.religion,
               caste: d.caste,
               centreCode: d.centreCode,
+              regionId: d.regionId ?? null,
+              casteId: d.casteId ?? null,
+              educationId: d.educationId ?? null,
               trackCode: d.trackCode,
               trackSourceValue: d.trackSourceValue,
               educationQualification: d.educationQualification,
@@ -446,13 +460,19 @@ export class ImportService {
         row.status = ROW_STATUS.RECONCILED;
       }
       if (valid.length) await m.getRepository(ImportRow).save(valid);
+      /* Staged documents move into each student's folder (copied now, undone if this transaction fails). */
+      docs = await documentService.promote(m, batch, valid);
       batch.status = BATCH_STATUS.FINALISED;
       batch.finalisedById = actor.id;
       batch.finalisedAt = new Date();
       batch.counts = { ...batch.counts, created, linked };
       await this.batches(m).save(batch);
       return this.refreshBatch(batch.id, m);
+    }).catch(async (err) => {
+      await docs?.undo();
+      throw err;
     });
+    await docs?.commit();
     await auditService.record(req, {
       action: 'import.batch.finalised',
       resource: 'import_batch',
@@ -469,6 +489,7 @@ export class ImportService {
     batch.status = BATCH_STATUS.CANCELLED;
     batch.cancelledById = actor.id;
     await this.batches().save(batch);
+    await documentService.discardStaging(batch.code);
     await auditService.record(req, {
       action: 'import.batch.cancelled',
       resource: 'import_batch',

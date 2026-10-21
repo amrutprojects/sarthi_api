@@ -10,13 +10,41 @@ import { MIGRATIONS } from '../database/migrations';
  * - synchronize is always false: the schema is owned by migrations, in every environment.
  * - Each pooled connection is put in UTC so TIMESTAMPTZ values round-trip in UTC.
  */
-export const dataSourceOptions: DataSourceOptions = {
-  type: 'postgres',
+const primary = {
   host: env.DB_HOST,
   port: env.DB_PORT,
   username: env.DB_USERNAME,
   password: env.DB_PASSWORD,
   database: env.DB_DATABASE,
+};
+
+/*
+ * Read replica (optional, DB_READ_HOST). TypeORM then sends SELECTs made outside a transaction (find, query builder
+ * reads) to the replica, and everything else (saves, updates, transactions, raw queries, migrations) to the primary.
+ * The primary should run with synchronous_commit = remote_apply so a read right after a write sees it (see
+ * docs/database/read-replica.md).
+ */
+export const readReplicaEnabled = !!env.DB_READ_HOST;
+const connection = readReplicaEnabled
+  ? {
+      replication: {
+        master: primary,
+        slaves: [
+          {
+            host: env.DB_READ_HOST!,
+            port: env.DB_READ_PORT ?? env.DB_PORT,
+            username: env.DB_READ_USERNAME ?? env.DB_USERNAME,
+            password: env.DB_READ_PASSWORD ?? env.DB_PASSWORD,
+            database: env.DB_DATABASE,
+          },
+        ],
+      },
+    }
+  : primary;
+
+export const dataSourceOptions: DataSourceOptions = {
+  type: 'postgres',
+  ...connection,
   ssl: env.DB_SSL ? { rejectUnauthorized: true } : false,
   entities: ENTITIES,
   migrations: MIGRATIONS,

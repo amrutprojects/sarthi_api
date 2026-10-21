@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import { ERROR_CODES, HTTP_STATUS, RESPONSE_MESSAGES } from '../constants/api-response.constants';
 import { appConfig } from '../config/app.config';
 import { authService, csrfValid, needsCsrf, readSessionCookie, setSessionCookie } from '../modules/auth';
 import { AppError } from '../shared/errors/app-error';
@@ -16,7 +17,7 @@ export const authenticate: RequestHandler = (req, res, next) => {
   const viaBearer = scheme?.toLowerCase() === 'bearer' && !!bearer;
   const token = viaBearer ? bearer : readSessionCookie(req);
   if (!token) {
-    next(AppError.unauthorized('Authentication required'));
+    next(AppError.unauthorized(RESPONSE_MESSAGES.UNAUTHORIZED));
     return;
   }
   Promise.resolve()
@@ -25,7 +26,7 @@ export const authenticate: RequestHandler = (req, res, next) => {
       const auth = await authService.resolvePrincipal(payload, viaBearer ? 'bearer' : 'cookie');
       if (auth.via === 'cookie') {
         if (needsCsrf(req) && !csrfValid(req, auth.sessionId)) {
-          throw new AppError(403, 'Missing or invalid CSRF token', 'CSRF_INVALID');
+          throw new AppError(HTTP_STATUS.FORBIDDEN, RESPONSE_MESSAGES.CSRF_INVALID, ERROR_CODES.CSRF_INVALID);
         }
         const now = Math.floor(Date.now() / 1000);
         const halfLife = (payload.exp - payload.iat) / 2;

@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { ERROR_CODES, HTTP_STATUS, RESPONSE_MESSAGES } from './constants/api-response.constants';
 import cors from 'cors';
 import express, { type Express } from 'express';
 import rateLimit from 'express-rate-limit';
@@ -7,13 +8,12 @@ import pinoHttp from 'pino-http';
 import { appConfig } from './config/app.config';
 import { logger } from './observability/logger';
 import { REQUEST_ID_HEADER } from './shared/constants/app.constants';
-import { errorHandler } from './middleware/error-handler.middleware';
-import { notFound } from './middleware/not-found.middleware';
+import { errorHandler, notFoundHandler } from './middleware/error-handler.middleware';
 import { requestId } from './middleware/request-id.middleware';
 import swaggerUi from 'swagger-ui-express';
 import { openApiDocument } from './openapi';
 import { apiRouter } from './routes';
-import { ApiResponse } from './shared/http/api-response';
+import { ApiResponse } from './utils/api-response';
 
 /* Builds the Express app (no listening, no DB connection) so tests can drive it with Supertest. */
 export function createApp(): Express {
@@ -51,7 +51,7 @@ export function createApp(): Express {
       standardHeaders: 'draft-7',
       legacyHeaders: false,
       handler: (_req, res) => {
-        ApiResponse.error(res, 429, 'Too many requests, please try again later', 'RATE_LIMITED');
+        ApiResponse.error(res, HTTP_STATUS.TOO_MANY_REQUESTS, RESPONSE_MESSAGES.TOO_MANY_REQUESTS, ERROR_CODES.RATE_LIMITED);
       },
     }),
   );
@@ -72,7 +72,7 @@ export function createApp(): Express {
 
   app.use(appConfig.apiPrefix, apiRouter);
 
-  app.use(notFound);
+  app.use(notFoundHandler);
   app.use(errorHandler);
   return app;
 }

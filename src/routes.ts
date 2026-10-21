@@ -6,11 +6,13 @@ import { authRouter } from './modules/auth/auth.routes';
 import { permissionRouter } from './modules/roles-permissions/permissions/permission.routes';
 import { importRouter } from './modules/students/import/import.routes';
 import { studentRouter } from './modules/students/register/student.routes';
+import { registrationRouter } from './modules/students/registration/registration.routes';
 import { menuVisibilityRouter } from './modules/roles-permissions/menu-visibility/menu-visibility.routes';
 import { roleRouter } from './modules/roles-permissions/roles/role.routes';
 import { userRouter } from './modules/users/user.routes';
-import { mastersRouter, publicGeographyRouter } from './masters';
-import { lmsRouter } from './lms';
+import { MASTERS } from './modules/masters';
+import { masterRouter } from './modules/masters/master.routes';
+import { cmsRouter, publicContactRouter, publicFooterRouter, publicGeographyRouter, publicModulesRouter } from './cms';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
 export const apiRouter = Router();
@@ -22,14 +24,16 @@ apiRouter.use('/roles', roleRouter);
 apiRouter.use('/menu-visibility', menuVisibilityRouter);
 apiRouter.use('/imports', importRouter);
 apiRouter.use('/students', studentRouter);
+apiRouter.use('/student-registrations', registrationRouter);
 apiRouter.use('/permissions', permissionRouter);
 apiRouter.use('/audit-logs', auditLogRouter);
+for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
 
-/* CMS master data. Every route under /cms requires a session (see src/masters/index.ts). */
-apiRouter.use('/cms', mastersRouter);
+/* CMS content and geography masters. Every route under /cms requires a session (see src/cms/index.ts). */
+apiRouter.use('/cms', cmsRouter);
 
-/* LMS Admin masters. Every route under /lms requires a session (see src/lms/index.ts). */
-apiRouter.use('/lms', lmsRouter);
-
-/* Read-only geography for the public website. Unauthenticated by design — see geography.routes.ts. */
+/* Read-only content for the public website. Unauthenticated by design — see the route files. */
 apiRouter.use('/public/geography', publicGeographyRouter);
+apiRouter.use('/public/contact', publicContactRouter);
+apiRouter.use('/public/footer', publicFooterRouter);
+apiRouter.use('/public/modules', publicModulesRouter);

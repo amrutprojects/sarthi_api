@@ -26,6 +26,7 @@ export const MENUS = {
   lifecycle: 'Lifecycle & Funnel',
   atrisk: 'At-Risk Engine',
   imports: 'Student Import',
+  registrations: 'Student Registration',
   districts: 'Districts',
   map: 'District Map',
   centres: 'Training Centres',
@@ -51,6 +52,9 @@ export const MENUS = {
   documents: 'Documents',
   lms: 'LMS Integration',
   app: 'Student App',
+  'cms-contact': 'Contact Page Management',
+  'cms-footer': 'Footer Management',
+  'cms-modules': 'Modules Page Management',
   'cms-states': 'State Master',
   'cms-districts': 'District Master',
   'cms-talukas': 'Taluka Master',
@@ -78,8 +82,9 @@ export const MENUS = {
 } as const;
 export type MenuKey = keyof typeof MENUS;
 
-/* Menus whose visibility can be toggled per role: every gated menu plus Users & Roles. */
-export const VISIBILITY_MENUS: string[] = [...Object.keys(MENUS), 'users'];
+/* Menus whose visibility can be toggled per role: every gated menu plus Users & Roles and Masters. */
+/* Each master has its own sidebar item; keys equal the master permission prefixes. */
+export const VISIBILITY_MENUS: string[] = [...Object.keys(MENUS), 'users', 'regions', 'castes', 'document-types', 'education'];
 
 const def = (code: string, name: string, description: string): PermissionDefinition => ({
   code,
@@ -91,6 +96,18 @@ const def = (code: string, name: string, description: string): PermissionDefinit
 export const MENU_PERMISSIONS: PermissionDefinition[] = (Object.keys(MENUS) as MenuKey[]).flatMap((menu) =>
   MENU_ACTIONS.map((action) =>
     def(`${menu}.${action}`, `${ACTION_LABEL[action]} ${MENUS[menu]}`, `${ACTION_LABEL[action]} in the ${MENUS[menu]} menu`),
+  ),
+);
+
+/*
+ * Reference-data masters (src/modules/masters): view, create, update, status (activate / deactivate) and delete.
+ * Kept in step with MASTERS in the masters module (module code = its permission prefix).
+ */
+const MASTER_MODULES = { regions: 'Regions', castes: 'Castes', 'document-types': 'Document Types', education: 'Education' } as const;
+const MASTER_ACTION_LABEL = { view: 'View', create: 'Add', update: 'Update', status: 'Activate / deactivate', delete: 'Delete' } as const;
+export const MASTER_PERMISSIONS: PermissionDefinition[] = Object.entries(MASTER_MODULES).flatMap(([module, label]) =>
+  Object.entries(MASTER_ACTION_LABEL).map(([action, verb]) =>
+    def(`${module}.${action}`, `${verb} ${label}`, `${verb} records in the ${label} master`),
   ),
 );
 
@@ -124,6 +141,12 @@ export const PERMISSIONS = {
    * the route guards can reference them through P instead of a bare string. `approve` is not used by
    * these screens, and restoring a soft-deleted record is guarded by the matching `.delete` code.
    */
+  CMS_CONTACT_VIEW: def('cms-contact.view', 'View Contact Page Management', 'View in the Contact Page Management menu'),
+  CMS_CONTACT_UPDATE: def('cms-contact.update', 'Update Contact Page Management', 'Update in the Contact Page Management menu'),
+  CMS_FOOTER_VIEW: def('cms-footer.view', 'View Footer Management', 'View in the Footer Management menu'),
+  CMS_FOOTER_UPDATE: def('cms-footer.update', 'Update Footer Management', 'Update in the Footer Management menu'),
+  CMS_MODULES_VIEW: def('cms-modules.view', 'View Modules Page Management', 'View in the Modules Page Management menu'),
+  CMS_MODULES_UPDATE: def('cms-modules.update', 'Update Modules Page Management', 'Update in the Modules Page Management menu'),
   CMS_STATES_VIEW: def('cms-states.view', 'View State Master', 'View in the State Master menu'),
   CMS_STATES_CREATE: def('cms-states.create', 'Add State Master', 'Add in the State Master menu'),
   CMS_STATES_UPDATE: def('cms-states.update', 'Update State Master', 'Update in the State Master menu'),
@@ -244,7 +267,9 @@ export const P = Object.fromEntries(Object.entries(PERMISSIONS).map(([k, v]) => 
 
 /* Menu codes first; identity definitions win on duplicates (audit.view). */
 export const ALL_PERMISSIONS: PermissionDefinition[] = [
-  ...new Map([...MENU_PERMISSIONS, ...EXTRA_PERMISSIONS, ...Object.values(PERMISSIONS)].map((p) => [p.code, p] as const)).values(),
+  ...new Map(
+    [...MENU_PERMISSIONS, ...EXTRA_PERMISSIONS, ...MASTER_PERMISSIONS, ...Object.values(PERMISSIONS)].map((p) => [p.code, p] as const),
+  ).values(),
 ];
 
 /* Builder for role defaults. */

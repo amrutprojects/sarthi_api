@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { documentEndpoint, envelope, pagedEnvelope, registry } from '../../shared/openapi/registry';
 import {
   batchIdSchema,
+  documentsForm,
+  rowDocumentSchema,
+  rowParamsSchema,
   decideSchema,
   finaliseSchema,
   listBatchesSchema,
@@ -10,8 +13,16 @@ import {
   restoreRowSchema,
   uploadForm,
 } from './import/import.validation';
-import { listStudentsSchema, studentIdSchema } from './register/student.validation';
+import { listStudentsSchema, studentDocumentSchema, studentIdSchema } from './register/student.validation';
 import { BATCH_STATUS, ROW_STATUS } from './student.constants';
+import { registrationBody } from './registration/registration.validation';
+import {
+  editRegistrationSchema,
+  listRegistrationsSchema,
+  registrationDocumentSchema,
+  registrationIdSchema,
+  registrationStatusSchema,
+} from './registration/registration-admin.validation';
 
 const Counts = z.object({
   total: z.number().int(),
@@ -24,6 +35,32 @@ const Counts = z.object({
   created: z.number().int().optional(),
   linked: z.number().int().optional(),
 });
+const DocumentsReportDto = z.object({
+  zipName: z.string(),
+  uploadedAt: z.string().datetime(),
+  stored: z.number().int(),
+  matchedByPath: z.number().int().optional(),
+  replaced: z.number().int(),
+  studentsWithFiles: z.number().int(),
+  unmatchedFolders: z.array(z.string()),
+  rejected: z.array(z.object({ path: z.string(), reason: z.string() })),
+  missingReferenced: z
+    .array(z.object({ rowNumber: z.number().int(), sourceRecordId: z.string().nullable(), docType: z.string(), path: z.string() }))
+    .optional(),
+});
+export const StudentDocumentDto = registry.register(
+  'StudentDocument',
+  z.object({
+    id: z.string().uuid(),
+    docType: z.string(),
+    label: z.string(),
+    originalName: z.string(),
+    sourcePath: z.string().nullable(),
+    mimeType: z.enum(['application/pdf', 'image/jpeg', 'image/png']),
+    sizeBytes: z.number().int(),
+    uploadedAt: z.string().datetime(),
+  }),
+);
 export const ImportBatchDto = registry.register(
   'ImportBatch',
   z.object({
@@ -38,6 +75,7 @@ export const ImportBatchDto = registry.register(
     columnMapping: z.record(z.string()),
     ignoredColumns: z.array(z.string()),
     failureReason: z.string().nullable(),
+    documentsReport: DocumentsReportDto.nullable(),
     createdById: z.string().uuid(),
     finalisedById: z.string().uuid().nullable(),
     finalisedAt: z.string().datetime().nullable(),
@@ -97,8 +135,10 @@ const StudentDto = registry.register(
       mobile: z.string().nullable(),
       email: z.string().nullable(),
       aadhaar: z.string().nullable(),
-      approvedAt: z.string().datetime(),
-      importBatchId: z.string().uuid(),
+      approvedAt: z.string().datetime().nullable(),
+      importBatchId: z.string().uuid().nullable(),
+      source: z.enum(['IMPORT', 'PUBLIC_REGISTRATION']),
+      registrationNumber: z.string().nullable(),
       createdAt: z.string().datetime(),
       documents: z
         .array(
@@ -262,4 +302,274 @@ documentEndpoint({
   request: { params: studentIdSchema.params },
   response: envelope(StudentDto),
   errors: [404],
+});
+
+const docs = 'Student documents';
+documentEndpoint({
+  method: 'post',
+  path: '/imports/:id/documents',
+  tag: docs,
+  summary: 'Upload a documents ZIP for a batch under review',
+  description:
+    'One folder per student named by source_record_id (or files named <id>_<TYPE>.pdf). Files must be PDF, JPG or PNG by content and at most DOCUMENT_MAX_FILE_MB. Documents of the same type are replaced. The batch documentsReport lists stored, rejected and unmatched files.',
+  permission: 'imports.update',
+  status: 200,
+  request: { params: batchIdSchema.params, multipart: documentsForm },
+  response: envelope(ImportBatchDto),
+  errors: [400, 404, 409],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/imports/:id/rows/:rowId/documents',
+  tag: docs,
+  summary: 'Documents staged for a row',
+  permission: 'imports.view',
+  request: { params: rowParamsSchema.params },
+  response: envelope(z.array(StudentDocumentDto)),
+});
+documentEndpoint({
+  method: 'get',
+  path: '/imports/:id/rows/:rowId/documents/:documentId/file',
+  tag: docs,
+  summary: 'Download a staged document (audited)',
+  permission: 'imports.view',
+  request: { params: rowDocumentSchema.params },
+  response: { file: 'application/octet-stream' },
+  errors: [404],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/students/:id/documents',
+  tag: docs,
+  summary: "A student's documents (stored in the student's own folder)",
+  permission: 'imports.view',
+  request: { params: studentIdSchema.params },
+  response: envelope(z.array(StudentDocumentDto)),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/students/:id/documents/:documentId/file',
+  tag: docs,
+  summary: 'Download a student document (audited)',
+  permission: 'imports.view',
+  request: { params: studentDocumentSchema.params },
+  response: { file: 'application/octet-stream' },
+  errors: [404],
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/imports/template.xlsx',
+  tag: 'Student import',
+  summary: 'Download the Excel template (document columns hold file paths inside the ZIP; includes an instructions sheet)',
+  permission: 'imports.view',
+  response: { file: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+});
+documentEndpoint({
+  method: 'get',
+  path: '/imports/sample-documents.zip',
+  tag: 'Student import',
+  summary: 'Download a sample documents ZIP matching the template paths',
+  permission: 'imports.view',
+  response: { file: 'application/zip' },
+});
+
+const RegistrationExample = {
+  first_name: 'Asha',
+  last_name: 'Patil',
+  father_name: 'Ramesh Patil',
+  mother_name: 'Sunita Patil',
+  email: 'asha.patil@example.com',
+  date_of_birth: '2003-04-12',
+  current_address: 'Flat 4, Shivaji Nagar, Pune 411005',
+  aadhaar_number: '<12-digit Aadhaar>',
+  mobile_number: '9876543210',
+  religion: 'हिंदू',
+  caste_id: '3f1c2a9e-5b7d-4e61-9a0b-2c4d6e8f1a01',
+  region_id: '7a2b4c6d-8e0f-4a1b-9c3d-5e7f9a1b3c02',
+  technology: 'T03',
+  education_id: 'b4d6f8a0-2c4e-4f6a-8b0c-1d3e5f7a9b03',
+  documents: [{ document_type_id: 'c5e7a9b1-3d5f-4a7b-9c1d-2e4f6a8b0c04' }],
+  declaration_accepted: true as const,
+};
+documentEndpoint({
+  method: 'post',
+  path: '/student-registrations',
+  tag: 'Student registration',
+  summary: 'Submit a student registration from the public website',
+  description: [
+    'Uses the same fields, normalisation and validation as the student import (`validateCandidate`).',
+    'The record is stored in the student register with status `REGISTRATION_PENDING`; it is never approved, allocated or',
+    'linked to the LMS by this call. Client-supplied status, approval or ID fields are rejected (422).',
+    'Region, caste, education and document types are ids of active master records (see the `/…/options` endpoints);',
+    'an unknown, inactive or deleted id → 422 with the field. Same Aadhaar as an existing student or registration → 409.',
+    'Rate limited per IP.',
+  ].join(' '),
+  permission: 'public',
+  request: { body: registrationBody.openapi({ example: RegistrationExample }) },
+  response: envelope(
+    z.object({
+      registration_id: z.string().openapi({ example: 'REG-000001' }),
+      registration_number: z
+        .string()
+        .regex(/^\d{16}$/)
+        .openapi({ example: '1021123045127456' })
+        .describe('MMDDHHmmssSSSfff in APP_TIMEZONE, generated by the backend'),
+      status: z.string().openapi({ example: 'REGISTRATION_PENDING' }),
+    }),
+  ),
+  errors: [400, 409, 422],
+});
+
+/* Student Registration menu (admin panel). */
+const RegistrationDto = registry.register(
+  'Registration',
+  StudentDto.extend({
+    importBatchId: z.string().uuid().nullable(),
+    source: z.enum(['IMPORT', 'PUBLIC_REGISTRATION']).describe('IMPORT = imported student; PUBLIC_REGISTRATION = registration'),
+    isActive: z.boolean(),
+    registrationNumber: z.string().nullable().describe('MMDDHHmmssSSSfff (registrations only)'),
+    unmasked: z
+      .object({ email: z.string().nullable(), mobile: z.string().nullable(), aadhaar: z.string().nullable() })
+      .optional()
+      .describe('Full email, mobile and Aadhaar, only for callers holding registrations.update (audited)'),
+  }),
+);
+const RegistrationDetailDto = registry.register(
+  'RegistrationDetail',
+  RegistrationDto.extend({
+    regionId: z.string().uuid().nullable(),
+    casteId: z.string().uuid().nullable(),
+    educationId: z.string().uuid().nullable(),
+    unmasked: z
+      .object({ email: z.string().nullable(), mobile: z.string().nullable(), currentAddress: z.string(), aadhaar: z.string().nullable() })
+      .optional()
+      .describe('Full values, only for callers holding registrations.update; each such view is audited'),
+    files: z.array(
+      z.object({
+        id: z.string().uuid(),
+        docType: z.string(),
+        originalName: z.string(),
+        mimeType: z.string(),
+        sizeBytes: z.number().int(),
+        uploadedAt: z.string().datetime(),
+        verifiedAt: z.string().datetime().nullable(),
+        verifiedBy: z.string().nullable().describe('Name of the reviewer who verified it'),
+      }),
+    ),
+  }),
+);
+const regTag = 'Student registration';
+documentEndpoint({
+  method: 'get',
+  path: '/student-registrations',
+  tag: regTag,
+  summary: 'List students: imported and registered, from the one students table (masked)',
+  description: 'Server-side paging; search matches code, name, email, or the last four mobile digits.',
+  permission: 'registrations.view',
+  request: { query: listRegistrationsSchema.query },
+  response: pagedEnvelope(RegistrationDto),
+});
+documentEndpoint({
+  method: 'get',
+  path: '/student-registrations/:id',
+  tag: regTag,
+  summary: 'Get a registration with its uploaded documents (masked)',
+  permission: 'registrations.view',
+  request: { params: registrationIdSchema.params },
+  response: envelope(RegistrationDetailDto),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'post',
+  path: '/student-registrations/admin',
+  tag: regTag,
+  summary: 'Enter a registration with its document files (admin panel form)',
+  description: [
+    'multipart/form-data: field `data` is the registration JSON (as POST /student-registrations, without `documents`,',
+    'plus optional `barcodes` per document type code). Each file goes in a field named after its document type code',
+    '(PHOTO, AADHAAR_CARD, …): PDF, JPG, JPEG or PNG, at most 5 MB, type checked from the content. Mandatory document',
+    'types need a file; INCOME_EWS needs its barcode. Same validation and duplicate rules as the public endpoint.',
+  ].join(' '),
+  permission: 'registrations.create',
+  request: {
+    multipart: z.object({
+      data: z.string().describe('Registration JSON'),
+      PHOTO: z.string().openapi({ type: 'string', format: 'binary' }).describe('One field per document type code'),
+    }),
+  },
+  response: envelope(z.object({ id: z.string().uuid(), registration_id: z.string(), registration_number: z.string(), status: z.string() })),
+  errors: [409, 422],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/student-registrations/:id/documents/:documentId/file',
+  tag: regTag,
+  summary: 'Download one uploaded document of a registration (audited)',
+  permission: 'registrations.view',
+  request: { params: registrationDocumentSchema.params },
+  response: { file: 'application/pdf | image/jpeg | image/png' },
+  errors: [404],
+});
+documentEndpoint({
+  method: 'post',
+  path: '/student-registrations/:id/documents/:documentId/verify',
+  tag: regTag,
+  summary: 'Mark one uploaded document as verified (audited; repeat calls keep the first verification)',
+  permission: 'registrations.update',
+  request: { params: registrationDocumentSchema.params },
+  response: envelope(z.object({ id: z.string().uuid(), docType: z.string(), verifiedAt: z.string().datetime().nullable() }).passthrough()),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'patch',
+  path: '/student-registrations/:id',
+  tag: regTag,
+  summary: 'Edit a student (registration or imported): same fields and validation as a registration',
+  permission: 'registrations.update',
+  request: { params: editRegistrationSchema.params, body: editRegistrationSchema.body },
+  response: envelope(RegistrationDetailDto),
+  errors: [404, 409, 422],
+});
+documentEndpoint({
+  method: 'patch',
+  path: '/student-registrations/:id/status',
+  tag: regTag,
+  summary: 'Activate or deactivate a student',
+  permission: 'registrations.update',
+  request: { params: registrationStatusSchema.params, body: registrationStatusSchema.body },
+  response: envelope(RegistrationDetailDto),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'delete',
+  path: '/student-registrations/:id',
+  tag: regTag,
+  summary: 'Soft-delete a student (kept for history)',
+  permission: 'registrations.delete',
+  request: { params: registrationIdSchema.params },
+  response: envelope(z.null()),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'post',
+  path: '/student-registrations/:id/documents',
+  tag: regTag,
+  summary: "Replace or add a student's documents and barcodes (edit form)",
+  description: [
+    'multipart/form-data: optional field `data` = JSON `{ barcodes: { CODE: "…" } }`; one file per document type code.',
+    'Same file rules as registration. A replaced file is archived and its record soft-deleted; the new file is unverified.',
+    'Mandatory types must still have a file; required barcodes stay required. Audited.',
+  ].join(' '),
+  permission: 'registrations.update',
+  request: {
+    params: registrationIdSchema.params,
+    multipart: z.object({
+      data: z.string().optional().describe('JSON with barcodes'),
+      PHOTO: z.string().openapi({ type: 'string', format: 'binary' }).optional().describe('One field per document type code'),
+    }),
+  },
+  response: envelope(RegistrationDetailDto),
+  errors: [404, 422],
 });

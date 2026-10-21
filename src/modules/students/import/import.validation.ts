@@ -20,13 +20,22 @@ export const decideSchema = {
   params: rowParams,
   body: z.object({ decision: z.enum(['SAME_PERSON', 'DIFFERENT_PERSON', 'HOLD']), reason }).strict(),
 };
+export const rowParamsSchema = { params: rowParams };
+export const rowDocumentSchema = { params: rowParams.extend({ documentId: uuid }) };
 export const finaliseSchema = { params: batchParams, body: z.object({ confirmCode: z.string().trim().min(1).max(20) }).strict() };
 
 /* Multipart upload fields (enforced by multer and the service; declared here for OpenAPI). */
 export const uploadForm = z.object({
   file: z.string().describe('CSV (UTF-8) or XLSX file'),
   sourceReference: z.string().max(120).optional().describe('Transmittal or API batch reference'),
+  documents: z
+    .string()
+    .optional()
+    .describe(
+      'Optional ZIP of documents: one folder per student named by source_record_id, files named by type (PHOTO.jpg, AADHAAR_CARD.pdf, …)',
+    ),
 });
+export const documentsForm = z.object({ documents: z.string().describe('ZIP of documents (see POST /imports)') });
 
 export type ListBatchesQuery = z.infer<typeof listBatchesSchema.query>;
 export type ListRowsQuery = z.infer<typeof listRowsSchema.query>;

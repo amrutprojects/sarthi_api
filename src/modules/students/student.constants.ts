@@ -203,9 +203,51 @@ export const ISSUE_CODES = {
   REF_UNKNOWN: { waivable: true, label: 'Value not in the reference list' },
   TRACK_NOT_OFFERED: { waivable: true, label: 'Technology option is not an approved track (track to be confirmed)' },
   DOC_MISSING: { waivable: true, label: 'Required document not supplied' },
+  DOC_INVALID: { waivable: true, label: 'Document file rejected (type, size or content)' },
   DUPLICATE_IN_FILE: { waivable: false, label: 'Same person appears earlier in this file' },
 } as const;
 export type IssueCode = keyof typeof ISSUE_CODES;
+
+/* Where a student record came from. */
+export const STUDENT_SOURCE = {
+  IMPORT: 'IMPORT',
+  PUBLIC_REGISTRATION: 'PUBLIC_REGISTRATION',
+} as const;
+
+/* students.status: RECEIVED = finalised from an approved import; REGISTRATION_PENDING = public registration awaiting verification. */
+export const STUDENT_STATUS = {
+  RECEIVED: 'RECEIVED',
+  REGISTRATION_PENDING: 'REGISTRATION_PENDING',
+} as const;
+
+/* students.externalStatus for a public registration: never APPROVED until the approval workflow says so. */
+export const REGISTRATION_EXTERNAL_STATUS = 'PENDING';
+
+/* The import columns a public registration fills (the candidate's own details; no source IDs or approval). */
+export const REGISTRATION_FIELDS = [
+  'first_name',
+  'last_name',
+  'father_name',
+  'mother_name',
+  'email',
+  'date_of_birth',
+  'current_address',
+  'aadhaar_number',
+  'mobile_number',
+  'religion',
+  'caste',
+  'course_centre',
+  'technology',
+  'education_qualification',
+  'declaration_accepted',
+] as const;
+
+/* Registration takes master ids where the import takes text: import column → registration field (body). */
+export const REGISTRATION_MASTER_FIELDS: Partial<Record<(typeof REGISTRATION_FIELDS)[number], string>> = {
+  course_centre: 'region_id',
+  caste: 'caste_id',
+  education_qualification: 'education_id',
+};
 
 export const BATCH_STATUS = {
   IMPORT_PENDING: 'IMPORT_PENDING',

@@ -11,6 +11,7 @@ import { Permission, Role, RolePermission, User, UserRole } from '../../src/data
 import { rbacService } from '../../src/modules/roles-permissions/rbac.service';
 import { seedRbac } from '../../src/database/seeds/seed-rbac';
 import { assertTestDatabase } from './guard';
+import { TEST_EDUCATIONS } from './masters';
 
 export const API = '/api/v1';
 export const PASSWORD = 'Test-Password-123';
@@ -40,15 +41,15 @@ const KEEP_ON_RESET = new Set(['typeorm_migrations', 'training_centre_types', 't
 /* audit_logs is append-only (UPDATE/DELETE blocked by trigger), but TRUNCATE is allowed for tests. */
 export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
-  const tables: { tablename: string }[] = await AppDataSource.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`);
-  const list = tables
-    .map((t) => t.tablename)
-    .filter((t) => !KEEP_ON_RESET.has(t))
-    .map((t) => `"${t}"`)
-    .join(', ');
-  await AppDataSource.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
+  await AppDataSource.query(
+    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "student_documents", "import_rows", "students", "import_batches", "idempotency_keys", "role_permissions", "user_roles", "permissions", "roles", "users", '
+    + '"talukas", "districts", "states", "contact_organizations", "contact_page_settings" RESTART IDENTITY CASCADE',
+  );
   await seedRbac(AppDataSource);
   rbacService.invalidate();
+  /* Masters are not truncated (the migration seeds them); tests add the education values their fixtures use. */
+  for (const [i, name] of TEST_EDUCATIONS.entries())
+    await AppDataSource.query(`INSERT INTO "educations" ("code", "name") VALUES ($1, $2) ON CONFLICT DO NOTHING`, [`TEST_E${i + 1}`, name]);
 }
 
 const hashCache = new Map<string, string>();
