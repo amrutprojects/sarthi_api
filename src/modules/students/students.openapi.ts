@@ -16,7 +16,13 @@ import {
 import { listStudentsSchema, studentDocumentSchema, studentIdSchema } from './register/student.validation';
 import { BATCH_STATUS, ROW_STATUS } from './student.constants';
 import { registrationBody } from './registration/registration.validation';
-import { listRegistrationsSchema, registrationDocumentSchema, registrationIdSchema } from './registration/registration-admin.validation';
+import {
+  editRegistrationSchema,
+  listRegistrationsSchema,
+  registrationDocumentSchema,
+  registrationIdSchema,
+  registrationStatusSchema,
+} from './registration/registration-admin.validation';
 
 const Counts = z.object({
   total: z.number().int(),
@@ -414,6 +420,8 @@ const RegistrationDto = registry.register(
   'Registration',
   StudentDto.extend({
     importBatchId: z.string().uuid().nullable(),
+    source: z.enum(['IMPORT', 'PUBLIC_REGISTRATION']).describe('IMPORT = imported student; PUBLIC_REGISTRATION = registration'),
+    isActive: z.boolean(),
     unmasked: z
       .object({ email: z.string().nullable(), mobile: z.string().nullable() })
       .optional()
@@ -423,8 +431,11 @@ const RegistrationDto = registry.register(
 const RegistrationDetailDto = registry.register(
   'RegistrationDetail',
   RegistrationDto.extend({
+    regionId: z.string().uuid().nullable(),
+    casteId: z.string().uuid().nullable(),
+    educationId: z.string().uuid().nullable(),
     unmasked: z
-      .object({ email: z.string().nullable(), mobile: z.string().nullable(), aadhaar: z.string().nullable() })
+      .object({ email: z.string().nullable(), mobile: z.string().nullable(), currentAddress: z.string(), aadhaar: z.string().nullable() })
       .optional()
       .describe('Full values, only for callers holding registrations.update; each such view is audited'),
     files: z.array(
@@ -446,7 +457,7 @@ documentEndpoint({
   method: 'get',
   path: '/student-registrations',
   tag: regTag,
-  summary: 'List registrations (masked)',
+  summary: 'List students: imported and registered, from the one students table (masked)',
   description: 'Server-side paging; search matches code, name, email, or the last four mobile digits.',
   permission: 'registrations.view',
   request: { query: listRegistrationsSchema.query },
@@ -501,5 +512,35 @@ documentEndpoint({
   permission: 'registrations.update',
   request: { params: registrationDocumentSchema.params },
   response: envelope(z.object({ id: z.string().uuid(), docType: z.string(), verifiedAt: z.string().datetime().nullable() }).passthrough()),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'patch',
+  path: '/student-registrations/:id',
+  tag: regTag,
+  summary: 'Edit a student (registration or imported): same fields and validation as a registration',
+  permission: 'registrations.update',
+  request: { params: editRegistrationSchema.params, body: editRegistrationSchema.body },
+  response: envelope(RegistrationDetailDto),
+  errors: [404, 409, 422],
+});
+documentEndpoint({
+  method: 'patch',
+  path: '/student-registrations/:id/status',
+  tag: regTag,
+  summary: 'Activate or deactivate a student',
+  permission: 'registrations.update',
+  request: { params: registrationStatusSchema.params, body: registrationStatusSchema.body },
+  response: envelope(RegistrationDetailDto),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'delete',
+  path: '/student-registrations/:id',
+  tag: regTag,
+  summary: 'Soft-delete a student (kept for history)',
+  permission: 'registrations.delete',
+  request: { params: registrationIdSchema.params },
+  response: envelope(z.null()),
   errors: [404],
 });

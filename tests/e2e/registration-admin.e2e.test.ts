@@ -161,6 +161,7 @@ describe('admin registration entry with documents', () => {
     expect(full.body.data.unmasked).toEqual({
       email: body.email,
       mobile: `+91${body.mobile_number}`,
+      currentAddress: body.current_address,
       aadhaar: digits.replace(/(\d{4})(?=\d)/g, '$1 '),
     });
     const audits = await AppDataSource.query(
@@ -187,6 +188,78 @@ describe('admin registration entry with documents', () => {
     const viewer = await actorWith(['registrations.view']);
     const masked = await request(app).get(URL).set('Authorization', `Bearer ${viewer.token}`);
     expect(masked.body.data[0].unmasked).toBeUndefined();
+  });
+
+  it('lists imported students and registrations together, with a source filter', async () => {
+    const token = await sumagoToken();
+    const reg = (await post(token, await data(), await allMandatory())).body.data.id as string;
+    /* An imported student needs an approval date and an import batch (CHK_students_import_approved). */
+    const [user] = await AppDataSource.query(`SELECT "id" FROM "users" LIMIT 1`);
+    const [batch] = await AppDataSource.query(
+      `INSERT INTO "import_batches" ("code", "status", "fileName", "fileChecksum", "fileSize", "createdById")
+       VALUES ('IMP-TEST01', 'FINALISED', 'test.xlsx', repeat('a', 64), 1, $1) RETURNING "id"`,
+      [user.id],
+    );
+    const [region] = await AppDataSource.query(`SELECT "id" FROM "regions" WHERE "code" = 'PUN'`);
+    const [imp] = await AppDataSource.query(
+      `INSERT INTO "students" ("code", "sourceChecksum", "firstName", "lastName", "fatherName", "motherName", "currentAddress",
+         "religion", "caste", "centreCode", "regionId", "trackSourceValue", "educationQualification", "externalStatus",
+         "approvedAt", "importBatchId", "source")
+       VALUES ('STU-TEST01', repeat('0', 64), 'Imported', 'Student', 'F', 'M', 'A', 'हिंदू', 'मराठी', 'PUN', $1, 'T03', 'B.Com',
+         'APPROVED', now(), $2, 'IMPORT')
+       RETURNING "id"`,
+      [region.id, batch.id],
+    );
+
+    const all = await request(app).get(URL).set('Authorization', `Bearer ${token}`);
+    const sources = new Map(all.body.data.map((r: { id: string; source: string }) => [r.id, r.source]));
+    expect(sources.get(reg)).toBe('PUBLIC_REGISTRATION');
+    expect(sources.get(imp.id)).toBe('IMPORT');
+
+    const onlyImport = await request(app).get(URL).query({ source: 'IMPORT' }).set('Authorization', `Bearer ${token}`);
+    expect(onlyImport.body.data.map((r: { id: string }) => r.id)).toEqual([imp.id]);
+    const onlyReg = await request(app).get(URL).query({ source: 'PUBLIC_REGISTRATION' }).set('Authorization', `Bearer ${token}`);
+    expect(onlyReg.body.data.map((r: { id: string }) => r.id)).toEqual([reg]);
+
+    const detail = await request(app).get(`${URL}/${imp.id}`).set('Authorization', `Bearer ${token}`);
+    expect(detail.body.data).toMatchObject({ code: 'STU-TEST01', source: 'IMPORT' });
+  });
+
+  it('edits, deactivates and soft-deletes a student (audited, permission-checked)', async () => {
+    const token = await sumagoToken();
+    const body = await data();
+    const id = (await post(token, body, await allMandatory())).body.data.id as string;
+    const { barcodes: _b, declaration_accepted: _d, ...editable } = body as Record<string, unknown>;
+
+    const edited = await request(app)
+      .patch(`${URL}/${id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ...editable, first_name: 'Kavita', mobile_number: '9123456789' });
+    expect(edited.status).toBe(HTTP_STATUS.OK);
+    expect(edited.body.data).toMatchObject({ firstName: 'Kavita', regionId: body.region_id, isActive: true });
+    expect(edited.body.data.unmasked.mobile).toBe('+919123456789');
+
+    const bad = await request(app)
+      .patch(`${URL}/${id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ...editable, email: 'x' });
+    expect(bad.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+
+    const off = await request(app).patch(`${URL}/${id}/status`).set('Authorization', `Bearer ${token}`).send({ isActive: false });
+    expect(off.body.data.isActive).toBe(false);
+
+    const viewer = await actorWith(['registrations.view']);
+    expect((await request(app).delete(`${URL}/${id}`).set('Authorization', `Bearer ${viewer.token}`)).status).toBe(HTTP_STATUS.FORBIDDEN);
+    const del = await request(app).delete(`${URL}/${id}`).set('Authorization', `Bearer ${token}`);
+    expect(del.status).toBe(HTTP_STATUS.OK);
+    expect((await request(app).get(`${URL}/${id}`).set('Authorization', `Bearer ${token}`)).status).toBe(HTTP_STATUS.NOT_FOUND);
+    const [row] = await AppDataSource.query(`SELECT "isDelete", "isActive" FROM "students" WHERE "id" = $1`, [id]);
+    expect(row).toEqual({ isDelete: true, isActive: false });
+
+    const actions = (await AppDataSource.query(`SELECT "action" FROM "audit_logs" WHERE "resourceId" = $1`, [id])).map(
+      (r: { action: string }) => r.action,
+    );
+    expect(actions).toEqual(expect.arrayContaining(['student.update', 'student.status', 'student.delete']));
   });
 
   it('requires registrations.create to enter and registrations.view to list', async () => {

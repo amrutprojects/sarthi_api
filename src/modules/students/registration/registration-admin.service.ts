@@ -12,9 +12,10 @@ import { StudentDocument } from '../documents/student-document.entity';
 import { Student } from '../register/student.entity';
 import { publicStudent } from '../register/student.service';
 import { decryptAadhaar } from '../aadhaar';
-import { DOCUMENTS, STUDENT_SOURCE } from '../student.constants';
-import type { ListRegistrationsQuery } from './registration-admin.validation';
-import { registrationService, type PreparedDocument } from './registration.service';
+import { DOCUMENTS, REGISTRATION_MASTER_FIELDS } from '../student.constants';
+import type { EditRegistrationBody, ListRegistrationsQuery } from './registration-admin.validation';
+import { registrationService, resolveMasters, type PreparedDocument } from './registration.service';
+import { validateCandidate } from '../import/row-validator';
 import { adminRegistrationData } from './registration-admin.validation';
 
 type ListItem = ReturnType<typeof publicStudent> & { unmasked?: { email: string | null; mobile: string | null } };
@@ -27,9 +28,9 @@ export const registrationAdminService = {
    * per list request records which registrations were shown unmasked. Others get masked values only.
    */
   async list(q: ListRegistrationsQuery, opts: { unmask?: boolean; req?: Request } = {}): Promise<Paginated<ListItem>> {
-    const qb = AppDataSource.getRepository(Student)
-      .createQueryBuilder('s')
-      .where('s.isDelete = false AND s.source = :source', { source: STUDENT_SOURCE.PUBLIC_REGISTRATION });
+    const qb = AppDataSource.getRepository(Student).createQueryBuilder('s').where('s.isDelete = false');
+    /* One table for both: imported students (IMPORT) and registrations (PUBLIC_REGISTRATION); optional source filter. */
+    if (q.source) qb.andWhere('s.source = :source', { source: q.source });
     if (q.status) qb.andWhere('s.status = :status', { status: q.status });
     if (q.search) {
       const t = q.search.trim();
@@ -50,7 +51,12 @@ export const registrationAdminService = {
       });
     }
     return {
-      items: items.map((s) => ({ ...publicStudent(s), ...(opts.unmask ? { unmasked: { email: s.email, mobile: s.mobile } } : {}) })),
+      items: items.map((s) => ({
+        ...publicStudent(s),
+        source: s.source,
+        isActive: s.isActive,
+        ...(opts.unmask ? { unmasked: { email: s.email, mobile: s.mobile } } : {}),
+      })),
       meta: buildMeta(q, total),
     };
   },
@@ -61,7 +67,7 @@ export const registrationAdminService = {
    */
   async get(id: string, opts: { unmask?: boolean; req?: Request } = {}) {
     const s = await AppDataSource.getRepository(Student).findOne({
-      where: { id, isDelete: false, source: STUDENT_SOURCE.PUBLIC_REGISTRATION },
+      where: { id, isDelete: false },
     });
     if (!s) throw AppError.notFound(MESSAGES.notFound('Registration'));
     const files = await AppDataSource.getRepository(StudentDocument).find({
@@ -76,19 +82,29 @@ export const registrationAdminService = {
           )
         : [],
     );
-    let unmasked: { email: string | null; mobile: string | null; aadhaar: string | null } | undefined;
+    let unmasked: { email: string | null; mobile: string | null; currentAddress: string; aadhaar: string | null } | undefined;
     if (opts.unmask) {
       const digits = s.aadhaarEnc ? decryptAadhaar(s.aadhaarEnc) : null;
-      unmasked = { email: s.email, mobile: s.mobile, aadhaar: digits ? digits.replace(/(\d{4})(?=\d)/g, '$1 ') : null };
+      unmasked = {
+        email: s.email,
+        mobile: s.mobile,
+        currentAddress: s.currentAddress,
+        aadhaar: digits ? digits.replace(/(\d{4})(?=\d)/g, '$1 ') : null,
+      };
       await auditService.record(opts.req, {
         action: 'student.registration.unmasked_view',
         resource: 'student',
         resourceId: s.id,
-        details: { code: s.code, fields: ['email', 'mobile', 'aadhaar'] },
+        details: { code: s.code, fields: ['email', 'mobile', 'aadhaar', 'currentAddress'] },
       });
     }
     return {
       ...publicStudent(s, true),
+      source: s.source,
+      isActive: s.isActive,
+      regionId: s.regionId,
+      casteId: s.casteId,
+      educationId: s.educationId,
       ...(unmasked ? { unmasked } : {}),
       files: files.map((f) => ({
         id: f.id,
@@ -101,6 +117,80 @@ export const registrationAdminService = {
         verifiedBy: f.verifiedById ? (verifiers.get(f.verifiedById) ?? null) : null,
       })),
     };
+  },
+
+  /*
+   * Edits a student's details (registration or imported): the same validation and normalisation as a new
+   * registration. A changed Aadhaar must not belong to another student. Audited with the changed field names only.
+   */
+  async update(req: Request, id: string, body: EditRegistrationBody) {
+    const s = await AppDataSource.getRepository(Student).findOne({ where: { id, isDelete: false } });
+    if (!s) throw AppError.notFound(MESSAGES.notFound('Student'));
+    const masters = await mastersService.loadLookup();
+    const { region_id, caste_id, education_id, ...rest } = body;
+    const refs = resolveMasters(masters, { region_id, caste_id, education_id }, []);
+    const raw: Record<string, string> = {
+      ...Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, String(v)])),
+      course_centre: refs.region?.code ?? '',
+      caste: refs.caste?.name ?? '',
+      education_qualification: refs.education?.name ?? '',
+      declaration_accepted: s.declarationAccepted ? 'Yes' : '',
+    };
+    const { fields, issues } = validateCandidate(raw, masters);
+    const errors = [
+      ...refs.errors,
+      ...issues.filter((i) => !(i.field in REGISTRATION_MASTER_FIELDS)).map((i) => ({ field: `body.${i.field}`, message: i.message })),
+    ];
+    if (errors.length) throw AppError.validation(errors);
+    const { nameKey: _nameKey, declarationAccepted: _decl, ...data } = fields;
+    const changed = (Object.keys(data) as (keyof typeof data)[]).filter((k) => {
+      const before = (s as unknown as Record<string, unknown>)[k];
+      const after = data[k] as unknown;
+      return Buffer.isBuffer(after)
+        ? k === 'aadhaarEnc' && data.aadhaarBidx !== s.aadhaarBidx
+        : String(before ?? '') !== String(after ?? '');
+    });
+    await AppDataSource.transaction(async (m) => {
+      if (data.aadhaarBidx && data.aadhaarBidx !== s.aadhaarBidx) {
+        await m.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [data.aadhaarBidx]);
+        const other = await m.getRepository(Student).findOne({ where: { aadhaarBidx: data.aadhaarBidx, isDelete: false } });
+        if (other && other.id !== id) throw AppError.conflict('Another student already has this Aadhaar number');
+      }
+      await m.getRepository(Student).update({ id, isDelete: false }, data);
+      await auditService.recordInTx(m, req, {
+        action: 'student.update',
+        resource: 'student',
+        resourceId: id,
+        details: { code: s.code, fields: changed.filter((k) => k !== 'aadhaarBidx' && k !== 'aadhaarLast4') },
+      });
+    });
+    return this.get(id, { unmask: true, req });
+  },
+
+  async setStatus(req: Request, id: string, isActive: boolean) {
+    const repo = AppDataSource.getRepository(Student);
+    const s = await repo.findOne({ where: { id, isDelete: false } });
+    if (!s) throw AppError.notFound(MESSAGES.notFound('Student'));
+    await AppDataSource.transaction(async (m) => {
+      await m.getRepository(Student).update({ id, isDelete: false }, { isActive });
+      await auditService.recordInTx(m, req, {
+        action: 'student.status',
+        resource: 'student',
+        resourceId: id,
+        details: { code: s.code, isActive },
+      });
+    });
+    return this.get(id, { unmask: true, req });
+  },
+
+  /* Soft delete: the row (and its documents) stay for history; the student disappears from lists and lookups. */
+  async remove(req: Request, id: string) {
+    const s = await AppDataSource.getRepository(Student).findOne({ where: { id, isDelete: false } });
+    if (!s) throw AppError.notFound(MESSAGES.notFound('Student'));
+    await AppDataSource.transaction(async (m) => {
+      await m.getRepository(Student).update({ id, isDelete: false }, { isDelete: true, isActive: false });
+      await auditService.recordInTx(m, req, { action: 'student.delete', resource: 'student', resourceId: id, details: { code: s.code } });
+    });
   },
 
   /* Marks one uploaded document as checked. Verifying again is a no-op that keeps the first reviewer and time. */
