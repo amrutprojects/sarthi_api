@@ -55,6 +55,16 @@ export const registrationAdminController = {
     ApiResponse.ok(res, null, MESSAGES.deleted('Student'));
   }),
 
+  replaceDocuments: asyncHandler(async (req: Request, res: Response) => {
+    const dto = await registrationAdminService.replaceDocuments(
+      req,
+      params<{ id: string }>(req).id,
+      (req.body as { data?: unknown })?.data,
+      uploadedFiles(req),
+    );
+    ApiResponse.ok(res, dto, MESSAGES.updated('Documents'));
+  }),
+
   create: asyncHandler(async (req: Request, res: Response) => {
     const result = await registrationAdminService.create(req, (req.body as { data?: unknown })?.data, uploadedFiles(req));
     ApiResponse.created(res, result, REGISTRATION_MESSAGES.CREATED);

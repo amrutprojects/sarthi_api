@@ -90,3 +90,11 @@ registrationRouter.delete(
   validateRequest(registrationIdSchema),
   registrationAdminController.remove,
 );
+registrationRouter.post(
+  '/:id/documents',
+  authenticate,
+  authorizePermission('registrations.update'),
+  validateRequest(registrationIdSchema),
+  receiveRegistrationUpload,
+  registrationAdminController.replaceDocuments,
+);

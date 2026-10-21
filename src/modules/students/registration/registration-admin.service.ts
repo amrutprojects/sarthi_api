@@ -1,12 +1,14 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
+import { z } from 'zod';
 import type { Request } from 'express';
 import { MESSAGES } from '../../../constants/api-response.constants';
 import { AppDataSource } from '../../../config/database.config';
 import { AppError } from '../../../shared/errors/app-error';
 import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../../shared/utils/pagination';
 import { auditService } from '../../audit';
-import { mastersService } from '../../masters';
+import { mastersService, type MasterLookup } from '../../masters';
+import { documentStorage } from '../documents/document-storage';
 import { detectFileType, extensionMatches } from '../documents/file-type';
 import { StudentDocument } from '../documents/student-document.entity';
 import { Student } from '../register/student.entity';
@@ -17,6 +19,54 @@ import type { EditRegistrationBody, ListRegistrationsQuery } from './registratio
 import { registrationService, resolveMasters, type PreparedDocument } from './registration.service';
 import { validateCandidate } from '../import/row-validator';
 import { adminRegistrationData } from './registration-admin.validation';
+
+/*
+ * Checks uploaded document files (field name = document type code; type from the content; extension agrees) and
+ * reads them for storage. Problems are appended to `errors` as field errors (files.<CODE>).
+ */
+async function prepareFiles(
+  files: Express.Multer.File[],
+  masters: MasterLookup,
+  barcodes: Record<string, string>,
+  errors: { field: string; message: string }[],
+): Promise<{ prepared: PreparedDocument[]; seen: Set<string> }> {
+  const prepared: PreparedDocument[] = [];
+  const seen = new Set<string>();
+  for (const f of files) {
+    const type = masters.find('documentType', f.fieldname);
+    const field = `files.${f.fieldname}`;
+    if (!type || type.code !== f.fieldname.toUpperCase()) {
+      errors.push({ field, message: 'Unknown or inactive document type' });
+      continue;
+    }
+    if (seen.has(type.code)) {
+      errors.push({ field, message: `Only one ${type.name} file may be uploaded` });
+      continue;
+    }
+    seen.add(type.code);
+    const buf = await fs.readFile(f.path);
+    const kind = detectFileType(buf);
+    if (!kind || !extensionMatches(f.originalname, kind)) {
+      errors.push({ field, message: `${type.name}: only PDF, JPG, JPEG or PNG files are accepted` });
+      continue;
+    }
+    prepared.push({
+      code: type.code,
+      documentTypeId: type.id,
+      data: buf,
+      ext: kind.ext,
+      mimeType: kind.mime,
+      originalName: f.originalname,
+      sha256: crypto.createHash('sha256').update(buf).digest('hex'),
+      barcode: barcodes[type.code]?.trim() || null,
+    });
+  }
+  return { prepared, seen };
+}
+
+const replaceDocumentsData = z
+  .object({ barcodes: z.record(z.string().trim().max(64, 'Barcode must be at most 64 characters')).optional() })
+  .strict();
 
 type ListItem = ReturnType<typeof publicStudent> & { unmasked?: { email: string | null; mobile: string | null } };
 const BARCODE = new Map(DOCUMENTS.map((d) => [d.key, d.barcode]));
@@ -195,6 +245,90 @@ export const registrationAdminService = {
     });
   },
 
+  /*
+   * Replaces or adds a student's documents (edit form, step 3), and updates barcodes. Same file rules as a new
+   * registration. A replaced file is kept under students/<code>/_replaced/ with its record soft-deleted; the new file
+   * starts unverified. Mandatory types must still have a file and required barcodes stay required. Audited.
+   */
+  async replaceDocuments(req: Request, id: string, rawData: unknown, files: Express.Multer.File[]) {
+    const s = await AppDataSource.getRepository(Student).findOne({ where: { id, isDelete: false } });
+    if (!s) throw AppError.notFound(MESSAGES.notFound('Student'));
+    let json: unknown = rawData ?? {};
+    if (typeof rawData === 'string') {
+      try {
+        json = JSON.parse(rawData);
+      } catch {
+        throw AppError.validation([{ field: 'body.data', message: 'Document data must be valid JSON' }]);
+      }
+    }
+    const parsed = replaceDocumentsData.safeParse(json);
+    const errors: { field: string; message: string }[] = parsed.success
+      ? []
+      : parsed.error.issues.map((i) => ({ field: ['body', ...i.path].join('.'), message: i.message }));
+    const barcodes = (parsed.success ? parsed.data.barcodes : undefined) ?? {};
+    const masters = await mastersService.loadLookup();
+    const { prepared } = await prepareFiles(files, masters, barcodes, errors);
+    const current = await AppDataSource.getRepository(StudentDocument).find({ where: { studentId: id, isDelete: false } });
+    const hasFile = (code: string) => prepared.some((p) => p.code === code) || current.some((d) => d.docType === code);
+    const barcodeOf = (code: string) =>
+      code in barcodes ? barcodes[code]?.trim() || null : ((s.documents[code]?.barcode as string | null | undefined) ?? null);
+    for (const t of masters.list('documentType')) {
+      if (t.isMandatory && !hasFile(t.code)) errors.push({ field: `files.${t.code}`, message: `${t.name} is required` });
+      if (hasFile(t.code) && BARCODE.get(t.code) === 'required' && !barcodeOf(t.code))
+        errors.push({ field: `body.barcodes.${t.code}`, message: `${t.name} barcode is required` });
+    }
+    for (const code of Object.keys(barcodes))
+      if (!masters.find('documentType', code)) errors.push({ field: `body.barcodes.${code}`, message: 'Unknown document type' });
+    if (errors.length) throw AppError.validation(errors);
+
+    const replaced: string[] = [];
+    await AppDataSource.transaction(async (m) => {
+      const docs = m.getRepository(StudentDocument);
+      const documents = { ...s.documents } as Student['documents'];
+      for (const f of prepared) {
+        const old = current.find((d) => d.docType === f.code);
+        if (old) {
+          const archived = documentStorage.replacedKey(s.code, old.storageKey.split('/').pop()!);
+          await documentStorage.move(old.storageKey, archived);
+          await docs.update(old.id, { storageKey: archived, isDelete: true, isActive: false });
+          replaced.push(f.code);
+        }
+        const storageKey = documentStorage.studentKey(s.code, `${f.code}.${f.ext}`);
+        await documentStorage.write(storageKey, f.data);
+        await docs.insert({
+          batchId: null,
+          importRowId: null,
+          studentId: id,
+          docType: f.code,
+          storageKey,
+          sourcePath: null,
+          originalName: f.originalName.slice(0, 255),
+          mimeType: f.mimeType,
+          sizeBytes: f.data.length,
+          sha256: f.sha256,
+          uploadedById: req.auth!.id,
+        });
+        documents[f.code] = { supplied: true, barcode: barcodeOf(f.code), documentTypeId: f.documentTypeId };
+      }
+      for (const code of Object.keys(barcodes)) {
+        const type = masters.find('documentType', code)!;
+        documents[type.code] = {
+          supplied: documents[type.code]?.supplied ?? hasFile(type.code),
+          barcode: barcodeOf(type.code),
+          documentTypeId: type.id,
+        };
+      }
+      await m.getRepository(Student).update({ id, isDelete: false }, { documents });
+      await auditService.recordInTx(m, req, {
+        action: 'student.documents.update',
+        resource: 'student',
+        resourceId: id,
+        details: { code: s.code, uploaded: prepared.map((p) => p.code), replaced, barcodes: Object.keys(barcodes) },
+      });
+    });
+    return this.get(id, { unmask: true, req });
+  },
+
   /* Marks one uploaded document as checked. Verifying again is a no-op that keeps the first reviewer and time. */
   async verifyDocument(req: Request, id: string, documentId: string) {
     await this.get(id);
@@ -235,38 +369,7 @@ export const registrationAdminService = {
     const barcodes = data?.barcodes ?? {};
 
     const masters = await mastersService.loadLookup();
-    const prepared: PreparedDocument[] = [];
-    const seen = new Set<string>();
-    for (const f of files) {
-      const type = masters.find('documentType', f.fieldname);
-      const field = `files.${f.fieldname}`;
-      if (!type || type.code !== f.fieldname.toUpperCase()) {
-        errors.push({ field, message: 'Unknown or inactive document type' });
-        continue;
-      }
-      if (seen.has(type.code)) {
-        errors.push({ field, message: `Only one ${type.name} file may be uploaded` });
-        continue;
-      }
-      seen.add(type.code);
-      const buf = await fs.readFile(f.path);
-      const kind = detectFileType(buf);
-      if (!kind || !extensionMatches(f.originalname, kind)) {
-        errors.push({ field, message: `${type.name}: only PDF, JPG, JPEG or PNG files are accepted` });
-        continue;
-      }
-      const barcode = barcodes[type.code]?.trim() || null;
-      prepared.push({
-        code: type.code,
-        documentTypeId: type.id,
-        data: buf,
-        ext: kind.ext,
-        mimeType: kind.mime,
-        originalName: f.originalname,
-        sha256: crypto.createHash('sha256').update(buf).digest('hex'),
-        barcode,
-      });
-    }
+    const { prepared, seen } = await prepareFiles(files, masters, barcodes, errors);
     for (const t of masters.list('documentType')) {
       if (t.isMandatory && !seen.has(t.code) && !errors.some((e) => e.field === `files.${t.code}`))
         errors.push({ field: `files.${t.code}`, message: `${t.name} is required` });

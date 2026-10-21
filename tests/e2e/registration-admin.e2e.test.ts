@@ -262,6 +262,84 @@ describe('admin registration entry with documents', () => {
     expect(actions).toEqual(expect.arrayContaining(['student.update', 'student.status', 'student.delete']));
   });
 
+  it('Student register (/students) shows imported and registered students, with a source filter', async () => {
+    const token = await sumagoToken();
+    const reg = (await post(token, await data(), await allMandatory())).body.data.id as string;
+    const [user] = await AppDataSource.query(`SELECT "id" FROM "users" LIMIT 1`);
+    const [batch] = await AppDataSource.query(
+      `INSERT INTO "import_batches" ("code", "status", "fileName", "fileChecksum", "fileSize", "createdById")
+       VALUES ('IMP-TEST02', 'FINALISED', 'test.xlsx', repeat('b', 64), 1, $1) RETURNING "id"`,
+      [user.id],
+    );
+    const [imp] = await AppDataSource.query(
+      `INSERT INTO "students" ("code", "sourceChecksum", "firstName", "lastName", "fatherName", "motherName", "currentAddress",
+         "religion", "caste", "centreCode", "trackSourceValue", "educationQualification", "externalStatus",
+         "approvedAt", "importBatchId", "source")
+       VALUES ('STU-TEST02', repeat('0', 64), 'Imported', 'Student', 'F', 'M', 'A', 'हिंदू', 'मराठी', 'PUN', 'T03', 'B.Com',
+         'APPROVED', now(), $1, 'IMPORT')
+       RETURNING "id"`,
+      [batch.id],
+    );
+    const STUDENTS = `${API}/students`;
+    const all = await request(app).get(STUDENTS).set('Authorization', `Bearer ${token}`);
+    expect(all.status).toBe(HTTP_STATUS.OK);
+    const byId = new Map(all.body.data.map((r: { id: string; source: string }) => [r.id, r.source]));
+    expect(byId.get(reg)).toBe('PUBLIC_REGISTRATION');
+    expect(byId.get(imp.id)).toBe('IMPORT');
+    const regRow = all.body.data.find((r: { id: string }) => r.id === reg);
+    expect(regRow.registrationNumber).toMatch(/^\d{16}$/);
+
+    const onlyImport = await request(app).get(STUDENTS).query({ source: 'IMPORT' }).set('Authorization', `Bearer ${token}`);
+    expect(onlyImport.body.data.map((r: { id: string }) => r.id)).toEqual([imp.id]);
+    const onlyReg = await request(app).get(STUDENTS).query({ source: 'PUBLIC_REGISTRATION' }).set('Authorization', `Bearer ${token}`);
+    expect(onlyReg.body.data.map((r: { id: string }) => r.id)).toEqual([reg]);
+  });
+
+  it('replaces a document (old archived, new unverified), updates barcodes, and keeps the rules', async () => {
+    const token = await sumagoToken();
+    const id = (await post(token, await data(), await allMandatory())).body.data.id as string;
+    const before = await request(app).get(`${URL}/${id}`).set('Authorization', `Bearer ${token}`);
+    const oldPhoto = before.body.data.files.find((f: { docType: string }) => f.docType === 'PHOTO');
+    await request(app).post(`${URL}/${id}/documents/${oldPhoto.id}/verify`).set('Authorization', `Bearer ${token}`);
+
+    const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+    const res = await request(app)
+      .post(`${URL}/${id}/documents`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('data', JSON.stringify({ barcodes: { INCOME_EWS: 'EWS-NEW-1' } }))
+      .attach('PHOTO', PNG, 'new-photo.png');
+    expect(res.status).toBe(HTTP_STATUS.OK);
+    const newPhoto = res.body.data.files.find((f: { docType: string }) => f.docType === 'PHOTO');
+    expect(newPhoto).toMatchObject({ originalName: 'new-photo.png', mimeType: 'image/png', verifiedAt: null });
+    expect(newPhoto.id).not.toBe(oldPhoto.id);
+    const ews = res.body.data.documents.find((d: { key: string }) => d.key === 'INCOME_EWS');
+    expect(ews.barcode).toBe('EWS-NEW-1');
+    const [old] = await AppDataSource.query(`SELECT "isDelete", "storageKey" FROM "student_documents" WHERE "id" = $1`, [oldPhoto.id]);
+    expect(old.isDelete).toBe(true);
+    expect(old.storageKey).toContain('/_replaced/');
+
+    const badFile = await request(app)
+      .post(`${URL}/${id}/documents`)
+      .set('Authorization', `Bearer ${token}`)
+      .attach('SIGNATURE', Buffer.from('MZ not a document'), 'sig.png');
+    expect(badFile.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(badFile.body.error.details.map((d: { field: string }) => d.field)).toEqual(['files.SIGNATURE']);
+
+    const noBarcode = await request(app)
+      .post(`${URL}/${id}/documents`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('data', JSON.stringify({ barcodes: { INCOME_EWS: '' } }));
+    expect(noBarcode.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(noBarcode.body.error.details.map((d: { field: string }) => d.field)).toEqual(['body.barcodes.INCOME_EWS']);
+
+    const viewer = await actorWith(['registrations.view']);
+    const denied = await request(app)
+      .post(`${URL}/${id}/documents`)
+      .set('Authorization', `Bearer ${viewer.token}`)
+      .attach('PHOTO', PNG, 'p.png');
+    expect(denied.status).toBe(HTTP_STATUS.FORBIDDEN);
+  });
+
   it('requires registrations.create to enter and registrations.view to list', async () => {
     const viewer = await actorWith(['registrations.view']);
     expect((await request(app).get(URL).set('Authorization', `Bearer ${viewer.token}`)).status).toBe(HTTP_STATUS.OK);
