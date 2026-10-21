@@ -175,6 +175,20 @@ describe('admin registration entry with documents', () => {
     expect(JSON.stringify(masked.body)).not.toContain(digits);
   });
 
+  it('lists full email and mobile only for reviewers, with one audit row per list', async () => {
+    const token = await sumagoToken();
+    const body = await data();
+    await post(token, body, await allMandatory());
+    const list = await request(app).get(URL).set('Authorization', `Bearer ${token}`);
+    expect(list.body.data[0].unmasked).toEqual({ email: body.email, mobile: `+91${body.mobile_number}` });
+    const audits = await AppDataSource.query(`SELECT 1 FROM "audit_logs" WHERE "action" = 'student.registration.unmasked_list'`);
+    expect(audits.length).toBe(1);
+
+    const viewer = await actorWith(['registrations.view']);
+    const masked = await request(app).get(URL).set('Authorization', `Bearer ${viewer.token}`);
+    expect(masked.body.data[0].unmasked).toBeUndefined();
+  });
+
   it('requires registrations.create to enter and registrations.view to list', async () => {
     const viewer = await actorWith(['registrations.view']);
     expect((await request(app).get(URL).set('Authorization', `Bearer ${viewer.token}`)).status).toBe(HTTP_STATUS.OK);

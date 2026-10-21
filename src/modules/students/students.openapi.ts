@@ -410,7 +410,16 @@ documentEndpoint({
 });
 
 /* Student Registration menu (admin panel). */
-const RegistrationDto = registry.register('Registration', StudentDto.extend({ importBatchId: z.string().uuid().nullable() }));
+const RegistrationDto = registry.register(
+  'Registration',
+  StudentDto.extend({
+    importBatchId: z.string().uuid().nullable(),
+    unmasked: z
+      .object({ email: z.string().nullable(), mobile: z.string().nullable() })
+      .optional()
+      .describe('Full email and mobile, only for callers holding registrations.update (audited)'),
+  }),
+);
 const RegistrationDetailDto = registry.register(
   'RegistrationDetail',
   RegistrationDto.extend({
