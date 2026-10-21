@@ -9,7 +9,13 @@ import { createRegistrationSchema } from './registration.validation';
 import { authenticate } from '../../../middleware/authenticate.middleware';
 import { authorizePermission } from '../../../middleware/authorize-permission.middleware';
 import { registrationAdminController } from './registration-admin.controller';
-import { listRegistrationsSchema, registrationDocumentSchema, registrationIdSchema } from './registration-admin.validation';
+import {
+  editRegistrationSchema,
+  listRegistrationsSchema,
+  registrationDocumentSchema,
+  registrationIdSchema,
+  registrationStatusSchema,
+} from './registration-admin.validation';
 import { receiveRegistrationUpload } from './registration-upload.middleware';
 
 /* Per-IP limit for the public endpoint, on top of the global API limit. */
@@ -62,4 +68,25 @@ registrationRouter.post(
   authorizePermission('registrations.update'),
   validateRequest(registrationDocumentSchema),
   registrationAdminController.verifyDocument,
+);
+registrationRouter.patch(
+  '/:id',
+  authenticate,
+  authorizePermission('registrations.update'),
+  validateRequest(editRegistrationSchema),
+  registrationAdminController.update,
+);
+registrationRouter.patch(
+  '/:id/status',
+  authenticate,
+  authorizePermission('registrations.update'),
+  validateRequest(registrationStatusSchema),
+  registrationAdminController.setStatus,
+);
+registrationRouter.delete(
+  '/:id',
+  authenticate,
+  authorizePermission('registrations.delete'),
+  validateRequest(registrationIdSchema),
+  registrationAdminController.remove,
 );

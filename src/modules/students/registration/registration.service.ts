@@ -54,7 +54,7 @@ const MASTER_FIELDS: [field: 'region_id' | 'caste_id' | 'education_id', key: Mas
 ];
 
 /* Every referenced master record must exist, be active and not deleted (the lookup holds only those); else a field error. */
-function resolveMasters(
+export function resolveMasters(
   masters: MasterLookup,
   ids: Record<'region_id' | 'caste_id' | 'education_id', string>,
   declared: { document_type_id: string }[],
