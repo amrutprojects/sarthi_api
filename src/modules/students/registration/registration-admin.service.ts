@@ -12,7 +12,7 @@ import { documentStorage } from '../documents/document-storage';
 import { detectFileType, extensionMatches } from '../documents/file-type';
 import { StudentDocument } from '../documents/student-document.entity';
 import { Student } from '../register/student.entity';
-import { publicStudent } from '../register/student.service';
+import { publicStudent, unmaskedContact } from '../register/student.service';
 import { decryptAadhaar } from '../aadhaar';
 import { DOCUMENTS, REGISTRATION_MASTER_FIELDS } from '../student.constants';
 import type { EditRegistrationBody, ListRegistrationsQuery } from './registration-admin.validation';
@@ -97,7 +97,7 @@ export const registrationAdminService = {
         action: 'student.registration.unmasked_list',
         resource: 'student',
         resourceId: null,
-        details: { codes: items.map((s) => s.code), fields: ['email', 'mobile'] },
+        details: { codes: items.map((s) => s.code), fields: ['email', 'mobile', 'aadhaar'] },
       });
     }
     return {
@@ -106,7 +106,7 @@ export const registrationAdminService = {
         source: s.source,
         isActive: s.isActive,
         registrationNumber: s.registrationNumber,
-        ...(opts.unmask ? { unmasked: { email: s.email, mobile: s.mobile } } : {}),
+        ...(opts.unmask ? { unmasked: unmaskedContact(s) } : {}),
       })),
       meta: buildMeta(q, total),
     };

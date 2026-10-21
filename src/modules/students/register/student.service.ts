@@ -3,11 +3,20 @@ import { MESSAGES } from '../../../constants/api-response.constants';
 import { CENTRES, DOCUMENTS, IMPORT_COLUMNS, TRACKS } from '../student.constants';
 import { Student } from './student.entity';
 import { AppError } from '../../../shared/errors/app-error';
-import { maskAadhaar, maskEmail, maskMobile } from '../aadhaar';
+import { decryptAadhaar, maskAadhaar, maskEmail, maskMobile } from '../aadhaar';
 import { templateCsv } from './import-template';
 
 const trackName = (code: string | null) => TRACKS.find((t) => t.code === code)?.name ?? null;
 const centreName = (code: string | null) => CENTRES.find((c) => c.code === code)?.name ?? null;
+
+/*
+ * Full contact details for reviewers (registrations.update): email, mobile and the decrypted Aadhaar grouped in fours.
+ * Callers record an audit entry whenever they return these.
+ */
+export function unmaskedContact(s: Student) {
+  const digits = s.aadhaarEnc ? decryptAadhaar(s.aadhaarEnc) : null;
+  return { email: s.email, mobile: s.mobile, aadhaar: digits ? digits.replace(/(\d{4})(?=\d)/g, '$1 ') : null };
+}
 
 /* Register view of a student: protected values are generated masked on the server and never sent in clear. */
 export function publicStudent(s: Student, detail = false) {
@@ -61,7 +70,11 @@ export class StudentService {
     return AppDataSource.getRepository(Student);
   }
 
-  async list(q: { page: number; limit: number; search?: string; centre?: string; track?: string; batch?: string; source?: string }) {
+  /* With `unmask` (reviewers), each row also carries unmaskedContact(); the controller audits that list. */
+  async list(
+    q: { page: number; limit: number; search?: string; centre?: string; track?: string; batch?: string; source?: string },
+    unmask = false,
+  ) {
     const qb = this.repo().createQueryBuilder('s').where('s.isDelete = false');
     if (q.centre) qb.andWhere('s.centreCode = :centre', { centre: q.centre });
     if (q.track === 'TBC') qb.andWhere('s.trackCode IS NULL');
@@ -83,7 +96,11 @@ export class StudentService {
       .skip((q.page - 1) * q.limit)
       .take(q.limit)
       .getManyAndCount();
-    return { items: items.map((s) => publicStudent(s)), total };
+    return {
+      items: items.map((s) => ({ ...publicStudent(s), ...(unmask ? { unmasked: unmaskedContact(s) } : {}) })),
+      total,
+      codes: items.map((s) => s.code),
+    };
   }
 
   async get(id: string) {
