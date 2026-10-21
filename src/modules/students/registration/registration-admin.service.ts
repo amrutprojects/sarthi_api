@@ -11,6 +11,7 @@ import { detectFileType, extensionMatches } from '../documents/file-type';
 import { StudentDocument } from '../documents/student-document.entity';
 import { Student } from '../register/student.entity';
 import { publicStudent } from '../register/student.service';
+import { decryptAadhaar } from '../aadhaar';
 import { DOCUMENTS, STUDENT_SOURCE } from '../student.constants';
 import type { ListRegistrationsQuery } from './registration-admin.validation';
 import { registrationService, type PreparedDocument } from './registration.service';
@@ -39,7 +40,11 @@ export const registrationAdminService = {
     return { items: items.map((s) => publicStudent(s)), meta: buildMeta(q, total) };
   },
 
-  async get(id: string) {
+  /*
+   * With `unmask` (callers holding registrations.update), the response also carries the full email, mobile and
+   * Aadhaar number, and the view is recorded in the audit log (who saw whose details). Others get masked values only.
+   */
+  async get(id: string, opts: { unmask?: boolean; req?: Request } = {}) {
     const s = await AppDataSource.getRepository(Student).findOne({
       where: { id, isDelete: false, source: STUDENT_SOURCE.PUBLIC_REGISTRATION },
     });
@@ -56,8 +61,20 @@ export const registrationAdminService = {
           )
         : [],
     );
+    let unmasked: { email: string | null; mobile: string | null; aadhaar: string | null } | undefined;
+    if (opts.unmask) {
+      const digits = s.aadhaarEnc ? decryptAadhaar(s.aadhaarEnc) : null;
+      unmasked = { email: s.email, mobile: s.mobile, aadhaar: digits ? digits.replace(/(\d{4})(?=\d)/g, '$1 ') : null };
+      await auditService.record(opts.req, {
+        action: 'student.registration.unmasked_view',
+        resource: 'student',
+        resourceId: s.id,
+        details: { code: s.code, fields: ['email', 'mobile', 'aadhaar'] },
+      });
+    }
     return {
       ...publicStudent(s, true),
+      ...(unmasked ? { unmasked } : {}),
       files: files.map((f) => ({
         id: f.id,
         docType: f.docType,

@@ -414,6 +414,10 @@ const RegistrationDto = registry.register('Registration', StudentDto.extend({ im
 const RegistrationDetailDto = registry.register(
   'RegistrationDetail',
   RegistrationDto.extend({
+    unmasked: z
+      .object({ email: z.string().nullable(), mobile: z.string().nullable(), aadhaar: z.string().nullable() })
+      .optional()
+      .describe('Full values, only for callers holding registrations.update; each such view is audited'),
     files: z.array(
       z.object({
         id: z.string().uuid(),
