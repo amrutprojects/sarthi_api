@@ -15,13 +15,11 @@ import { masterRouter } from './modules/masters/master.routes';
 import {
   cmsRouter,
   publicContactRouter,
-  publicEligibilityRouter,
-  publicFaqRouter,
   publicFooterRouter,
   publicGeographyRouter,
-  publicModulesRouter,
+  publicModulesRouter, publicHighlightRouter,
+  publicProgrammeRouter,
 } from './cms';
-import { lmsRouter } from './lms';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
 export const apiRouter = Router();
@@ -49,5 +47,7 @@ apiRouter.use('/public/geography', publicGeographyRouter);
 apiRouter.use('/public/contact', publicContactRouter);
 apiRouter.use('/public/footer', publicFooterRouter);
 apiRouter.use('/public/modules', publicModulesRouter);
+apiRouter.use('/public/highlight', publicHighlightRouter);
+apiRouter.use('/public/programme', publicProgrammeRouter);
 apiRouter.use('/public/faqs', publicFaqRouter);
 apiRouter.use('/public/eligibility', publicEligibilityRouter);

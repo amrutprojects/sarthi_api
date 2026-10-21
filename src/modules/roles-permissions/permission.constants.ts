@@ -55,6 +55,9 @@ export const MENUS = {
   'cms-contact': 'Contact Page Management',
   'cms-footer': 'Footer Management',
   'cms-modules': 'Modules Page Management',
+  'cms-home': 'Home Page Figures',
+  'cms-highlight': 'Home Programme Section',
+  'cms-programme': 'Programme Page Management',
   'cms-faqs': 'FAQ Management',
   'cms-eligibility': 'Eligibility Page Management',
   'cms-states': 'State Master',
@@ -147,8 +150,14 @@ export const PERMISSIONS = {
   CMS_CONTACT_UPDATE: def('cms-contact.update', 'Update Contact Page Management', 'Update in the Contact Page Management menu'),
   CMS_FOOTER_VIEW: def('cms-footer.view', 'View Footer Management', 'View in the Footer Management menu'),
   CMS_FOOTER_UPDATE: def('cms-footer.update', 'Update Footer Management', 'Update in the Footer Management menu'),
+  CMS_HIGHLIGHT_VIEW: def('cms-highlight.view', 'View Home Programme Section', 'View in the Home Programme Section menu'),
+  CMS_HIGHLIGHT_UPDATE: def('cms-highlight.update', 'Update Home Programme Section', 'Update in the Home Programme Section menu'),
+  CMS_HOME_VIEW: def('cms-home.view', 'View Home Page Figures', 'View in the Home Page Figures menu'),
+  CMS_HOME_UPDATE: def('cms-home.update', 'Update Home Page Figures', 'Update in the Home Page Figures menu'),
   CMS_MODULES_VIEW: def('cms-modules.view', 'View Modules Page Management', 'View in the Modules Page Management menu'),
   CMS_MODULES_UPDATE: def('cms-modules.update', 'Update Modules Page Management', 'Update in the Modules Page Management menu'),
+  CMS_PROGRAMME_VIEW: def('cms-programme.view', 'View Programme Page Management', 'View in the Programme Page Management menu'),
+  CMS_PROGRAMME_UPDATE: def('cms-programme.update', 'Update Programme Page Management', 'Update in the Programme Page Management menu'),
   CMS_FAQS_VIEW: def('cms-faqs.view', 'View FAQ Management', 'View in the FAQ Management menu'),
   CMS_FAQS_CREATE: def('cms-faqs.create', 'Add FAQ Management', 'Add in the FAQ Management menu'),
   CMS_FAQS_UPDATE: def('cms-faqs.update', 'Update FAQ Management', 'Update in the FAQ Management menu'),
@@ -258,14 +267,13 @@ export const PERMISSIONS = {
 
 /* The CMS sidebar keys, in menu order: website content, geography, then the Masters group. */
 export const CMS_MENUS = [
-  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility',
-  'cms-states', 'cms-districts', 'cms-talukas',
-  'cms-departments', 'cms-colleges', 'cms-documents', 'cms-batches', 'cms-batch-assignments', 'cms-centre-types', 'cms-training-centres', 'cms-centre-locations', 'cms-centre-infrastructure',
-] as const satisfies readonly MenuKey[];
-
-/* The LMS Admin sidebar keys, in menu order. */
-export const LMS_MENUS = [
-  'lms-reference', 'lms-entities', 'lms-branding', 'lms-calendars', 'lms-learning-config', 'lms-form-fields', 'lms-courses', 'lms-course-modules', 'lms-track-variants',
+  'cms-contact',
+  'cms-footer',
+  'cms-modules',
+  'cms-programme',
+  'cms-states',
+  'cms-districts',
+  'cms-talukas',
 ] as const satisfies readonly MenuKey[];
 
 export type PermissionKey = keyof typeof PERMISSIONS;

@@ -13,11 +13,15 @@ import { CmsFooter1792800000000 } from './1792800000000-CmsFooter';
 import { CmsModulesPage1792900000000 } from './1792900000000-CmsModulesPage';
 import { ElectiveDomainsPerModule1793000000000 } from './1793000000000-ElectiveDomainsPerModule';
 import { DomainsForAllModules1793100000000 } from './1793100000000-DomainsForAllModules';
+import { ProgrammeDistrictCount1793300000000 } from './1793300000000-ProgrammeDistrictCount';
+import { PerModuleHours1793400000000 } from './1793400000000-PerModuleHours';
+import { CmsProgrammeHighlight1793500000000 } from './1793500000000-CmsProgrammeHighlight';
 import { DocumentVerification1793200000000 } from './1793200000000-DocumentVerification';
 import { RegistrationNumber1793300000000 } from './1793300000000-RegistrationNumber';
 import { RegistrationNumberShort1793400000000 } from './1793400000000-RegistrationNumberShort';
 import { ImportedRegistrationNumbers1793500000000 } from './1793500000000-ImportedRegistrationNumbers';
 import { RemainingRegistrationNumbers1793600000000 } from './1793600000000-RemainingRegistrationNumbers';
+import { CmsProgrammePage1793700000000 } from './1793700000000-CmsProgrammePage';
 import { CmsFaqs1793700000000 } from './1793700000000-CmsFaqs';
 import { CmsEligibility1793800000000 } from './1793800000000-CmsEligibility';
 import { CmsMasters1792400000000 } from './1792400000000-CmsMasters';
@@ -57,10 +61,14 @@ export const MIGRATIONS = [
   ElectiveDomainsPerModule1793000000000,
   DomainsForAllModules1793100000000,
   DocumentVerification1793200000000,
+  ProgrammeDistrictCount1793300000000,
+  PerModuleHours1793400000000,
+  CmsProgrammeHighlight1793500000000,
   RegistrationNumber1793300000000,
   RegistrationNumberShort1793400000000,
   ImportedRegistrationNumbers1793500000000,
   RemainingRegistrationNumbers1793600000000,
+  CmsProgrammePage1793700000000,
   CmsFaqs1793700000000,
   CmsEligibility1793800000000,
   CmsMasters1792400000000,

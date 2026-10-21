@@ -110,6 +110,32 @@ documentEndpoint({
   response: envelope(z.object({}).passthrough().nullable()),
 });
 
+const ProgrammePage = z.object({
+  intro: Bilingual,
+  objectives: z.array(Bilingual),
+  methodology: z.array(z.object({ label: Bilingual, value: Bilingual })),
+  assessment: z.array(z.object({ component: Bilingual, min: z.number().int(), max: z.number().int() })),
+  assessmentNote: Bilingual,
+  certification: z.array(Bilingual),
+  trainingModes: z.object({
+    title: Bilingual,
+    modes: z.array(z.object({ name: Bilingual, description: Bilingual })),
+    note: Bilingual,
+  }),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/programme',
+  tag,
+  summary: 'Published Programme page content',
+  description:
+    'Introduction, objectives, learning methodology, assessment criteria and certification for the public /programme page, ' +
+    'in Marathi and English. `data` is null when unpublished; the website then renders its bundled copy.',
+  permission: 'public',
+  response: envelope(ProgrammePage.nullable()),
+});
+
 documentEndpoint({
   method: 'get',
   path: '/public/faqs',

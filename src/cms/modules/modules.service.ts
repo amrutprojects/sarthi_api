@@ -3,20 +3,27 @@ import { AppDataSource } from '../../config/database.config';
 import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { auditService } from '../../modules/audit/audit.service';
 import { AppError } from '../../shared/errors/app-error';
-import type { ProgrammeElectiveDomain, ProgrammeModuleSettings } from './modules.model';
+import type {
+  ProgrammeElectiveDomain,
+  ProgrammeModule,
+  ProgrammeModuleSettings,
+} from './modules.model';
 import { modulesRepository } from './modules.repository';
 import type {
   AdminElectiveDomain,
   AdminModulesPage,
   LearningPath,
   ModuleTimeSplit,
+  ProgrammeFacts,
+  ProgrammeStats,
   PublicModulesPage,
   UpdateElectiveDomainInput,
   UpdateModuleInput,
   UpdateModulesPageInput,
 } from './modules.types';
 
-const NOT_CONFIGURED = 'The Modules page has not been configured yet. Run the database seed to create it.';
+const NOT_CONFIGURED =
+  'The Modules page has not been configured yet. Run the database seed to create it.';
 
 const toAdminDomain = (d: ProgrammeElectiveDomain): AdminElectiveDomain => ({
   id: d.id,
@@ -32,14 +39,14 @@ const toAdminDomain = (d: ProgrammeElectiveDomain): AdminElectiveDomain => ({
  * loss a float would bring. The page prints it as a number, so it is converted once here rather
  * than in every consumer.
  */
-const toTimeSplit = (s: ProgrammeModuleSettings): ModuleTimeSplit => ({
-  moduleHours: s.moduleHours,
-  trainingHours: s.trainingHours,
-  assessmentHours: s.assessmentHours,
-  weeksPerModule: s.weeksPerModule,
-  daysPerWeek: s.daysPerWeek,
-  hoursPerDay: s.hoursPerDay,
-  weeklyAssessmentHours: Number(s.weeklyAssessmentHours),
+const toTimeSplit = (m: ProgrammeModule): ModuleTimeSplit => ({
+  moduleHours: m.moduleHours,
+  trainingHours: m.trainingHours,
+  assessmentHours: m.assessmentHours,
+  weeksPerModule: m.weeksPerModule,
+  daysPerWeek: m.daysPerWeek,
+  hoursPerDay: m.hoursPerDay,
+  weeklyAssessmentHours: Number(m.weeklyAssessmentHours),
 });
 
 const toLearningPath = (s: ProgrammeModuleSettings): LearningPath => ({
@@ -49,14 +56,33 @@ const toLearningPath = (s: ProgrammeModuleSettings): LearningPath => ({
   selfPathPct: s.selfPathPct,
 });
 
+const toFacts = (s: ProgrammeModuleSettings): ProgrammeFacts => ({
+  idealMonths: s.idealMonths,
+  validityMonths: s.validityMonths,
+  securityDeposit: s.securityDeposit,
+  applyLeadDays: s.applyLeadDays,
+  partnerName: s.partnerName,
+});
+
+const toStats = (s: ProgrammeModuleSettings): ProgrammeStats => ({
+  districtCount: s.districtCount,
+});
+
 const toModuleColumns = (input: UpdateModuleInput, order: number) => ({
   no: input.no,
   code: input.code.trim().toUpperCase(),
+  kind: input.kind,
   nameMr: input.name.mr,
   nameEn: input.name.en,
   descriptionMr: input.description.mr,
   descriptionEn: input.description.en,
-  isElective: input.elective ?? false,
+  moduleHours: input.timeSplit.moduleHours,
+  trainingHours: input.timeSplit.trainingHours,
+  assessmentHours: input.timeSplit.assessmentHours,
+  weeksPerModule: input.timeSplit.weeksPerModule,
+  daysPerWeek: input.timeSplit.daysPerWeek,
+  hoursPerDay: input.timeSplit.hoursPerDay,
+  weeklyAssessmentHours: String(input.timeSplit.weeklyAssessmentHours),
   displayOrder: input.displayOrder ?? order,
   isActive: input.isActive ?? true,
 });
@@ -78,13 +104,12 @@ const toDomainColumns = (input: UpdateElectiveDomainInput, order: number) => ({
  * seed has not run), not something a request should silently repair — the admin read reports it
  * plainly and the public read degrades to "nothing published" so the website shows its own copy.
  *
- * Employment domains belong to a MODULE, not to the page: every module carries its own list, so
- * each can offer different domains and editing one leaves the others alone. The  flag is
- * a label on the card, not a gate — a module may carry domains whether or not it is marked one.
+ * Each module carries its OWN timetable and its OWN employment domains, so one module can run
+ * longer than another and editing one leaves the others alone.
  *
- * Every rule here is also a database constraint (the hours arithmetic, the path shares totalling
- * 100, unique module codes, unique domain numbers within a module). The checks exist to return a
- * readable 4xx instead of a raw constraint error.
+ * The programme totals are never stored. The site sums them from the modules the public read
+ * returns — which is only the active ones — so switching an elective off removes it from the page
+ * and from the hours in a single action, and the two can never disagree.
  */
 export class ModulesService {
   /* The configuration an administrator edits, including inactive rows. */
@@ -97,19 +122,23 @@ export class ModulesService {
 
     return {
       id: settings.id,
+      pageTitle: { mr: settings.pageTitleMr, en: settings.pageTitleEn },
+      pageSubtitle: { mr: settings.pageSubtitleMr, en: settings.pageSubtitleEn },
       modules: modules.map((m) => ({
         id: m.id,
         no: m.no,
         code: m.code,
+        kind: m.kind,
         name: { mr: m.nameMr, en: m.nameEn },
         description: { mr: m.descriptionMr, en: m.descriptionEn },
-        elective: m.isElective,
+        timeSplit: toTimeSplit(m),
         displayOrder: m.displayOrder,
         isActive: m.isActive,
         electives: domains.filter((d) => d.moduleId === m.id).map(toAdminDomain),
       })),
-      timeSplit: toTimeSplit(settings),
       learningPath: toLearningPath(settings),
+      facts: toFacts(settings),
+      stats: toStats(settings),
       isPublished: settings.isPublished,
       createdAt: settings.createdAt,
       updatedAt: settings.updatedAt,
@@ -132,12 +161,15 @@ export class ModulesService {
     );
 
     return {
+      pageTitle: { mr: settings.pageTitleMr, en: settings.pageTitleEn },
+      pageSubtitle: { mr: settings.pageSubtitleMr, en: settings.pageSubtitleEn },
       modules: modules.map((m) => ({
         no: m.no,
         code: m.code,
+        kind: m.kind,
         name: { mr: m.nameMr, en: m.nameEn },
         description: { mr: m.descriptionMr, en: m.descriptionEn },
-        elective: m.isElective,
+        timeSplit: toTimeSplit(m),
         electives: domains
           .filter((d) => d.moduleId === m.id)
           .map((d) => ({
@@ -146,14 +178,15 @@ export class ModulesService {
             certificate: d.certificate,
           })),
       })),
-      timeSplit: toTimeSplit(settings),
       learningPath: toLearningPath(settings),
+      facts: toFacts(settings),
+      stats: toStats(settings),
     };
   }
 
   /*
-   * Replaces the whole page in one transaction: the numbers, the module cards and every module's
-   * domains commit together or not at all, so the page is never served half-updated.
+   * Replaces the whole page in one transaction: the heading, the fact sheet, every module's
+   * timetable and every module's domains commit together or not at all.
    *
    * Modules are matched by CODE, which is what identifies a module across the programme — renaming
    * a module keeps its row, and a code absent from the payload is retired along with its domains.
@@ -161,18 +194,24 @@ export class ModulesService {
    * administrator unable to remove a domain, and each list is short.
    */
   async update(input: UpdateModulesPageInput, req?: Request): Promise<AdminModulesPage> {
-    const { timeSplit, learningPath } = input;
+    const { learningPath } = input;
 
-    if (timeSplit.trainingHours + timeSplit.assessmentHours !== timeSplit.moduleHours) {
-      throw AppError.badRequest('Training and assessment hours must add up to the module total', [
-        { field: 'timeSplit.moduleHours', message: 'Hours do not add up' },
-      ]);
-    }
     if (learningPath.fixedPathPct + learningPath.selfPathPct !== 100) {
       throw AppError.badRequest('The learning-path shares must add up to 100', [
         { field: 'learningPath.fixedPathPct', message: 'Shares do not total 100' },
       ]);
     }
+
+    /* The programme's arithmetic, now per module. */
+    input.modules.forEach((m, index) => {
+      const t = m.timeSplit;
+      if (t.trainingHours + t.assessmentHours !== t.moduleHours) {
+        throw AppError.badRequest(
+          `${m.code}: training and assessment hours must add up to the module total`,
+          [{ field: `modules.${index}.timeSplit.moduleHours`, message: 'Hours do not add up' }],
+        );
+      }
+    });
 
     await AppDataSource.transaction(async (m) => {
       const settings = await modulesRepository.findSettings(m);
@@ -181,19 +220,21 @@ export class ModulesService {
       await modulesRepository.update(
         settings.id,
         {
-          moduleHours: timeSplit.moduleHours,
-          trainingHours: timeSplit.trainingHours,
-          assessmentHours: timeSplit.assessmentHours,
-          weeksPerModule: timeSplit.weeksPerModule,
-          daysPerWeek: timeSplit.daysPerWeek,
-          hoursPerDay: timeSplit.hoursPerDay,
-          weeklyAssessmentHours: String(timeSplit.weeklyAssessmentHours),
+          pageTitleMr: input.pageTitle.mr,
+          pageTitleEn: input.pageTitle.en,
+          pageSubtitleMr: input.pageSubtitle.mr,
+          pageSubtitleEn: input.pageSubtitle.en,
           sessionLengthMr: learningPath.sessionLength.mr,
           sessionLengthEn: learningPath.sessionLength.en,
           sessionLabelMr: learningPath.sessionLabel.mr,
           sessionLabelEn: learningPath.sessionLabel.en,
           fixedPathPct: learningPath.fixedPathPct,
           selfPathPct: learningPath.selfPathPct,
+          idealMonths: input.facts.idealMonths,
+          validityMonths: input.facts.validityMonths,
+          securityDeposit: input.facts.securityDeposit,
+          applyLeadDays: input.facts.applyLeadDays,
+          partnerName: input.facts.partnerName,
           ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished }),
         },
         m,
@@ -208,12 +249,13 @@ export class ModulesService {
       for (const [index, item] of input.modules.entries()) {
         const code = item.code.trim().toUpperCase();
         if (seenCodes.has(code)) {
-          throw AppError.badRequest(`Duplicate module code ${item.code}`, [{ field: `modules.${index}.code`, message: 'Duplicate code' }]);
+          throw AppError.badRequest(`Duplicate module code ${item.code}`, [
+            { field: `modules.${index}.code`, message: 'Duplicate code' },
+          ]);
         }
         seenCodes.add(code);
 
         const domains = item.electives ?? [];
-
         const seenNumbers = new Set<number>();
         for (const [k, d] of domains.entries()) {
           if (seenNumbers.has(d.no)) {
@@ -230,7 +272,9 @@ export class ModulesService {
           await moduleRepo.update(current.id, toModuleColumns(item, index));
           moduleId = current.id;
         } else {
-          const created = await moduleRepo.save(moduleRepo.create({ settingsId: settings.id, ...toModuleColumns(item, index) }));
+          const created = await moduleRepo.save(
+            moduleRepo.create({ settingsId: settings.id, ...toModuleColumns(item, index) }),
+          );
           moduleId = created.id;
         }
 
@@ -254,7 +298,7 @@ export class ModulesService {
         resourceId: settings.id,
         details: {
           isPublished: input.isPublished ?? settings.isPublished,
-          modules: input.modules.map((x) => x.code),
+          modules: input.modules.map((x) => `${x.code}:${x.kind}:${x.timeSplit.moduleHours}h`),
           retired: retired.map((x) => x.code),
           domains: Object.fromEntries(input.modules.map((x) => [x.code, x.electives?.length ?? 0])),
         },

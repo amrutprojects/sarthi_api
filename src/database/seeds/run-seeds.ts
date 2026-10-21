@@ -4,6 +4,8 @@ import { seedContactPage } from './seed-contact-page';
 import { seedFooter } from './seed-footer';
 import { seedMasters } from './seed-masters';
 import { seedModulesPage } from './seed-modules-page';
+import { seedProgrammeHighlight } from './seed-programme-highlight';
+import { seedProgrammePage } from './seed-programme-page';
 import { seedRbac } from './seed-rbac';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
@@ -23,6 +25,10 @@ async function main() {
     console.log('Footer seed complete:', await seedFooter(AppDataSource));
     // eslint-disable-next-line no-console
     console.log('Modules page seed complete:', await seedModulesPage(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Programme section seed complete:', await seedProgrammeHighlight(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Programme page seed complete:', await seedProgrammePage(AppDataSource));
   } finally {
     await AppDataSource.destroy();
   }

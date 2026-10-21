@@ -51,13 +51,10 @@ const KEEP_ON_RESET = new Set([
 /* audit_logs is append-only (UPDATE/DELETE blocked by trigger), but TRUNCATE is allowed for tests. */
 export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
-  const tables: { tablename: string }[] = await AppDataSource.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`);
-  const list = tables
-    .map((t) => t.tablename)
-    .filter((t) => !KEEP_ON_RESET.has(t))
-    .map((t) => `"${t}"`)
-    .join(', ');
-  await AppDataSource.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
+  await AppDataSource.query(
+    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "student_documents", "import_rows", "students", "import_batches", "idempotency_keys", "role_permissions", "user_roles", "permissions", "roles", "users", ' +
+      '"talukas", "districts", "states", "contact_organizations", "contact_page_settings", "programme_page_settings" RESTART IDENTITY CASCADE',
+  );
   await seedRbac(AppDataSource);
   rbacService.invalidate();
   /* Masters are not truncated (the migration seeds them); tests add the education values their fixtures use. */

@@ -1,3 +1,5 @@
+import type { ModuleKind } from './modules.model';
+
 /* A Marathi/English pair, matching the website's Bilingual type (public-site/content/types.ts). */
 export interface Bilingual {
   mr: string;
@@ -6,10 +8,7 @@ export interface Bilingual {
 
 /* ---------------- shared shapes ---------------- */
 
-/*
- * How one module's hours divide. The same split applies to every module, which is why it lives on
- * the settings row rather than on each card.
- */
+/** One module's own timetable. Training plus assessment must equal the module total. */
 export interface ModuleTimeSplit {
   moduleHours: number;
   trainingHours: number;
@@ -20,11 +19,31 @@ export interface ModuleTimeSplit {
   weeklyAssessmentHours: number;
 }
 
+/** The two shares of the learning-path donut. They must total 100. */
 export interface LearningPath {
   sessionLength: Bilingual;
   sessionLabel: Bilingual;
   fixedPathPct: number;
   selfPathPct: number;
+}
+
+/**
+ * The programme fact sheet shown on /programme.
+ *
+ * Total hours, the module count and the number of employment domains are deliberately absent:
+ * those are summed from the modules, so they cannot contradict them.
+ */
+export interface ProgrammeFacts {
+  idealMonths: number;
+  validityMonths: number;
+  securityDeposit: number;
+  applyLeadDays: number;
+  partnerName: string;
+}
+
+/** Figures the home page prints that the module lists cannot supply. */
+export interface ProgrammeStats {
+  districtCount: number;
 }
 
 /* ---------------- admin shapes ---------------- */
@@ -43,20 +62,30 @@ export interface AdminModule {
   id: string;
   no: number;
   code: string;
+  kind: ModuleKind;
   name: Bilingual;
   description: Bilingual;
-  elective: boolean;
+  /* This module's own timetable. */
+  timeSplit: ModuleTimeSplit;
   displayOrder: number;
+  /*
+   * Whether this module is shown on the website and counted in the programme totals. For an
+   * elective this is the "include it" tick box; a module that is off appears nowhere and adds
+   * nothing to the hours.
+   */
   isActive: boolean;
-  /* This module's own domains. Empty for a core module. */
+  /* This module's own domains. */
   electives: AdminElectiveDomain[];
 }
 
 export interface AdminModulesPage {
   id: string;
+  pageTitle: Bilingual;
+  pageSubtitle: Bilingual;
   modules: AdminModule[];
-  timeSplit: ModuleTimeSplit;
   learningPath: LearningPath;
+  facts: ProgrammeFacts;
+  stats: ProgrammeStats;
   isPublished: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -66,8 +95,8 @@ export interface AdminModulesPage {
 
 /*
  * What the website receives. Narrower than the admin shape on purpose: no ids, no timestamps, no
- * publication flag, no soft-delete state. The field names match what the site already expects in
- * public-site/data/modules.ts, so it needs no translation layer of its own.
+ * publication flag, no soft-delete state. Only active modules and domains are included, which is
+ * what makes an unticked elective vanish from both the page and the totals.
  */
 export interface PublicElectiveDomain {
   no: number;
@@ -78,16 +107,20 @@ export interface PublicElectiveDomain {
 export interface PublicModule {
   no: number;
   code: string;
+  kind: ModuleKind;
   name: Bilingual;
   description: Bilingual;
-  elective: boolean;
+  timeSplit: ModuleTimeSplit;
   electives: PublicElectiveDomain[];
 }
 
 export interface PublicModulesPage {
+  pageTitle: Bilingual;
+  pageSubtitle: Bilingual;
   modules: PublicModule[];
-  timeSplit: ModuleTimeSplit;
   learningPath: LearningPath;
+  facts: ProgrammeFacts;
+  stats: ProgrammeStats;
 }
 
 /* ---------------- write shapes ---------------- */
@@ -103,17 +136,24 @@ export interface UpdateElectiveDomainInput {
 export interface UpdateModuleInput {
   no: number;
   code: string;
+  kind: ModuleKind;
   name: Bilingual;
   description: Bilingual;
-  elective?: boolean;
+  timeSplit: ModuleTimeSplit;
   displayOrder?: number;
   isActive?: boolean;
   electives?: UpdateElectiveDomainInput[];
 }
 
+/*
+ * The write shape. `stats` is absent on purpose: the home page figures are written through
+ * /cms/home, which is their only writer — two screens writing one field is how they drift.
+ */
 export interface UpdateModulesPageInput {
+  pageTitle: Bilingual;
+  pageSubtitle: Bilingual;
   modules: UpdateModuleInput[];
-  timeSplit: ModuleTimeSplit;
   learningPath: LearningPath;
+  facts: ProgrammeFacts;
   isPublished?: boolean;
 }
