@@ -151,6 +151,30 @@ describe('admin registration entry with documents', () => {
     expect(denied.status).toBe(HTTP_STATUS.FORBIDDEN);
   });
 
+  it('shows full email, mobile and Aadhaar only to reviewers, and audits each view', async () => {
+    const token = await sumagoToken();
+    const body = await data();
+    const id = (await post(token, body, await allMandatory())).body.data.id as string;
+
+    const full = await request(app).get(`${URL}/${id}`).set('Authorization', `Bearer ${token}`);
+    const digits = (body.aadhaar_number as string).replace(/\D/g, '');
+    expect(full.body.data.unmasked).toEqual({
+      email: body.email,
+      mobile: `+91${body.mobile_number}`,
+      aadhaar: digits.replace(/(\d{4})(?=\d)/g, '$1 '),
+    });
+    const audits = await AppDataSource.query(
+      `SELECT 1 FROM "audit_logs" WHERE "action" = 'student.registration.unmasked_view' AND "resourceId" = $1`,
+      [id],
+    );
+    expect(audits.length).toBe(1);
+
+    const viewer = await actorWith(['registrations.view']);
+    const masked = await request(app).get(`${URL}/${id}`).set('Authorization', `Bearer ${viewer.token}`);
+    expect(masked.body.data.unmasked).toBeUndefined();
+    expect(JSON.stringify(masked.body)).not.toContain(digits);
+  });
+
   it('requires registrations.create to enter and registrations.view to list', async () => {
     const viewer = await actorWith(['registrations.view']);
     expect((await request(app).get(URL).set('Authorization', `Bearer ${viewer.token}`)).status).toBe(HTTP_STATUS.OK);

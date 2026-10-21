@@ -17,7 +17,13 @@ export const registrationAdminController = {
   }),
 
   get: asyncHandler(async (req: Request, res: Response) => {
-    ApiResponse.ok(res, await registrationAdminService.get(params<{ id: string }>(req).id), MESSAGES.retrieved('Registration'));
+    /* Full email / mobile / Aadhaar only for reviewers (registrations.update); each such view is audited. */
+    const unmask = req.auth!.permissions.has('registrations.update');
+    ApiResponse.ok(
+      res,
+      await registrationAdminService.get(params<{ id: string }>(req).id, { unmask, req }),
+      MESSAGES.retrieved('Registration'),
+    );
   }),
 
   /* One uploaded file (audited download); the admin panel previews it. */
