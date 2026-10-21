@@ -11,7 +11,7 @@ import { countRefs, plural } from '../shared/master-refs';
 import type { AssignmentReason } from '../shared/master.constants';
 import { TrainingCentre } from '../training-centre/training-centre.model';
 import { BatchAssignment } from './batch-assignment.model';
-import { batchAssignmentRepository as repo } from './batch-assignment.repository';
+import { ASSIGNABLE_STUDENT_STATUSES, batchAssignmentRepository as repo } from './batch-assignment.repository';
 import type {
   BatchAssignmentListQuery, CreateBatchAssignmentInput, PublicBatchAssignmentDetail, StudentOption, UpdateBatchAssignmentInput,
 } from './batch-assignment.types';
@@ -44,11 +44,19 @@ const toPublic = (a: BatchAssignment): PublicBatchAssignmentDetail => ({
 const REASON_MESSAGE = "The batch's centre differs from the student's preferred centre; select a reason";
 
 /*
+ * Only a registered student may hold a seat; a public registration stays out until it is approved. Today that
+ * happens at import finalisation, when an approved import row is reconciled onto it as the same person: the
+ * registration then becomes RECEIVED.
+ */
+const isAssignable = (s: Pick<Student, 'status'>) => ASSIGNABLE_STUDENT_STATUSES.includes(s.status);
+const NOT_REGISTERED_MESSAGE = 'The selected student is a pending registration';
+
+/*
  * Assign Batch (AMRUT_KALASH_02 Table 41): one student allocated to one programme batch.
  *
  * Rules, all re-checked on the server whatever the form offered:
- * - the student exists, is not deleted and is active; at most one non-deleted assignment per student
- *   (also a partial unique index);
+ * - the student exists, is not deleted, is active and is a registered student (status RECEIVED: never a
+ *   pending public registration); at most one non-deleted assignment per student (also a partial unique index);
  * - the batch exists, is not deleted, is active, is OPEN, and its centre is active;
  * - an active assignment holds a seat, and a batch's active assignments never exceed its capacity. Seats
  *   are counted while the batch row is locked FOR UPDATE, so concurrent saves cannot overfill a batch;
@@ -57,8 +65,10 @@ const REASON_MESSAGE = "The batch's centre differs from the student's preferred 
  *
  * Lock order, the same in every write so no two of them can deadlock: the assignment row first
  * (lockAssignment: concurrent writes to one assignment run one after the other and each sees the other's
- * result), then batch rows (two of them in id order on a move). The Batch Master locks only batch and
- * centre rows and never assignment rows.
+ * result), then the student row FOR SHARE (findStudent; create, restore and re-activation), then batch
+ * rows (two of them in id order on a move). The Batch Master locks only batch and centre rows and never
+ * assignment rows; a student delete locks only the student row (FOR UPDATE) and refuses while an
+ * assignment references it.
  */
 export class BatchAssignmentService {
   async list(q: BatchAssignmentListQuery): Promise<Paginated<PublicBatchAssignmentDetail>> {
@@ -91,12 +101,19 @@ export class BatchAssignmentService {
     }));
   }
 
-  /* The student must exist, not be deleted and be active. 400 on studentId otherwise. */
+  /*
+   * The student must exist, not be deleted, be active and be a registered student (not a pending
+   * registration). 400 on studentId otherwise. The student row stays locked FOR SHARE until commit, so it
+   * cannot be deleted while this assignment is being saved.
+   */
   private async assertUsableStudent(m: EntityManager, studentId: string): Promise<Student> {
     const student = await repo.findStudent(studentId, { manager: m });
     if (!student) throw AppError.badRequest('The selected student does not exist', [{ field: 'studentId', message: 'Unknown student' }]);
     if (!student.isActive) {
       throw AppError.badRequest('The selected student is inactive', [{ field: 'studentId', message: 'Choose an active student' }]);
+    }
+    if (!isAssignable(student)) {
+      throw AppError.badRequest(NOT_REGISTERED_MESSAGE, [{ field: 'studentId', message: 'Only registered students can be assigned' }]);
     }
     return student;
   }
@@ -206,7 +223,8 @@ export class BatchAssignmentService {
 
   /*
    * Deactivating frees the seat and is never blocked. Re-activating takes a seat again, so it re-checks the
-   * capacity under the batch lock, and is refused in a cancelled batch (a cancelled batch holds no students).
+   * capacity under the batch lock, and is refused in a cancelled batch (a cancelled batch holds no students)
+   * or when the student is no longer a registered student.
    */
   async setStatus(id: string, isActive: boolean, req?: Request): Promise<PublicBatchAssignmentDetail> {
     await AppDataSource.transaction(async (m) => {
@@ -214,6 +232,10 @@ export class BatchAssignmentService {
       const assignment = await repo.lockAssignment(id, m);
       if (!assignment) throw AppError.notFound('Batch assignment not found');
       if (isActive && !assignment.isActive) {
+        /* Defence in depth: create already refuses these students; the student row is read FOR SHARE. */
+        const student = await repo.findStudent(assignment.studentId, { manager: m });
+        if (!student) throw AppError.conflict('The student of this assignment has been removed from the register');
+        if (!isAssignable(student)) throw AppError.conflict(`${NOT_REGISTERED_MESSAGE}; only registered students can hold a seat`);
         const batch = await repo.lockBatch(assignment.batchId, m);
         if (!batch) throw AppError.conflict('The batch of this assignment no longer exists. Move the student to another batch.');
         if (batch.batchStatus === 'CANCELLED') {
@@ -249,17 +271,19 @@ export class BatchAssignmentService {
 
   /*
    * Brings a soft-deleted assignment back, inactive. Refused when the student has been given another
-   * assignment meanwhile, or when the student or the batch has been removed. No free seat is needed: an
-   * inactive assignment holds none, and re-activating it (setStatus) checks the capacity then.
+   * assignment meanwhile, when the student or the batch has been removed, or when the student is not a
+   * registered student. No free seat is needed: an inactive assignment holds none, and re-activating it
+   * (setStatus) checks the capacity then.
    */
   async restore(id: string, req?: Request): Promise<PublicBatchAssignmentDetail> {
     await AppDataSource.transaction(async (m) => {
       const existing = await repo.lockAssignment(id, m, { includeDeleted: true });
       if (!existing) throw AppError.notFound('Batch assignment not found');
       if (!existing.isDelete) throw AppError.conflict('Batch assignment is not deleted');
-      if (!(await repo.findStudent(existing.studentId, { manager: m }))) {
-        throw AppError.conflict('The student of this assignment has been removed from the register');
-      }
+      /* Read FOR SHARE: the student cannot be deleted while this assignment comes back. */
+      const student = await repo.findStudent(existing.studentId, { manager: m });
+      if (!student) throw AppError.conflict('The student of this assignment has been removed from the register');
+      if (!isAssignable(student)) throw AppError.conflict(`${NOT_REGISTERED_MESSAGE}; only registered students can be assigned`);
       await this.assertOnePerStudent(m, existing.studentId, id);
       /* Locked, so the Batch Master cannot delete the batch while this assignment comes back to it. */
       if (!(await repo.lockBatch(existing.batchId, m))) {

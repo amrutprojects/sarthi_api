@@ -1,5 +1,5 @@
 import type { ListQuery } from '../../shared/utils/pagination';
-import type { GeoOption } from '../../masters/geography/geography.types';
+import type { GeoOption } from '../../cms/masters/geography/geography.types';
 
 /*
  * Reference Data (UI-314, AMRUT_KALASH_03 L-03 / L-07 / DB-303): the Admin Panel's districts, training centres

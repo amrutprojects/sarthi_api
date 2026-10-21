@@ -2,7 +2,7 @@ import type { EntityManager, EntityTarget, ObjectLiteral, Repository, SelectQuer
 import { Brackets } from 'typeorm';
 import { AppDataSource } from '../../config/database.config';
 import { CentreInfrastructure } from '../../masters/centre-infrastructure/centre-infrastructure.model';
-import { District } from '../../masters/district/district.model';
+import { District } from '../../cms/masters/district/district.model';
 import { TechnologyTrack } from '../../masters/technology-track/technology-track.model';
 import { TrainingCentre } from '../../masters/training-centre/training-centre.model';
 import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../shared/utils/pagination';

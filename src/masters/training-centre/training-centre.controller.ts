@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { body, params, query } from '../../middleware/validate-request.middleware';
-import { ApiResponse } from '../../shared/http/api-response';
+import { ApiResponse } from '../../utils/api-response';
 import { asyncHandler } from '../../shared/http/async-handler';
 import { trainingCentreService } from './training-centre.service';
 import type { CreateTrainingCentreBody, ListTrainingCentresQuery, UpdateTrainingCentreBody } from './training-centre.validator';

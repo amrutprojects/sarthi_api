@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { AppBaseEntity } from '../../database/base.entity';
-import type { District } from '../district/district.model';
-import type { Taluka } from '../taluka/taluka.model';
+import type { District } from '../../cms/masters/district/district.model';
+import type { Taluka } from '../../cms/masters/taluka/taluka.model';
 
 /*
  * CMS master: a college. Always located in one district (the state is the district's); the taluka is

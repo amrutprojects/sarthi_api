@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { pipeline } from 'stream';
 import { body, params, query } from '../../middleware/validate-request.middleware';
 import { AppError } from '../../shared/errors/app-error';
-import { ApiResponse } from '../../shared/http/api-response';
+import { ApiResponse } from '../../utils/api-response';
 import { asyncHandler } from '../../shared/http/async-handler';
 import { attachmentDisposition } from './document.storage';
 import { documentService } from './document.service';

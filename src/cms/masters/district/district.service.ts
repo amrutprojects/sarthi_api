@@ -2,8 +2,12 @@ import type { Request } from 'express';
 import type { EntityManager } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
 import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
-import type { District } from './district.model';
+import { District } from './district.model';
 import { districtRepository } from './district.repository';
+import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate } from '../../../masters/shared/master-refs';
+import { College } from '../../../masters/college/college.model';
+import { MasterDocument } from '../../../masters/document/document.model';
+import { TrainingCentre } from '../../../masters/training-centre/training-centre.model';
 import { stateRepository } from '../state/state.repository';
 import { AppError } from '../../../shared/errors/app-error';
 import type { Paginated } from '../../../shared/utils/pagination';
@@ -57,19 +61,8 @@ export class DistrictService {
    * integrity check. The district is read FOR SHARE (assertUsableRef), so it cannot be deleted under a
    * taluka being saved; see remove() for the other half.
    */
-<<<<<<< HEAD:src/masters/district/district.service.ts
   assertUsable(districtId: string, manager: EntityManager): Promise<District> {
     return assertUsableRef(manager, District, districtId, 'districtId', 'district');
-=======
-  async assertUsable(districtId: string, manager?: EntityManager): Promise<District> {
-    const district = await districtRepository.findById(districtId, { manager });
-    if (!district)
-      throw AppError.badRequest('The selected district does not exist', [{ field: 'districtId', message: 'Unknown district' }]);
-    if (!district.isActive) {
-      throw AppError.badRequest('The selected district is inactive', [{ field: 'districtId', message: 'Choose an active district' }]);
-    }
-    return district;
->>>>>>> fcb39ee91d318983f70c58b173c27c13117a08ba:src/cms/masters/district/district.service.ts
   }
 
   /* Name and code must be free within the target state. */

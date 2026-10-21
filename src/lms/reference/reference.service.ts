@@ -1,4 +1,4 @@
-import { District } from '../../masters/district/district.model';
+import { District } from '../../cms/masters/district/district.model';
 import { TechnologyTrack } from '../../masters/technology-track/technology-track.model';
 import { TrainingCentre } from '../../masters/training-centre/training-centre.model';
 import type { Paginated } from '../../shared/utils/pagination';

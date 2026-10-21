@@ -5,7 +5,8 @@ import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import { auditService } from '../../../modules/audit/audit.service';
 import { AppError } from '../../../shared/errors/app-error';
 import type { Paginated } from '../../../shared/utils/pagination';
-import type { State } from './state.model';
+import { State } from './state.model';
+import { assertUsableRef, lockForUpdate } from '../../../masters/shared/master-refs';
 import { stateRepository } from './state.repository';
 import type { CreateStateInput, PublicStateDetail, StateListQuery, UpdateStateInput } from './state.types';
 

@@ -1,5 +1,5 @@
 import type { ListQuery } from '../../shared/utils/pagination';
-import type { GeoOption } from '../geography/geography.types';
+import type { GeoOption } from '../../cms/masters/geography/geography.types';
 import type { BatchStatus, DeliveryMode } from '../shared/master.constants';
 
 /* Columns a client may sort by (?sortBy=). centreName sorts on the joined training centre. */

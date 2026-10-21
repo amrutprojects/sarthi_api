@@ -1,7 +1,6 @@
 import { InitialSchema1792000000000 } from './1792000000000-InitialSchema';
 import { RoleMenuVisibility1792100000000 } from './1792100000000-RoleMenuVisibility';
 import { StudentImport1792200000000 } from './1792200000000-StudentImport';
-import { CmsGeography1792200000000 } from './1792200000000-CmsGeography';
 import { IdempotencyKeys1792300000000 } from './1792300000000-IdempotencyKeys';
 import { StudentDocuments1792400000000 } from './1792400000000-StudentDocuments';
 import { StudentDocumentSourcePath1792500000000 } from './1792500000000-StudentDocumentSourcePath';
@@ -14,12 +13,14 @@ import { CmsFooter1792800000000 } from './1792800000000-CmsFooter';
 import { CmsModulesPage1792900000000 } from './1792900000000-CmsModulesPage';
 import { ElectiveDomainsPerModule1793000000000 } from './1793000000000-ElectiveDomainsPerModule';
 import { DomainsForAllModules1793100000000 } from './1793100000000-DomainsForAllModules';
-
 import { DocumentVerification1793200000000 } from './1793200000000-DocumentVerification';
 import { RegistrationNumber1793300000000 } from './1793300000000-RegistrationNumber';
 import { RegistrationNumberShort1793400000000 } from './1793400000000-RegistrationNumberShort';
 import { ImportedRegistrationNumbers1793500000000 } from './1793500000000-ImportedRegistrationNumbers';
-import { RemainingRegistrationNumbers1793600000000 } from './1793600000000-RemainingRegistrationNumbers';import { CmsMasters1792400000000 } from './1792400000000-CmsMasters';
+import { RemainingRegistrationNumbers1793600000000 } from './1793600000000-RemainingRegistrationNumbers';
+import { CmsFaqs1793700000000 } from './1793700000000-CmsFaqs';
+import { CmsEligibility1793800000000 } from './1793800000000-CmsEligibility';
+import { CmsMasters1792400000000 } from './1792400000000-CmsMasters';
 import { TechnologyTracks1792500000000 } from './1792500000000-TechnologyTracks';
 import { LmsEntities1792600000000 } from './1792600000000-LmsEntities';
 import { LmsBranding1792700000000 } from './1792700000000-LmsBranding';
@@ -34,7 +35,6 @@ export const MIGRATIONS = [
   InitialSchema1792000000000,
   RoleMenuVisibility1792100000000,
   StudentImport1792200000000,
-  CmsGeography1792200000000,
   IdempotencyKeys1792300000000,
   StudentDocuments1792400000000,
   StudentDocumentSourcePath1792500000000,
@@ -61,6 +61,8 @@ export const MIGRATIONS = [
   RegistrationNumberShort1793400000000,
   ImportedRegistrationNumbers1793500000000,
   RemainingRegistrationNumbers1793600000000,
+  CmsFaqs1793700000000,
+  CmsEligibility1793800000000,
   CmsMasters1792400000000,
   TechnologyTracks1792500000000,
   LmsEntities1792600000000,

@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { AppBaseEntity } from '../../database/base.entity';
 import type { DocumentCategory, VerificationStatus } from '../shared/master.constants';
-import type { District } from '../district/district.model';
+import type { District } from '../../cms/masters/district/district.model';
 import type { TrainingCentre } from '../training-centre/training-centre.model';
 
 /*

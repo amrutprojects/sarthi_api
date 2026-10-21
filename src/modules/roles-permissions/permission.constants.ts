@@ -55,6 +55,8 @@ export const MENUS = {
   'cms-contact': 'Contact Page Management',
   'cms-footer': 'Footer Management',
   'cms-modules': 'Modules Page Management',
+  'cms-faqs': 'FAQ Management',
+  'cms-eligibility': 'Eligibility Page Management',
   'cms-states': 'State Master',
   'cms-districts': 'District Master',
   'cms-talukas': 'Taluka Master',
@@ -147,6 +149,14 @@ export const PERMISSIONS = {
   CMS_FOOTER_UPDATE: def('cms-footer.update', 'Update Footer Management', 'Update in the Footer Management menu'),
   CMS_MODULES_VIEW: def('cms-modules.view', 'View Modules Page Management', 'View in the Modules Page Management menu'),
   CMS_MODULES_UPDATE: def('cms-modules.update', 'Update Modules Page Management', 'Update in the Modules Page Management menu'),
+  CMS_FAQS_VIEW: def('cms-faqs.view', 'View FAQ Management', 'View in the FAQ Management menu'),
+  CMS_FAQS_CREATE: def('cms-faqs.create', 'Add FAQ Management', 'Add in the FAQ Management menu'),
+  CMS_FAQS_UPDATE: def('cms-faqs.update', 'Update FAQ Management', 'Update in the FAQ Management menu'),
+  CMS_FAQS_DELETE: def('cms-faqs.delete', 'Delete FAQ Management', 'Delete in the FAQ Management menu'),
+  CMS_ELIGIBILITY_VIEW: def('cms-eligibility.view', 'View Eligibility Page Management', 'View in the Eligibility Page Management menu'),
+  CMS_ELIGIBILITY_CREATE: def('cms-eligibility.create', 'Add Eligibility Page Management', 'Add in the Eligibility Page Management menu'),
+  CMS_ELIGIBILITY_UPDATE: def('cms-eligibility.update', 'Update Eligibility Page Management', 'Update in the Eligibility Page Management menu'),
+  CMS_ELIGIBILITY_DELETE: def('cms-eligibility.delete', 'Delete Eligibility Page Management', 'Delete in the Eligibility Page Management menu'),
   CMS_STATES_VIEW: def('cms-states.view', 'View State Master', 'View in the State Master menu'),
   CMS_STATES_CREATE: def('cms-states.create', 'Add State Master', 'Add in the State Master menu'),
   CMS_STATES_UPDATE: def('cms-states.update', 'Update State Master', 'Update in the State Master menu'),
@@ -246,8 +256,9 @@ export const PERMISSIONS = {
   LMS_TRACK_VARIANTS_DELETE: def('lms-track-variants.delete', 'Delete Track Variant Master', 'Delete in the Track Variant Master menu'),
 } as const satisfies Record<string, PermissionDefinition>;
 
-/* The CMS sidebar keys, in menu order: geography, then the Masters group. */
+/* The CMS sidebar keys, in menu order: website content, geography, then the Masters group. */
 export const CMS_MENUS = [
+  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility',
   'cms-states', 'cms-districts', 'cms-talukas',
   'cms-departments', 'cms-colleges', 'cms-documents', 'cms-batches', 'cms-batch-assignments', 'cms-centre-types', 'cms-training-centres', 'cms-centre-locations', 'cms-centre-infrastructure',
 ] as const satisfies readonly MenuKey[];

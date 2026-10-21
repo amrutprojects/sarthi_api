@@ -1,8 +1,8 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { AppBaseEntity } from '../../database/base.entity';
 import type { CentreType } from '../centre-type/centre-type.model';
-import type { District } from '../district/district.model';
-import type { Taluka } from '../taluka/taluka.model';
+import type { District } from '../../cms/masters/district/district.model';
+import type { Taluka } from '../../cms/masters/taluka/taluka.model';
 
 /*
  * CMS master: a training centre — Training Centre Profile sections A (basic information) and B (centre

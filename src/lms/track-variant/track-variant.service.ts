@@ -2,7 +2,7 @@ import type { Request } from 'express';
 import type { EntityManager, EntityTarget } from 'typeorm';
 import { AppDataSource } from '../../config/database.config';
 import type { AppBaseEntity } from '../../database/base.entity';
-import type { GeoOption } from '../../masters/geography/geography.types';
+import type { GeoOption } from '../../cms/masters/geography/geography.types';
 import { assertUsableRef, lockForUpdate } from '../../masters/shared/master-refs';
 import { TechnologyTrack } from '../../masters/technology-track/technology-track.model';
 import { auditService } from '../../modules/audit';

@@ -6,7 +6,7 @@ import { auditService } from '../../modules/audit';
 import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { AppError } from '../../shared/errors/app-error';
 import type { Paginated } from '../../shared/utils/pagination';
-import type { GeoOption } from '../../masters/geography/geography.types';
+import type { GeoOption } from '../../cms/masters/geography/geography.types';
 import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate, plural } from '../../masters/shared/master-refs';
 import { TechnologyTrack } from '../../masters/technology-track/technology-track.model';
 import { TrainingCentre } from '../../masters/training-centre/training-centre.model';

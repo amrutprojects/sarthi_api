@@ -5,7 +5,7 @@ import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { auditService } from '../../modules/audit';
 import { AppError } from '../../shared/errors/app-error';
 import type { Paginated } from '../../shared/utils/pagination';
-import type { GeoOption } from '../geography/geography.types';
+import type { GeoOption } from '../../cms/masters/geography/geography.types';
 import { assertNoRefs, countRefs, lockForUpdate } from '../shared/master-refs';
 import { TrainingCentre } from '../training-centre/training-centre.model';
 import { CentreType } from './centre-type.model';

@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { pipeline } from 'stream';
 import { body, params, query } from '../../middleware/validate-request.middleware';
-import { ApiResponse } from '../../shared/http/api-response';
+import { ApiResponse } from '../../utils/api-response';
 import { asyncHandler } from '../../shared/http/async-handler';
 import { lmsBrandingService } from './branding.service';
 import type { GetBrandingQuery, UpdateBrandingBody } from './branding.validator';

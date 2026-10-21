@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { query } from '../../middleware/validate-request.middleware';
-import { ApiResponse } from '../../shared/http/api-response';
+import { ApiResponse } from '../../utils/api-response';
 import { asyncHandler } from '../../shared/http/async-handler';
 import { referenceService } from './reference.service';
 import type {

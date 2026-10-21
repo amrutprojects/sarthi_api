@@ -2,7 +2,7 @@ import type { EntityManager, SelectQueryBuilder } from 'typeorm';
 import { Brackets } from 'typeorm';
 import { AppDataSource } from '../../config/database.config';
 import { BaseRepository } from '../../database/base.repository';
-import { Student } from '../../modules/students';
+import { Student, STUDENT_STATUS } from '../../modules/students';
 import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../shared/utils/pagination';
 import { Batch } from '../batch/batch.model';
 import { BatchAssignment } from './batch-assignment.model';
@@ -24,6 +24,15 @@ const SORT_SQL: Record<BatchAssignmentSortField, string[]> = {
  * and other personal fields; they are never selected here, so they cannot leak into a response.
  */
 const STUDENT_COLUMNS = ['s.id', 's.code', 's.firstName', 's.lastName', 's.centreCode', 's.isActive'];
+
+/*
+ * Student statuses that may hold a batch seat. An allow-list, so it fails closed: a public registration
+ * (REGISTRATION_PENDING) is never offered or assigned, and any status added later (under review, rejected)
+ * stays out until it is listed here. A registration is approved, and becomes RECEIVED, when an approved import
+ * row is reconciled onto it as the same person and that import batch is finalised (ImportService.finalise).
+ * Add the approved status when the approval workflow exists.
+ */
+export const ASSIGNABLE_STUDENT_STATUSES: readonly string[] = [STUDENT_STATUS.RECEIVED];
 
 export interface StudentOptionRow {
   id: string;
@@ -96,11 +105,17 @@ export class BatchAssignmentRepository extends BaseRepository<BatchAssignment> {
     for (const id of [...new Set(batchIds)].sort()) await this.lockBatch(id, manager);
   }
 
-  /* Student fields the rules need (preferred centre, status). Never the personal columns. */
+  /*
+   * Student fields the rules need (preferred centre, active flag, register status). Never the personal
+   * columns. Inside a transaction the non-deleted student is read FOR SHARE and stays locked until commit,
+   * so a concurrent student delete (which locks the student FOR UPDATE, then counts its assignments) runs
+   * either wholly before us (we then find no student) or wholly after us (it then counts our assignment).
+   */
   findStudent(studentId: string, opts: { includeDeleted?: boolean; manager?: EntityManager } = {}): Promise<Student | null> {
     return (opts.manager ?? AppDataSource.manager).getRepository(Student).findOne({
       where: opts.includeDeleted ? { id: studentId } : { id: studentId, isDelete: false },
-      select: { id: true, code: true, firstName: true, lastName: true, centreCode: true, isActive: true, isDelete: true },
+      select: { id: true, code: true, firstName: true, lastName: true, centreCode: true, status: true, isActive: true, isDelete: true },
+      ...(opts.manager && !opts.includeDeleted ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
   }
 
@@ -129,8 +144,9 @@ export class BatchAssignmentRepository extends BaseRepository<BatchAssignment> {
   }
 
   /*
-   * Student search for the Assign Batch form: code or name, non-deleted students, at most 20 rows, each
-   * with the code of the batch the student already holds (if any) so the form can say so.
+   * Student search for the Assign Batch form: code or name, non-deleted students with an assignable status
+   * (never a pending registration), at most 20 rows, each with the code of the batch the student already
+   * holds (if any) so the form can say so.
    */
   searchStudents(search: string, limit = 20): Promise<StudentOptionRow[]> {
     const term = likePattern(search);
@@ -145,6 +161,7 @@ export class BatchAssignmentRepository extends BaseRepository<BatchAssignment> {
       .addSelect('s.centreCode', 'centreCode')
       .addSelect('b.code', 'assignedBatchCode')
       .where('s.isDelete = false')
+      .andWhere('s.status IN (:...assignable)', { assignable: ASSIGNABLE_STUDENT_STATUSES })
       .andWhere(new Brackets((w) => w
         .where('s.code ILIKE :term', { term })
         .orWhere('s.firstName ILIKE :term', { term })

@@ -109,3 +109,40 @@ documentEndpoint({
   permission: 'public',
   response: envelope(z.object({}).passthrough().nullable()),
 });
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/faqs',
+  tag,
+  summary: 'Active FAQs',
+  description: 'The questions on the public FAQ page, in Marathi and English, in display order. Only active, non-deleted questions. Managed in the admin panel under CMS → FAQ Management.',
+  permission: 'public',
+  response: envelope(z.array(z.object({ question: Bilingual, answer: Bilingual }))),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/eligibility',
+  tag,
+  summary: 'Eligibility page content',
+  description:
+    'The text, eligibility criteria and required documents on the public Eligibility page, in Marathi and English. ' +
+    'Each list holds only active, non-deleted entries, in display order; an empty list means every entry of that kind is ' +
+    'deactivated. `data` is null when the page has not been configured — the website then renders its own bundled copy. ' +
+    'Managed in the admin panel under CMS → Eligibility Page Management.',
+  permission: 'public',
+  response: envelope(
+    z
+      .object({
+        pageTitle: Bilingual,
+        pageSubtitle: Bilingual,
+        criteriaHeading: Bilingual,
+        documentsHeading: Bilingual,
+        noteTitle: Bilingual,
+        noteBody: Bilingual,
+        criteria: z.array(z.object({ label: Bilingual, value: Bilingual })),
+        documents: z.array(Bilingual),
+      })
+      .nullable(),
+  ),
+});

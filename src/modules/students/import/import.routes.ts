@@ -22,20 +22,6 @@ import {
  * imports.view (read) · imports.create (upload) · imports.update (resolve rows, decide matches) ·
  * imports.delete (cancel a batch) · imports.approve (finalise, by a second person).
  */
-/* multer 2 refuses (at startup) a limit that is not a whole number, and IMPORT_MAX_FILE_MB may be fractional. */
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: Math.floor(env.IMPORT_MAX_FILE_MB * 1024 * 1024), files: 1 },
-});
-const receiveFile = (req: Request, res: Response, next: NextFunction) =>
-  upload.single('file')(req, res, (err: unknown) => {
-    if (err instanceof multer.MulterError) {
-      next(AppError.badRequest(err.code === 'LIMIT_FILE_SIZE' ? `The file is larger than ${env.IMPORT_MAX_FILE_MB} MB` : err.message));
-      return;
-    }
-    next(err as Error | undefined);
-  });
-
 export const importRouter = Router();
 importRouter.use(authenticate);
 

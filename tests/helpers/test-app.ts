@@ -33,18 +33,31 @@ export async function teardownTestApp(): Promise<void> {
 }
 
 /*
- * Tables whose rows come from a migration (reference lists with no other re-seed) and the migrations table itself;
- * everything else is emptied between test files so no file sees another file's records.
+ * Tables whose rows come from a migration (reference lists with no other re-seed), the website content the CMS
+ * tests leave in place, and the migrations table itself; everything else is emptied between test files so no file
+ * sees another file's records (the LMS and Masters-group tables included, whatever is added later).
  */
-const KEEP_ON_RESET = new Set(['typeorm_migrations', 'training_centre_types', 'technology_tracks']);
+const KEEP_ON_RESET = new Set([
+  'typeorm_migrations',
+  /* Masters group / LMS reference lists seeded by migrations. */
+  'training_centre_types', 'technology_tracks',
+  /* Generic masters seeded by the Masters migration (src/modules/masters). */
+  'regions', 'castes', 'document_types', 'educations',
+  /* Website content seeded by the CMS migrations. */
+  'programme_module_settings', 'programme_modules', 'programme_elective_domains', 'footer_settings', 'footer_sections', 'footer_links', 'faqs',
+  'eligibility_page_settings', 'eligibility_items',
+]);
 
 /* audit_logs is append-only (UPDATE/DELETE blocked by trigger), but TRUNCATE is allowed for tests. */
 export async function resetData(): Promise<void> {
   assertTestDatabase(env.DB_DATABASE);
-  await AppDataSource.query(
-    'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "student_documents", "import_rows", "students", "import_batches", "idempotency_keys", "role_permissions", "user_roles", "permissions", "roles", "users", '
-    + '"talukas", "districts", "states", "contact_organizations", "contact_page_settings" RESTART IDENTITY CASCADE',
-  );
+  const tables: { tablename: string }[] = await AppDataSource.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`);
+  const list = tables
+    .map((t) => t.tablename)
+    .filter((t) => !KEEP_ON_RESET.has(t))
+    .map((t) => `"${t}"`)
+    .join(', ');
+  await AppDataSource.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
   await seedRbac(AppDataSource);
   rbacService.invalidate();
   /* Masters are not truncated (the migration seeds them); tests add the education values their fixtures use. */
