@@ -61,6 +61,8 @@ export const AUDIT_ACTIONS = {
   FOOTER_STATUS: 'cms.footer.status',
   MODULES_PAGE_UPDATE: 'cms.modules-page.update',
   MODULES_PAGE_STATUS: 'cms.modules-page.status',
+  PROGRAMME_PAGE_UPDATE: 'cms.programme-page.update',
+  PROGRAMME_PAGE_STATUS: 'cms.programme-page.status',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

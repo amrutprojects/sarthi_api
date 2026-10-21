@@ -19,6 +19,7 @@ import { RegistrationNumber1793300000000 } from './1793300000000-RegistrationNum
 import { RegistrationNumberShort1793400000000 } from './1793400000000-RegistrationNumberShort';
 import { ImportedRegistrationNumbers1793500000000 } from './1793500000000-ImportedRegistrationNumbers';
 import { RemainingRegistrationNumbers1793600000000 } from './1793600000000-RemainingRegistrationNumbers';
+import { CmsProgrammePage1793700000000 } from './1793700000000-CmsProgrammePage';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -50,4 +51,5 @@ export const MIGRATIONS = [
   RegistrationNumberShort1793400000000,
   ImportedRegistrationNumbers1793500000000,
   RemainingRegistrationNumbers1793600000000,
+  CmsProgrammePage1793700000000,
 ];
