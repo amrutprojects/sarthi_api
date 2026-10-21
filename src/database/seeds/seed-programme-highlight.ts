@@ -18,8 +18,8 @@ export interface HighlightSeedSummary {
  * The heading joins the programme title and what the band calls it, because that is how the page
  * prints it: the title, an em dash, then "Skill Development Diploma".
  *
- * NOT seeded here: the fact sheet beside it. Several of those figures are summed from the modules,
- * so they live with the Modules content rather than being stored twice.
+ * NOT seeded here: the fact sheet beside it. Its totals are summed from the modules and its entered
+ * figures live with the Programme page content, rather than being stored twice.
  */
 const SECTION = {
   headingMr: 'अमृत कलश — कौशल्य विकास डिप्लोमा',

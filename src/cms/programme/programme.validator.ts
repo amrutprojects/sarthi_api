@@ -10,6 +10,21 @@ const bilingual = (max: number, label: string) =>
 
 const score = z.number().int('Must be a whole number').min(0).max(1000);
 
+/* Same rule and wording as the other CMS figures (modules.validator.ts). */
+const count = (label: string, max: number) =>
+  z.coerce.number().int().min(0, `${label} cannot be negative`).max(max, `${label} is too large`);
+
+/* The fact sheet. Total hours, the module line and the elective count are summed from the modules, never entered. */
+const facts = z
+  .object({
+    idealMonths: count('Ideal duration', 120),
+    validityMonths: count('Validity', 240),
+    securityDeposit: count('Security deposit', 10_000_000),
+    applyLeadDays: count('Apply before', 365),
+    partnerName: z.string().trim().min(1, 'Partner name is required').max(150, 'Partner name must be at most 150 characters'),
+  })
+  .strict();
+
 /* The whole Programme page, as the admin screen submits it. Order of every list is the order shown on the site. */
 export const updateProgrammePageSchema = {
   body: z
@@ -36,6 +51,7 @@ export const updateProgrammePageSchema = {
           note: bilingual(500, 'Note'),
         })
         .strict(),
+      facts,
       isPublished: z.boolean().optional(),
     })
     .strict()

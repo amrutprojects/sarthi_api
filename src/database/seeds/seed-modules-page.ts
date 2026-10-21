@@ -40,12 +40,6 @@ const SETTINGS = {
   sessionLabelEn: 'per session',
   fixedPathPct: 40,
   selfPathPct: 60,
-  /* The fact sheet on /programme. */
-  idealMonths: 6,
-  validityMonths: 12,
-  securityDeposit: 2000,
-  applyLeadDays: 30,
-  partnerName: "SUMAGO INFOTECH PVT LTD",
   /* The headline district figure on the home page; the programme dataset draws 36 map tiles. */
   districtCount: 36,
 };
@@ -183,9 +177,8 @@ export async function seedModulesPage(ds: DataSource): Promise<ModulesSeedSummar
     const existing = await settingsRepo.findOne({ where: { isDelete: false } });
     if (existing) return { created: false, modulesCreated: 0, electivesCreated: 0 };
 
-    const settings = await settingsRepo.save(
-      settingsRepo.create({ ...SETTINGS, isPublished: true }),
-    );
+    /* No isPublished: the Modules page has no publish switch, and the column keeps its default. */
+    const settings = await settingsRepo.save(settingsRepo.create(SETTINGS));
 
     const moduleRepo = m.getRepository(ProgrammeModule);
     const domainRepo = m.getRepository(ProgrammeElectiveDomain);

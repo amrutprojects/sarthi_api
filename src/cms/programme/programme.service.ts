@@ -3,12 +3,22 @@ import { AppDataSource } from '../../config/database.config';
 import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { auditService } from '../../modules/audit/audit.service';
 import { AppError } from '../../shared/errors/app-error';
-import { ProgrammePageSettings, type AssessmentRow, type BilingualText, type MethodologyRow, type TrainingModes } from './programme.model';
+import {
+  ProgrammePageSettings,
+  type AssessmentRow,
+  type BilingualText,
+  type MethodologyRow,
+  type ProgrammeFacts,
+  type TrainingModes,
+} from './programme.model';
 import type { UpdateProgrammePageBody } from './programme.validator';
 
 const NOT_CONFIGURED = 'The Programme page has not been configured yet. Run the database seed to create it.';
 
-/* What the public site prints: words and numbers only (no ids, timestamps or publication flag). */
+/*
+ * What the public site prints: words and numbers only (no ids, timestamps or publication flag). The fact sheet's totals
+ * (hours, module line, elective count) are not here: the site sums them from the published modules.
+ */
 export interface PublicProgrammePage {
   intro: BilingualText;
   objectives: BilingualText[];
@@ -17,6 +27,7 @@ export interface PublicProgrammePage {
   assessmentNote: BilingualText;
   certification: BilingualText[];
   trainingModes: TrainingModes;
+  facts: ProgrammeFacts;
 }
 export interface AdminProgrammePage extends PublicProgrammePage {
   id: string;
@@ -35,6 +46,13 @@ const toPublic = (s: ProgrammePageSettings): PublicProgrammePage => ({
   assessmentNote: { mr: s.assessmentNoteMr, en: s.assessmentNoteEn },
   certification: s.certification,
   trainingModes: s.trainingModes,
+  facts: {
+    idealMonths: s.idealMonths,
+    validityMonths: s.validityMonths,
+    securityDeposit: s.securityDeposit,
+    applyLeadDays: s.applyLeadDays,
+    partnerName: s.partnerName,
+  },
 });
 const toAdmin = (s: ProgrammePageSettings): AdminProgrammePage => ({
   id: s.id,
@@ -51,7 +69,7 @@ export const programmeService = {
     return toAdmin(s);
   },
 
-  /* Replaces the whole page in one transaction (what the admin screen submits). Audited with the section names. */
+  /* Replaces the whole page in one transaction (what the admin screen submits). Audited with the section sizes and the fact sheet. */
   async update(input: UpdateProgrammePageBody, req: Request): Promise<AdminProgrammePage> {
     await AppDataSource.transaction(async (m) => {
       const s = await m.getRepository(ProgrammePageSettings).findOne({ where: { isDelete: false } });
@@ -66,6 +84,11 @@ export const programmeService = {
         assessmentNoteEn: input.assessmentNote.en,
         certification: input.certification,
         trainingModes: input.trainingModes,
+        idealMonths: input.facts.idealMonths,
+        validityMonths: input.facts.validityMonths,
+        securityDeposit: input.facts.securityDeposit,
+        applyLeadDays: input.facts.applyLeadDays,
+        partnerName: input.facts.partnerName,
         ...(input.isPublished !== undefined ? { isPublished: input.isPublished } : {}),
       });
       await auditService.recordInTx(m, req, {
@@ -78,6 +101,7 @@ export const programmeService = {
           assessment: input.assessment.length,
           certification: input.certification.length,
           trainingModes: input.trainingModes.modes.length,
+          facts: input.facts,
           isPublished: input.isPublished,
         },
       });
