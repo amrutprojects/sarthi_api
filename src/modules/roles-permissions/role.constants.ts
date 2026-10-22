@@ -3,7 +3,7 @@
  * expressed in the menu permission codes `<menu>.<view|create|update|delete|approve>`.
  * Seeding is idempotent: roles are matched by `code`; defaults are applied when a role is created.
  */
-import { P, menuCodes, type MenuKey } from './permission.constants';
+import { P, WEBSITE_MENUS, menuCodes, type MenuKey } from './permission.constants';
 
 export interface RoleDefinition {
   code: string;
@@ -24,7 +24,13 @@ export type RolePlatform = (typeof ROLE_PLATFORMS)[number];
 export const ROLE_CODES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
   SUMAGO_SUPER_ADMIN: 'SUMAGO_SUPER_ADMIN',
+  /* Public website content only: confined to WEBSITE_MENUS and never combined with another role (RbacService rules 6 and 7). */
+  WEBSITE_ADMIN: 'WEBSITE_ADMIN',
 } as const;
+
+/* The website's singleton pages are viewed and edited; its list pages and the geography masters also add and delete. */
+const WEBSITE_PAGES: MenuKey[] = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-home', 'cms-highlight', 'cms-programme'];
+const WEBSITE_LISTS: MenuKey[] = WEBSITE_MENUS.filter((m) => !WEBSITE_PAGES.includes(m));
 
 const view = (...menus: MenuKey[]) => menuCodes(menus, ['view']);
 const edit = (...menus: MenuKey[]) => menuCodes(menus, ['create', 'update']);
@@ -97,6 +103,13 @@ export const ROLES: RoleDefinition[] = [
     isSystem: true,
     permissions: 'ALL',
     description: 'Every Super Admin permission plus Student Registration',
+  },
+  {
+    code: ROLE_CODES.WEBSITE_ADMIN,
+    name: 'Website Admin',
+    isSystem: true,
+    description: 'Public website content (the CMS menu) only; no programme data, masters or administration',
+    permissions: [...menuCodes(WEBSITE_PAGES, ['view', 'update']), ...menuCodes(WEBSITE_LISTS, ['view', 'create', 'update', 'delete'])],
   },
   {
     code: 'AMRUT_ADMIN',
