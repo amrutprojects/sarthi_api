@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { sign, verifyLmsSignature } from '../../../src/modules/lms-access/integration-signature';
-import { AppError } from '../../../src/shared/errors/app-error';
+import type { AppError } from '../../../src/shared/errors/app-error';
 
 const SECRET = 'unit-test-lms-integration-secret-0123456789';
 const PATH = '/integration/v1/lms/sign-in';

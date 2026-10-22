@@ -85,21 +85,27 @@ describe('LMS roles and Admin Panel sign-in for the LMS', () => {
   it('signs an Admin Panel user in to the LMS with only the LMS menus of their LMS roles', async () => {
     const { token } = await superAdmin();
     const role = await lmsRole(token, ['batch.view', 'attendance.view']);
+    const second = await lmsRole(token, ['oft.view'], 'LMS_OFT_REVIEWER');
     const adminRole = await createRoleWith(['dashboard.view']);
-    const user = await createUser({ roleCodes: [role.code, adminRole.code] });
+    const user = await createUser({ roleCodes: [role.code, second.code, adminRole.code] });
 
     const ok = await signed('post', `${INT}/sign-in`, { identifier: user.email, password: PASSWORD });
     expect(ok.status).toBe(HTTP_STATUS.OK);
     expect(ok.body.data).toMatchObject({
       user: { id: user.id, email: user.email },
       active: true,
-      roles: [{ code: role.code }],
-      lmsPermissions: ['attendance.view', 'batch.view'],
+      lmsPermissions: ['attendance.view', 'batch.view', 'oft.view'],
     });
+    /* Each LMS role carries only its own codes, so the LMS can mirror roles separately; the Admin Panel role is never sent. */
+    const byCode = Object.fromEntries(
+      (ok.body.data.roles as { code: string; lmsPermissions: string[] }[]).map((r) => [r.code, r.lmsPermissions]),
+    );
+    expect(byCode).toEqual({ [role.code]: ['attendance.view', 'batch.view'], [second.code]: ['oft.view'] });
 
     const access = await signed('get', `${INT}/users/${user.id}/access`);
     expect(access.status).toBe(HTTP_STATUS.OK);
-    expect(access.body.data.lmsPermissions).toEqual(['attendance.view', 'batch.view']);
+    expect(access.body.data.lmsPermissions).toEqual(['attendance.view', 'batch.view', 'oft.view']);
+    expect(access.body.data.roles).toHaveLength(2);
 
     await request(app).patch(`${API}/users/${user.id}/status`).set(auth(token)).send({ isActive: false });
     const after = await signed('get', `${INT}/users/${user.id}/access`);

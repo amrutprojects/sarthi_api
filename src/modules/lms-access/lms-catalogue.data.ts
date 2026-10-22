@@ -1,6 +1,6 @@
 /*
  * Snapshot of the LMS permission catalogue and LMS sidebar menus, copied from the LMS repositories:
- *   lms-api/src/modules/access-control/constants/permissions.constants.ts  (157 codes)
+ *   lms-api/src/modules/access-control/constants/permissions.constants.ts  (158 codes)
  *   lms-admin/src/constants/modules.ts                                   (sidebar menus and the codes that open them)
  * The LMS is the owner of these codes; this copy only lets the Admin Panel offer them on a role.
  * Regenerate it when the LMS catalogue changes (codes are never renamed, only added).
@@ -30,6 +30,7 @@ export const LMS_PERMISSIONS: readonly LmsPermissionDef[] = [
   { code: 'iam.user.assign_role', area: 'iam', sensitive: false, description: 'Assign or remove a role on a user.' },
   { code: 'iam.user.assign_scope', area: 'iam', sensitive: false, description: 'Assign or remove a data scope on a user.' },
   { code: 'iam.role.view', area: 'iam', sensitive: false, description: 'View roles and the permission matrix.' },
+  { code: 'iam.permission.status', area: 'iam', sensitive: true, description: 'Switch a permission on or off for every role.' },
   { code: 'iam.role.create', area: 'iam', sensitive: false, description: 'Create or clone a role.' },
   { code: 'iam.role.update', area: 'iam', sensitive: false, description: 'Edit a role and its permissions.' },
   { code: 'iam.role.archive', area: 'iam', sensitive: false, description: 'Archive a role.' },

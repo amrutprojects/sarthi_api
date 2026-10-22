@@ -27,8 +27,12 @@ export interface RoleLmsAccess {
 export interface LmsAccess {
   user: { id: string; email: string; name: string };
   active: boolean;
-  /* The user's active LMS roles (Admin Panel roles are never sent). */
-  roles: { code: string; name: string }[];
+  /*
+   * The user's active LMS roles (Admin Panel roles are never sent), each with its own LMS codes, so the LMS can mirror
+   * every role separately without one holder's other roles leaking into it.
+   */
+  roles: { code: string; name: string; lmsPermissions: string[] }[];
+  /* Union of the roles' codes: what this user may do in the LMS. */
   lmsPermissions: string[];
 }
 
@@ -106,11 +110,15 @@ export class LmsAccessService {
       : [];
     const rows = roles.length ? await this.repo().find({ where: { roleId: In(roles.map((r) => r.id)), isDelete: false } }) : [];
     const active = user.isActive;
+    const codesOf = (roleId?: string) =>
+      active
+        ? [...new Set(rows.filter((r) => !roleId || r.roleId === roleId).map((r) => r.code))].filter((c) => LMS_CODES.has(c)).sort()
+        : [];
     return {
       user: { id: user.id, email: user.email, name: user.name },
       active,
-      roles: roles.map((r) => ({ code: r.code, name: r.name })),
-      lmsPermissions: active ? [...new Set(rows.map((r) => r.code))].filter((c) => LMS_CODES.has(c)).sort() : [],
+      roles: roles.map((r) => ({ code: r.code, name: r.name, lmsPermissions: codesOf(r.id) })),
+      lmsPermissions: codesOf(),
     };
   }
 
