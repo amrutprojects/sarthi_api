@@ -1,4 +1,4 @@
-import type { DataSource, EntityManager } from 'typeorm';
+import { In, type DataSource, type EntityManager } from 'typeorm';
 import { ALL_PERMISSIONS, LEGACY_CODE_MAP } from '../../modules/roles-permissions';
 import { ROLES } from '../../modules/roles-permissions';
 import { Permission } from '../../modules/roles-permissions';
@@ -29,13 +29,20 @@ export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
     const roleRepo = m.getRepository(Role);
     const grantRepo = m.getRepository(RolePermission);
 
+    /*
+     * Codes that have ever had a row, soft-deleted ones included. The carry-over below runs only for a code seen
+     * for the first time: a code an admin deleted is re-created for the catalogue (and SUPER_ADMIN), but its
+     * holders are not re-granted it, so the deletion sticks.
+     */
+    const everExisted = new Set(
+      (await permRepo.find({ where: { code: In(ALL_PERMISSIONS.map((d) => d.code)) }, select: { code: true } })).map((p) => p.code),
+    );
+
     const byCode = new Map<string, Permission>();
-    const createdNow = new Set<string>();
     for (const def of ALL_PERMISSIONS) {
       let p = await permRepo.findOne({ where: { code: def.code, isDelete: false } });
       if (!p) {
         p = await permRepo.save(permRepo.create({ ...def }));
-        createdNow.add(def.code);
         summary.permissionsCreated++;
       } else if (p.name !== def.name || p.module !== def.module || p.description !== def.description) {
         await permRepo.update(p.id, { name: def.name, module: def.module, description: def.description });
@@ -48,7 +55,15 @@ export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
     for (const [oldCode, { retire, to }] of Object.entries(LEGACY_CODE_MAP)) {
       const old = await permRepo.findOne({ where: { code: oldCode, isDelete: false } });
       if (!old) continue;
-      const targets = (retire ? to : to.filter((c) => createdNow.has(c))).map((c) => byCode.get(c)).filter((x): x is Permission => !!x);
+      /*
+       * An inactive source grants nothing, so it passes nothing on: a retired code hands over no grants, and the
+       * first-time counterparts of a kept code start inactive, so an admin's deactivation carries over with them.
+       */
+      const targetCodes = retire ? (old.isActive ? to : []) : to.filter((c) => !everExisted.has(c));
+      const targets = targetCodes.map((c) => byCode.get(c)).filter((x): x is Permission => !!x);
+      if (!retire && !old.isActive && targets.length) {
+        await permRepo.update({ id: In(targets.map((t) => t.id)) }, { isActive: false });
+      }
       const holders = await grantRepo.find({ where: { permissionId: old.id, isDelete: false } });
       for (const g of holders) {
         const have = new Set((await grantRepo.find({ where: { roleId: g.roleId, isDelete: false } })).map((x) => x.permissionId));

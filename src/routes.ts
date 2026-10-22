@@ -17,9 +17,14 @@ import {
   publicContactRouter,
   publicFooterRouter,
   publicGeographyRouter,
-  publicModulesRouter, publicHighlightRouter,
+  publicModulesRouter,
+  publicHighlightRouter,
   publicProgrammeRouter,
+  publicFaqRouter,
+  publicEligibilityRouter,
+  publicApplyRouter,
 } from './cms';
+import { lmsRouter } from './lms';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
 export const apiRouter = Router();
@@ -36,8 +41,11 @@ apiRouter.use('/permissions', permissionRouter);
 apiRouter.use('/audit-logs', auditLogRouter);
 for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
 
-/* CMS content and geography masters. Every route under /cms requires a session (see src/cms/index.ts). */
+/* CMS content, geography masters and the Masters group. Every route under /cms requires a session (see src/cms/index.ts). */
 apiRouter.use('/cms', cmsRouter);
+
+/* LMS Admin masters. Every route under /lms requires a session (see src/lms/index.ts). */
+apiRouter.use('/lms', lmsRouter);
 
 /* Read-only content for the public website. Unauthenticated by design — see the route files. */
 apiRouter.use('/public/geography', publicGeographyRouter);
@@ -46,3 +54,6 @@ apiRouter.use('/public/footer', publicFooterRouter);
 apiRouter.use('/public/modules', publicModulesRouter);
 apiRouter.use('/public/highlight', publicHighlightRouter);
 apiRouter.use('/public/programme', publicProgrammeRouter);
+apiRouter.use('/public/faqs', publicFaqRouter);
+apiRouter.use('/public/eligibility', publicEligibilityRouter);
+apiRouter.use('/public/apply', publicApplyRouter);

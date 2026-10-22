@@ -7,8 +7,11 @@ import { AppError } from '../../../shared/errors/app-error';
 import type { Paginated } from '../../../shared/utils/pagination';
 import { districtRepository } from '../district/district.repository';
 import { districtService } from '../district/district.service';
+import { College } from '../../../masters/college/college.model';
+import { assertNoRefs, countRefs, lockForUpdate, plural } from '../../../masters/shared/master-refs';
+import { TrainingCentre } from '../../../masters/training-centre/training-centre.model';
 import { stateRepository } from '../state/state.repository';
-import type { Taluka } from './taluka.model';
+import { Taluka } from './taluka.model';
 import { talukaRepository } from './taluka.repository';
 import type { CreateTalukaInput, PublicTalukaDetail, TalukaListQuery, UpdateTalukaInput } from './taluka.types';
 
@@ -111,7 +114,11 @@ export class TalukaService {
 
   async update(id: string, input: UpdateTalukaInput & { stateId?: string }, req?: Request): Promise<PublicTalukaDetail> {
     await AppDataSource.transaction(async (m) => {
-      const taluka = await talukaRepository.findById(id, { manager: m });
+      /*
+       * Locked FOR UPDATE before the move check below counts colleges and centres: one being saved with
+       * this taluka concurrently holds it FOR SHARE, so it is either counted or re-reads the moved taluka.
+       */
+      const taluka = await lockForUpdate(m, Taluka, id);
       if (!taluka) throw AppError.notFound('Taluka not found');
 
       /*
@@ -121,6 +128,20 @@ export class TalukaService {
       const districtId = input.districtId ?? taluka.districtId;
       const moved = districtId !== taluka.districtId;
       if (input.districtId || input.stateId) await this.resolveDistrict(districtId, input.stateId, m);
+      /*
+       * Colleges and training centres store both a district and this taluka. Moving the taluka under them
+       * would leave records whose taluka is not in their district, so the move waits until they are re-pointed.
+       */
+      if (moved) {
+        const colleges = await countRefs(m, College, 'talukaId', id);
+        const centres = await countRefs(m, TrainingCentre, 'talukaId', id);
+        if (colleges + centres > 0) {
+          const held = [colleges ? plural(colleges, 'college') : '', centres ? plural(centres, 'training centre') : ''].filter(Boolean).join(' and ');
+          throw AppError.conflict(
+            `This taluka cannot move to another district while ${held} ${colleges + centres === 1 ? 'references' : 'reference'} it. Re-point those records first.`,
+          );
+        }
+      }
       await this.assertUniqueInDistrict(
         districtId,
         { name: input.name ?? (moved ? taluka.name : undefined), code: input.code ?? (moved ? taluka.code : undefined) },
@@ -158,11 +179,20 @@ export class TalukaService {
     return this.get(id);
   }
 
-  /* Soft-deletes the taluka. Nothing hangs off a taluka, so there is no child check here. */
+  /*
+   * Soft-deletes the taluka. Refused while a college or training centre names it. The row is locked FOR
+   * UPDATE before counting, so a record being saved with it concurrently is either counted here or
+   * refused by its own locked parent check (assertUsableRef).
+   */
   async remove(id: string, req?: Request): Promise<void> {
     await AppDataSource.transaction(async (m) => {
-      const taluka = await talukaRepository.findById(id, { manager: m });
+      const taluka = await lockForUpdate(m, Taluka, id);
       if (!taluka) throw AppError.notFound('Taluka not found');
+      /* Colleges and training centres may name the taluka; soft delete must not leave them pointing at a deleted row. */
+      assertNoRefs('taluka', [
+        { count: await countRefs(m, College, 'talukaId', id), one: 'college' },
+        { count: await countRefs(m, TrainingCentre, 'talukaId', id), one: 'training centre' },
+      ]);
       await talukaRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.TALUKA_DELETE,
