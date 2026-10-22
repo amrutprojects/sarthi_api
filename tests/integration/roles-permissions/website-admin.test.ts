@@ -1,7 +1,9 @@
 import type { Express } from 'express';
 import { Permission, RolePermission } from '../../../src/database/entities';
+import { seedAmrutImpact } from '../../../src/database/seeds/seed-amrut-impact';
 import { seedContactPage } from '../../../src/database/seeds/seed-contact-page';
 import { seedFooter } from '../../../src/database/seeds/seed-footer';
+import { seedHomeHero } from '../../../src/database/seeds/seed-home-hero';
 import { seedModulesPage } from '../../../src/database/seeds/seed-modules-page';
 import { seedProgrammeHighlight } from '../../../src/database/seeds/seed-programme-highlight';
 import { seedProgrammePage } from '../../../src/database/seeds/seed-programme-page';
@@ -32,13 +34,15 @@ beforeAll(async () => {
   admin = await superAdmin();
   websiteRoleId = await roleId(ROLE_CODES.WEBSITE_ADMIN);
   /* The website's singleton pages, as `npm run seed` creates them. */
-  for (const seed of [seedContactPage, seedFooter, seedModulesPage, seedProgrammeHighlight, seedProgrammePage]) await seed(AppDataSource);
+  for (const seed of [seedContactPage, seedFooter, seedModulesPage, seedHomeHero, seedProgrammeHighlight, seedAmrutImpact, seedProgrammePage]) {
+    await seed(AppDataSource);
+  }
 });
 afterAll(teardownTestApp);
 
 /* The seeded grant: singleton pages are viewed and edited, list pages and geography masters also add and delete. */
-const PAGES = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-home', 'cms-highlight', 'cms-programme'];
-const LISTS = ['cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-states', 'cms-districts', 'cms-talukas'];
+const PAGES = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-hero', 'cms-highlight', 'cms-programme'];
+const LISTS = ['cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-impact', 'cms-states', 'cms-districts', 'cms-talukas'];
 const SEEDED = [
   ...PAGES.flatMap((m) => [`${m}.view`, `${m}.update`]),
   ...LISTS.flatMap((m) => [`${m}.view`, `${m}.create`, `${m}.update`, `${m}.delete`]),
@@ -140,8 +144,10 @@ describe('CMS operations as a Website Admin', () => {
       '/cms/contact',
       '/cms/footer',
       '/cms/modules',
-      '/cms/home',
+      '/cms/hero',
       '/cms/highlight',
+      '/cms/impact',
+      '/cms/impact/settings',
       '/cms/programme',
       '/cms/faqs',
       '/cms/eligibility/settings',
@@ -174,9 +180,8 @@ describe('CMS operations as a Website Admin', () => {
   });
 
   it('edits the singleton pages', async () => {
-    const home = await request(app).patch(`${API}/cms/home`).set(auth(wa.token)).send({ districtCount: 35 });
-    expect(home.status).toBe(200);
-    expect(home.body.data.districtCount).toBe(35);
+    const hero = await request(app).patch(`${API}/cms/hero/status`).set(auth(wa.token)).send({ isPublished: true });
+    expect(hero.status).toBe(200);
     const contact = await request(app).patch(`${API}/cms/contact/status`).set(auth(wa.token)).send({ isPublished: true });
     expect(contact.status).toBe(200);
   });

@@ -7,6 +7,8 @@ import { ELIGIBILITY_ENTITIES } from './eligibility/eligibility.entities';
 import { APPLY_ENTITIES } from './apply/apply.entities';
 import { MASTER_ENTITIES } from './masters/masters.entities';
 import { PROGRAMME_PAGE_ENTITIES } from './programme/programme.entities';
+import { HERO_ENTITIES } from './hero/hero.entities';
+import { IMPACT_ENTITIES } from './impact/impact.entities';
 
 export { ContactOrganization, ContactPageSettings } from './contact/contact.entities';
 export { District, State, Taluka } from './masters/masters.entities';
@@ -17,6 +19,8 @@ export { ProgrammePageSettings } from './programme/programme.entities';
 export { Faq } from './faq/faq.entities';
 export { EligibilityItem, EligibilityPageSettings } from './eligibility/eligibility.entities';
 export { ApplyPageItem, ApplyPageSettings } from './apply/apply.entities';
+export { HomeHero, HomeHeroSlide } from './hero/hero.entities';
+export { ImpactSection, ImpactStat } from './impact/impact.entities';
 
 /*
  * Every model the CMS contributes to the DataSource, picked up by src/entities/index.ts.
@@ -36,4 +40,6 @@ export const CMS_ENTITIES = [
   ...FAQ_ENTITIES,
   ...ELIGIBILITY_ENTITIES,
   ...APPLY_ENTITIES,
+  ...HERO_ENTITIES,
+  ...IMPACT_ENTITIES,
 ];

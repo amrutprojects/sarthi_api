@@ -24,6 +24,8 @@ import {
   publicFaqRouter,
   publicEligibilityRouter,
   publicApplyRouter,
+  publicHeroRouter,
+  publicImpactRouter,
 } from './cms';
 import { lmsRouter } from './lms';
 
@@ -66,3 +68,5 @@ apiRouter.use('/public/apply', publicApplyRouter);
  */
 export const integrationRouter = Router();
 integrationRouter.use('/lms', lmsIntegrationRouter);
+apiRouter.use('/public/hero', publicHeroRouter);
+apiRouter.use('/public/impact', publicImpactRouter);

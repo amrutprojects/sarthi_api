@@ -55,7 +55,8 @@ export const MENUS = {
   'cms-contact': 'Contact Page Management',
   'cms-footer': 'Footer Management',
   'cms-modules': 'Modules Page Management',
-  'cms-home': 'Home Page Figures',
+  'cms-hero': 'Home Hero Section',
+  'cms-impact': 'AMRUT Impact Management',
   'cms-highlight': 'Home Programme Section',
   'cms-programme': 'Programme Page Management',
   'cms-faqs': 'FAQ Management',
@@ -151,10 +152,14 @@ export const PERMISSIONS = {
   CMS_CONTACT_UPDATE: def('cms-contact.update', 'Update Contact Page Management', 'Update in the Contact Page Management menu'),
   CMS_FOOTER_VIEW: def('cms-footer.view', 'View Footer Management', 'View in the Footer Management menu'),
   CMS_FOOTER_UPDATE: def('cms-footer.update', 'Update Footer Management', 'Update in the Footer Management menu'),
+  CMS_HERO_VIEW: def('cms-hero.view', 'View Home Hero Section', 'View in the Home Hero Section menu'),
+  CMS_HERO_UPDATE: def('cms-hero.update', 'Update Home Hero Section', 'Update in the Home Hero Section menu'),
+  CMS_IMPACT_VIEW: def('cms-impact.view', 'View AMRUT Impact Management', 'View in the AMRUT Impact Management menu'),
+  CMS_IMPACT_CREATE: def('cms-impact.create', 'Add AMRUT Impact Management', 'Add in the AMRUT Impact Management menu'),
+  CMS_IMPACT_UPDATE: def('cms-impact.update', 'Update AMRUT Impact Management', 'Update in the AMRUT Impact Management menu'),
+  CMS_IMPACT_DELETE: def('cms-impact.delete', 'Delete AMRUT Impact Management', 'Delete in the AMRUT Impact Management menu'),
   CMS_HIGHLIGHT_VIEW: def('cms-highlight.view', 'View Home Programme Section', 'View in the Home Programme Section menu'),
   CMS_HIGHLIGHT_UPDATE: def('cms-highlight.update', 'Update Home Programme Section', 'Update in the Home Programme Section menu'),
-  CMS_HOME_VIEW: def('cms-home.view', 'View Home Page Figures', 'View in the Home Page Figures menu'),
-  CMS_HOME_UPDATE: def('cms-home.update', 'Update Home Page Figures', 'Update in the Home Page Figures menu'),
   CMS_MODULES_VIEW: def('cms-modules.view', 'View Modules Page Management', 'View in the Modules Page Management menu'),
   CMS_MODULES_UPDATE: def('cms-modules.update', 'Update Modules Page Management', 'Update in the Modules Page Management menu'),
   CMS_PROGRAMME_VIEW: def('cms-programme.view', 'View Programme Page Management', 'View in the Programme Page Management menu'),
@@ -288,7 +293,7 @@ export const LMS_MENUS = [
  * under /cms is not part of the website.
  */
 export const WEBSITE_MENUS = [
-  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-home', 'cms-highlight', 'cms-programme',
+  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-hero', 'cms-highlight', 'cms-impact', 'cms-programme',
   'cms-states', 'cms-districts', 'cms-talukas',
 ] as const satisfies readonly MenuKey[];
 
@@ -318,6 +323,8 @@ export const menuCodes = (menus: MenuKey[], actions: readonly MenuAction[] = MEN
  * Codes from the earlier catalogue → their replacements. On a seed run, a role holding a retired code is
  * granted its replacements and the retired permission is soft-deleted; a role holding a kept code is
  * granted those replacements that the same run newly created. Both happen once, so later edits stick.
+ * A menu merged into another retires all five of its codes the same way, each to the matching action.
+ * A code an administrator deactivated grants nothing, so its holders receive no replacements (a retired one is still soft-deleted).
  */
 export const LEGACY_CODE_MAP: Record<string, { retire: boolean; to: string[] }> = {
   'dashboard.view': { retire: false, to: menuCodes(['exec', 'today'], ['view']) },
@@ -349,4 +356,10 @@ export const LEGACY_CODE_MAP: Record<string, { retire: boolean; to: string[] }> 
   'lms-calendars.view': { retire: false, to: menuCodes(['lms-learning-config'], ['view']) },
   'lms-calendars.update': { retire: false, to: menuCodes(['lms-learning-config'], ['update']) },
   'lms-branding.update': { retire: false, to: ['lms-branding.update-settings'] },
+  /* Home Page Figures was merged into Home Hero Section, which now edits the "Programme at a glance" card. */
+  'cms-home.view': { retire: true, to: menuCodes(['cms-hero'], ['view']) },
+  'cms-home.create': { retire: true, to: menuCodes(['cms-hero'], ['create']) },
+  'cms-home.update': { retire: true, to: menuCodes(['cms-hero'], ['update']) },
+  'cms-home.delete': { retire: true, to: menuCodes(['cms-hero'], ['delete']) },
+  'cms-home.approve': { retire: true, to: menuCodes(['cms-hero'], ['approve']) },
 };
