@@ -15,6 +15,8 @@ import { IdempotencyKey } from '../shared/idempotency/idempotency-key.entity';
 import { StudentDocument } from '../modules/students/documents/student-document.entity';
 import { Caste, DocumentType, Education, Region } from '../modules/masters/master.entity';
 import { CMS_ENTITIES, ContactOrganization, ContactPageSettings, District, State, Taluka } from '../cms/cms.entities';
+import { MASTER_ENTITIES } from '../masters/masters.entities';
+import { LMS_ENTITIES } from '../lms/lms.entities';
 
 export { AppBaseEntity } from './base.entity';
 export { Caste, DocumentType, Education, Region };
@@ -57,4 +59,6 @@ export const ENTITIES = [
   Education,
   /* CMS geography masters and Contact page content (src/cms). */
   ...CMS_ENTITIES,
+  ...MASTER_ENTITIES,
+  ...LMS_ENTITIES,
 ];

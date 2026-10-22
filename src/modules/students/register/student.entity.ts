@@ -3,7 +3,8 @@ import { AppBaseEntity } from '../../../database/base.entity';
 
 /*
  * Student master register (A-18). Rows come from import finalisation (source IMPORT, approved) or from the public
- * registration API (source PUBLIC_REGISTRATION, status REGISTRATION_PENDING, not approved).
+ * registration API (source PUBLIC_REGISTRATION, status REGISTRATION_PENDING, not approved until an approved import
+ * row is reconciled onto it as the same person; finalisation then makes it RECEIVED and keeps the source).
  * Aadhaar is stored encrypted with a blind index and last four digits; it is never returned unmasked.
  */
 @Entity({ name: 'students' })

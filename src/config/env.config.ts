@@ -92,9 +92,20 @@ const schema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   /* Optional folder inside the bucket, e.g. "dev" or "prod". */
   AWS_KEY_PREFIX: z.string().default(''),
-  DOCUMENT_MAX_FILE_MB: z.coerce.number().positive().default(5),
+  /* Size cap of one uploaded document (student documents and Document Master uploads alike). */
+  DOCUMENT_MAX_FILE_MB: z.coerce.number().positive().max(50).default(5),
   DOCUMENTS_ZIP_MAX_MB: z.coerce.number().positive().default(500),
   DOCUMENTS_ZIP_MAX_FILES: z.coerce.number().int().positive().default(20_000),
+
+  /* Document Master uploads: private directory outside the web root (relative to the working directory). */
+  DOCUMENT_STORAGE_DIR: z.string().min(1).default('storage/documents'),
+
+  /*
+   * LMS branding logo (F-LMS-04-02: "size and dimension limits from configuration"; the spec gives no value):
+   * maximum width / height in pixels, each optional. Unset (or blank) = no limit on that side.
+   */
+  LMS_LOGO_MAX_WIDTH_PX: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().positive().optional()),
+  LMS_LOGO_MAX_HEIGHT_PX: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().positive().optional()),
 
   /* Browser sessions: HttpOnly cookie carrying the access token (ADR-0003). */
   SESSION_COOKIE_NAME: z

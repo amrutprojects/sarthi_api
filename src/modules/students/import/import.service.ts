@@ -4,12 +4,13 @@ import type { Request } from 'express';
 import { In, type EntityManager } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
 import { env } from '../../../config/env.config';
-import { BATCH_STATUS, ISSUE_CODES, ROW_STATUS, type IssueCode } from '../student.constants';
+import { BATCH_STATUS, ISSUE_CODES, ROW_STATUS, STUDENT_STATUS, type IssueCode } from '../student.constants';
 import { ImportBatch, type ImportBatchCounts } from './import-batch.entity';
 import { ImportRow, type StoredIssue } from './import-row.entity';
 import { Student } from '../register/student.entity';
 import type { AuthUser } from '../../auth';
 import { AppError } from '../../../shared/errors/app-error';
+import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import { maskAadhaar, maskEmail, maskMobile } from '../aadhaar';
 import { auditService } from '../../audit';
 import { ImportFileError, parseImportFile } from './file-parser';
@@ -411,12 +412,34 @@ export class ImportService {
       let created = 0;
       let linked = 0;
       for (const row of valid) {
+        const d = row.data as unknown as NormalisedRow;
         if (row.matchStudentId && row.decision === 'SAME_PERSON') {
           /* Same person: linked to the existing student; protected identity fields are never overwritten by an import. */
           row.studentId = row.matchStudentId;
+          /*
+           * Linked to a public registration that is still pending: this approved row approves it (RECEIVED, with the
+           * row's approval evidence); otherwise the person could never hold a batch seat. The status guard leaves
+           * imported students and deleted rows untouched; source stays PUBLIC_REGISTRATION.
+           */
+          const promoted = await m.getRepository(Student).update(
+            { id: row.matchStudentId, isDelete: false, status: STUDENT_STATUS.REGISTRATION_PENDING },
+            {
+              status: STUDENT_STATUS.RECEIVED,
+              externalStatus: d.approvalStatus,
+              approvedAt: new Date(d.approvedAt as string),
+              evidenceRef: d.evidenceRef,
+            },
+          );
+          if (promoted.affected) {
+            await auditService.recordInTx(m, req, {
+              action: AUDIT_ACTIONS.STUDENT_REGISTRATION_PROMOTED,
+              resource: 'student',
+              resourceId: row.matchStudentId,
+              details: { importBatchId: batch.id, batchCode: batch.code, rowNumber: row.rowNumber },
+            });
+          }
           linked++;
         } else {
-          const d = row.data as unknown as NormalisedRow;
           const seq = await m.query(`SELECT nextval('students_code_seq') AS n`);
           /* Same registration number as public registrations (lock held until this finalisation commits). */
           const registrationNumber = await allocateRegistrationNumber(m);

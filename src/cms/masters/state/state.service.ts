@@ -5,7 +5,8 @@ import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import { auditService } from '../../../modules/audit/audit.service';
 import { AppError } from '../../../shared/errors/app-error';
 import type { Paginated } from '../../../shared/utils/pagination';
-import type { State } from './state.model';
+import { State } from './state.model';
+import { assertUsableRef, lockForUpdate } from '../../../masters/shared/master-refs';
 import { stateRepository } from './state.repository';
 import type { CreateStateInput, PublicStateDetail, StateListQuery, UpdateStateInput } from './state.types';
 
@@ -23,14 +24,11 @@ const toPublic = (s: State): PublicStateDetail => ({
  *
  * This runs on the server for every district write, independently of what the dropdown offered: a
  * client can post any stateId it likes, so the dropdown is a convenience, never the integrity check.
+ * The state is read FOR SHARE (assertUsableRef), so it cannot be deleted under a district being saved;
+ * see remove() for the other half.
  */
-export async function assertUsableState(stateId: string, manager?: EntityManager): Promise<State> {
-  const state = await stateRepository.findById(stateId, { manager });
-  if (!state) throw AppError.badRequest('The selected state does not exist', [{ field: 'stateId', message: 'Unknown state' }]);
-  if (!state.isActive) {
-    throw AppError.badRequest('The selected state is inactive', [{ field: 'stateId', message: 'Choose an active state' }]);
-  }
-  return state;
+export function assertUsableState(stateId: string, manager: EntityManager): Promise<State> {
+  return assertUsableRef(manager, State, stateId, 'stateId', 'state');
 }
 
 /*
@@ -110,16 +108,20 @@ export class StateService {
     return this.get(id);
   }
 
-  /* Soft-deletes the state. Refused while any district still references it (deactivate instead). */
+  /*
+   * Soft-deletes the state. Refused while any district still references it (deactivate instead).
+   * The row is locked FOR UPDATE before counting, so a district being saved under it concurrently is
+   * either counted here or refused by its own assertUsableState.
+   */
   async remove(id: string, req?: Request): Promise<void> {
     await AppDataSource.transaction(async (m) => {
-      const state = await stateRepository.findById(id, { manager: m });
+      const state = await lockForUpdate(m, State, id);
       if (!state) throw AppError.notFound('State not found');
       const districts = await stateRepository.countDistricts(id, { manager: m });
       if (districts > 0) {
         const plural = districts === 1 ? 'district' : 'districts';
         throw AppError.conflict(
-          `This state cannot be deleted while ${districts} ${plural} reference it. Deactivate it instead, or move or delete the districts first.`,
+          `This state cannot be deleted while ${districts} ${plural} ${districts === 1 ? 'references' : 'reference'} it. Deactivate it instead, or move or delete the districts first.`,
         );
       }
       await stateRepository.softDelete(id, m);
