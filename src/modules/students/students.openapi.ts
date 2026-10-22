@@ -559,7 +559,7 @@ documentEndpoint({
   summary: "Replace or add a student's documents and barcodes (edit form)",
   description: [
     'multipart/form-data: optional field `data` = JSON `{ barcodes: { CODE: "…" } }`; one file per document type code.',
-    'Same file rules as registration. A replaced file is archived and its record soft-deleted; the new file is unverified.',
+    'Same file rules as registration. A replaced document is deleted (record and file); the new file takes its place, unverified.',
     'Mandatory types must still have a file; required barcodes stay required. Audited.',
   ].join(' '),
   permission: 'registrations.update',

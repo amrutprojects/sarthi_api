@@ -1,8 +1,13 @@
+import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import type { Express } from 'express';
 import { AppDataSource } from '../../src/config/database.config';
 import { HTTP_STATUS } from '../../src/constants/api-response.constants';
 import { Student } from '../../src/database/entities';
+import { auditService } from '../../src/modules/audit';
 import { withVerhoeffDigit } from '../../src/modules/students/aadhaar';
+import { documentStorage, storageRoot } from '../../src/modules/students/documents/document-storage';
 import { StudentDocument } from '../../src/modules/students/documents/student-document.entity';
 import { ROLE_CODES } from '../../src/modules/roles-permissions/role.constants';
 import { API, actorWith, createUser, login, request, resetData, setupTestApp, superAdmin, teardownTestApp } from '../helpers/test-app';
@@ -11,8 +16,14 @@ let app: Express;
 beforeAll(async () => {
   app = await setupTestApp();
 });
-beforeEach(resetData);
-afterAll(teardownTestApp);
+beforeEach(async () => {
+  await resetData();
+  fs.rmSync(storageRoot(), { recursive: true, force: true });
+});
+afterAll(async () => {
+  fs.rmSync(storageRoot(), { recursive: true, force: true });
+  await teardownTestApp();
+});
 
 const URL = `${API}/student-registrations`;
 const PDF = Buffer.from('%PDF-1.4\n% test document\n%%EOF\n');
@@ -304,55 +315,234 @@ describe('admin registration entry with documents', () => {
     expect(onlyReg.body.data.map((r: { id: string }) => r.id)).toEqual([reg]);
   });
 
-  it('replaces a document (old archived, new unverified), updates barcodes, and keeps the rules', async () => {
-    const token = await sumagoToken();
-    const id = (await post(token, await data(), await allMandatory())).body.data.id as string;
-    const before = await request(app).get(`${URL}/${id}`).set('Authorization', `Bearer ${token}`);
-    const oldPhoto = before.body.data.files.find((f: { docType: string }) => f.docType === 'PHOTO');
-    await request(app).post(`${URL}/${id}/documents/${oldPhoto.id}/verify`).set('Authorization', `Bearer ${token}`);
-
-    const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
-    const res = await request(app)
-      .post(`${URL}/${id}/documents`)
-      .set('Authorization', `Bearer ${token}`)
-      .field('data', JSON.stringify({ barcodes: { INCOME_EWS: 'EWS-NEW-1' } }))
-      .attach('PHOTO', PNG, 'new-photo.png');
-    expect(res.status).toBe(HTTP_STATUS.OK);
-    const newPhoto = res.body.data.files.find((f: { docType: string }) => f.docType === 'PHOTO');
-    expect(newPhoto).toMatchObject({ originalName: 'new-photo.png', mimeType: 'image/png', verifiedAt: null });
-    expect(newPhoto.id).not.toBe(oldPhoto.id);
-    const ews = res.body.data.documents.find((d: { key: string }) => d.key === 'INCOME_EWS');
-    expect(ews.barcode).toBe('EWS-NEW-1');
-    const [old] = await AppDataSource.query(`SELECT "isDelete", "storageKey" FROM "student_documents" WHERE "id" = $1`, [oldPhoto.id]);
-    expect(old.isDelete).toBe(true);
-    expect(old.storageKey).toContain('/_replaced/');
-
-    const badFile = await request(app)
-      .post(`${URL}/${id}/documents`)
-      .set('Authorization', `Bearer ${token}`)
-      .attach('SIGNATURE', Buffer.from('MZ not a document'), 'sig.png');
-    expect(badFile.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
-    expect(badFile.body.error.details.map((d: { field: string }) => d.field)).toEqual(['files.SIGNATURE']);
-
-    const noBarcode = await request(app)
-      .post(`${URL}/${id}/documents`)
-      .set('Authorization', `Bearer ${token}`)
-      .field('data', JSON.stringify({ barcodes: { INCOME_EWS: '' } }));
-    expect(noBarcode.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
-    expect(noBarcode.body.error.details.map((d: { field: string }) => d.field)).toEqual(['body.barcodes.INCOME_EWS']);
-
-    const viewer = await actorWith(['registrations.view']);
-    const denied = await request(app)
-      .post(`${URL}/${id}/documents`)
-      .set('Authorization', `Bearer ${viewer.token}`)
-      .attach('PHOTO', PNG, 'p.png');
-    expect(denied.status).toBe(HTTP_STATUS.FORBIDDEN);
-  });
-
   it('requires registrations.create to enter and registrations.view to list', async () => {
     const viewer = await actorWith(['registrations.view']);
     expect((await request(app).get(URL).set('Authorization', `Bearer ${viewer.token}`)).status).toBe(HTTP_STATUS.OK);
     expect((await post(viewer.token, await data(), {})).status).toBe(HTTP_STATUS.FORBIDDEN);
     expect((await request(app).get(URL)).status).toBe(HTTP_STATUS.UNAUTHORIZED);
+  });
+});
+
+describe('replacing documents on the edit form', () => {
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const NEW_PDF = Buffer.from('%PDF-1.4\n% replacement document\n%%EOF\n');
+  const sha256 = (b: Buffer) => crypto.createHash('sha256').update(b).digest('hex');
+  const file = (key: string) => path.join(storageRoot(), ...key.split('/'));
+  const staged = (code: string) => {
+    const dir = file(`students/${code}/_staging`);
+    return fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+  };
+  /* Every row of one type, deleted or not. */
+  const rowsOf = (id: string, docType: string): Promise<StudentDocument[]> =>
+    AppDataSource.query(`SELECT * FROM "student_documents" WHERE "studentId" = $1 AND "docType" = $2`, [id, docType]);
+  const rowById = async (docId: string): Promise<StudentDocument | undefined> =>
+    (await AppDataSource.query(`SELECT * FROM "student_documents" WHERE "id" = $1`, [docId]))[0];
+  /* Advisory locks still held by any session (the per-student documents lock must always be released). */
+  const advisoryLocks = async () =>
+    Number(
+      (
+        await AppDataSource.query(
+          `SELECT COUNT(*) AS n FROM pg_locks l JOIN pg_database d ON d.oid = l.database
+           WHERE l.locktype = 'advisory' AND d.datname = current_database()`,
+        )
+      )[0].n,
+    );
+
+  async function student(token: string) {
+    const id = (await post(token, await data(), await allMandatory())).body.data.id as string;
+    const detail = (await request(app).get(`${URL}/${id}`).set('Authorization', `Bearer ${token}`)).body.data;
+    const fileOf = (docType: string) => detail.files.find((f: { docType: string }) => f.docType === docType);
+    return { id, code: detail.code as string, photo: fileOf('PHOTO'), signature: fileOf('SIGNATURE') };
+  }
+  function replace(token: string, id: string, files: Record<string, { buf: Buffer; name: string }>, body?: unknown) {
+    const r = request(app).post(`${URL}/${id}/documents`).set('Authorization', `Bearer ${token}`);
+    if (body !== undefined) r.field('data', JSON.stringify(body));
+    for (const [code, f] of Object.entries(files)) r.attach(code, f.buf, f.name);
+    return r;
+  }
+  const download = (token: string, id: string, docId: string) =>
+    request(app)
+      .get(`${URL}/${id}/documents/${docId}/file`)
+      .set('Authorization', `Bearer ${token}`)
+      .buffer(true)
+      .parse((res, cb) => {
+        const c: Buffer[] = [];
+        res.on('data', (x: Buffer) => c.push(x));
+        res.on('end', () => cb(null, Buffer.concat(c)));
+      });
+
+  it('deletes the old document (record and file), stores the new one unverified, updates barcodes, and keeps the rules', async () => {
+    const token = await sumagoToken();
+    const { id, code, photo: oldPhoto, signature } = await student(token);
+    await request(app).post(`${URL}/${id}/documents/${oldPhoto.id}/verify`).set('Authorization', `Bearer ${token}`);
+    const finalKey = `students/${code}/PHOTO.pdf`;
+    expect((await rowById(oldPhoto.id))?.storageKey).toBe(finalKey);
+    expect(fs.readFileSync(file(finalKey))).toEqual(PDF);
+
+    /* Same extension: the new file takes the old one's key. */
+    const res = await replace(token, id, { PHOTO: { buf: NEW_PDF, name: 'new-photo.pdf' } }, { barcodes: { INCOME_EWS: 'EWS-NEW-1' } });
+    expect(res.status).toBe(HTTP_STATUS.OK);
+    const photos = res.body.data.files.filter((f: { docType: string }) => f.docType === 'PHOTO');
+    expect(photos).toEqual([expect.objectContaining({ originalName: 'new-photo.pdf', mimeType: 'application/pdf', verifiedAt: null })]);
+    expect(photos[0].id).not.toBe(oldPhoto.id);
+    const ews = res.body.data.documents.find((d: { key: string }) => d.key === 'INCOME_EWS');
+    expect(ews.barcode).toBe('EWS-NEW-1');
+
+    /* The old record is gone (not soft-deleted) and the file at the key is the new one; nothing is left in staging. */
+    expect(await rowById(oldPhoto.id)).toBeUndefined();
+    const rows = await rowsOf(id, 'PHOTO');
+    expect(rows.map((r) => [r.id, r.storageKey, r.isDelete, r.verifiedAt])).toEqual([[photos[0].id, finalKey, false, null]]);
+    expect(fs.readFileSync(file(finalKey))).toEqual(NEW_PDF);
+    expect(fs.existsSync(file(`students/${code}/_replaced`))).toBe(false);
+    expect(staged(code)).toEqual([]);
+    const dl = await download(token, id, photos[0].id);
+    expect(dl.status).toBe(HTTP_STATUS.OK);
+    expect(dl.body).toEqual(NEW_PDF);
+
+    /* Other document types are untouched. */
+    expect((await rowsOf(id, 'SIGNATURE')).map((r) => r.id)).toEqual([signature.id]);
+    const detail = await request(app).get(`${URL}/${id}`).set('Authorization', `Bearer ${token}`);
+    const detailPhotos = detail.body.data.files.filter((f: { docType: string }) => f.docType === 'PHOTO');
+    expect(detailPhotos.map((f: { id: string }) => f.id)).toEqual([photos[0].id]);
+
+    const [audit] = await AppDataSource.query(
+      `SELECT "details" FROM "audit_logs" WHERE "action" = 'student.documents.update' AND "resourceId" = $1`,
+      [id],
+    );
+    expect(audit.details).toEqual({
+      code,
+      uploaded: ['PHOTO'],
+      replaced: [{ docType: 'PHOTO', originalName: 'photo.pdf', sizeBytes: PDF.length, sha256: sha256(PDF) }],
+      deleted: true,
+      barcodes: ['INCOME_EWS'],
+    });
+
+    const badFile = await replace(token, id, { SIGNATURE: { buf: Buffer.from('MZ not a document'), name: 'sig.png' } });
+    expect(badFile.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(badFile.body.error.details.map((d: { field: string }) => d.field)).toEqual(['files.SIGNATURE']);
+
+    const noBarcode = await replace(token, id, {}, { barcodes: { INCOME_EWS: '' } });
+    expect(noBarcode.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(noBarcode.body.error.details.map((d: { field: string }) => d.field)).toEqual(['body.barcodes.INCOME_EWS']);
+
+    const viewer = await actorWith(['registrations.view']);
+    const denied = await replace(viewer.token, id, { PHOTO: { buf: PNG, name: 'p.png' } });
+    expect(denied.status).toBe(HTTP_STATUS.FORBIDDEN);
+  });
+
+  it('replacing with a different file type leaves only the new file, at <TYPE>.<new ext>', async () => {
+    const token = await sumagoToken();
+    const { id, code, photo: oldPhoto } = await student(token);
+    expect(fs.existsSync(file(`students/${code}/PHOTO.pdf`))).toBe(true);
+
+    const res = await replace(token, id, { PHOTO: { buf: PNG, name: 'new-photo.png' } });
+    expect(res.status).toBe(HTTP_STATUS.OK);
+    const photos = res.body.data.files.filter((f: { docType: string }) => f.docType === 'PHOTO');
+    expect(photos).toEqual([expect.objectContaining({ originalName: 'new-photo.png', mimeType: 'image/png', verifiedAt: null })]);
+
+    expect(await rowById(oldPhoto.id)).toBeUndefined();
+    expect((await rowsOf(id, 'PHOTO')).map((r) => r.storageKey)).toEqual([`students/${code}/PHOTO.png`]);
+    expect(fs.existsSync(file(`students/${code}/PHOTO.pdf`))).toBe(false);
+    expect(fs.readFileSync(file(`students/${code}/PHOTO.png`))).toEqual(PNG);
+    expect(fs.readdirSync(file(`students/${code}`)).filter((n) => n.startsWith('PHOTO'))).toEqual(['PHOTO.png']);
+    expect(staged(code)).toEqual([]);
+    const dl = await download(token, id, photos[0].id);
+    expect(dl.headers['content-type']).toBe('image/png');
+    expect(dl.body).toEqual(PNG);
+  });
+
+  it('a rejected replace (missing barcode or an invalid file) leaves the old document, record and file untouched', async () => {
+    const token = await sumagoToken();
+    const { id, code, photo } = await student(token);
+    await request(app).post(`${URL}/${id}/documents/${photo.id}/verify`).set('Authorization', `Bearer ${token}`);
+    const before = await rowById(photo.id);
+    expect(before).toMatchObject({ isDelete: false, verifiedAt: expect.any(Date), storageKey: `students/${code}/PHOTO.pdf` });
+
+    const noBarcode = await replace(token, id, { PHOTO: { buf: PNG, name: 'p.png' } }, { barcodes: { INCOME_EWS: '' } });
+    expect(noBarcode.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    const badFile = await replace(token, id, {
+      PHOTO: { buf: PNG, name: 'p.png' },
+      SIGNATURE: { buf: Buffer.from('MZ not a document'), name: 'sig.png' },
+    });
+    expect(badFile.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+
+    expect(await rowsOf(id, 'PHOTO')).toEqual([before]);
+    expect(fs.readFileSync(file(`students/${code}/PHOTO.pdf`))).toEqual(PDF);
+    expect(fs.existsSync(file(`students/${code}/PHOTO.png`))).toBe(false);
+    expect(staged(code)).toEqual([]);
+    const audits = await AppDataSource.query(`SELECT 1 FROM "audit_logs" WHERE "action" = 'student.documents.update'`);
+    expect(audits).toEqual([]);
+  });
+
+  it('a database failure after the new file was staged removes the staged file and keeps the old document', async () => {
+    const token = await sumagoToken();
+    const { id, code, photo } = await student(token);
+    const before = await rowById(photo.id);
+    const write = jest.spyOn(documentStorage, 'write');
+    const audit = jest.spyOn(auditService, 'recordInTx').mockRejectedValueOnce(new Error('simulated database failure'));
+    try {
+      const res = await replace(token, id, { PHOTO: { buf: PNG, name: 'p.png' } });
+      expect(res.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      const stagedKey = write.mock.calls.map(([key]) => key).find((key) => key.includes('/_staging/'));
+      expect(stagedKey).toMatch(new RegExp(`^students/${code}/_staging/\\d+-[0-9a-f]{8}-PHOTO\\.png$`));
+      expect(fs.existsSync(file(stagedKey!))).toBe(false);
+    } finally {
+      write.mockRestore();
+      audit.mockRestore();
+    }
+    expect(await rowsOf(id, 'PHOTO')).toEqual([before]);
+    expect(fs.readFileSync(file(`students/${code}/PHOTO.pdf`))).toEqual(PDF);
+    expect(fs.existsSync(file(`students/${code}/PHOTO.png`))).toBe(false);
+    expect(staged(code)).toEqual([]);
+    expect(await advisoryLocks()).toBe(0);
+  });
+
+  it('a new file that cannot be moved into place after the commit stays downloadable from its staging key', async () => {
+    const token = await sumagoToken();
+    const { id, code, photo } = await student(token);
+    const move = jest.spyOn(documentStorage, 'move').mockRejectedValueOnce(new Error('simulated storage failure'));
+    try {
+      const res = await replace(token, id, { PHOTO: { buf: PNG, name: 'p.png' } });
+      expect(res.status).toBe(HTTP_STATUS.OK);
+    } finally {
+      move.mockRestore();
+    }
+    expect(await rowById(photo.id)).toBeUndefined();
+    expect(fs.existsSync(file(`students/${code}/PHOTO.pdf`))).toBe(false);
+    const [row] = await rowsOf(id, 'PHOTO');
+    expect(row!.storageKey).toMatch(new RegExp(`^students/${code}/_staging/`));
+    expect(fs.readFileSync(file(row!.storageKey))).toEqual(PNG);
+    const dl = await download(token, id, row!.id);
+    expect(dl.status).toBe(HTTP_STATUS.OK);
+    expect(dl.body).toEqual(PNG);
+    expect(await advisoryLocks()).toBe(0);
+  });
+
+  it('two replacements of the same document at once leave one record whose file is in place, with no stray files', async () => {
+    const token = await sumagoToken();
+    const { id, code } = await student(token);
+    /* The first request's move into place is held back, so the second one runs while the first is still moving files. */
+    const realMove = documentStorage.move;
+    const move = jest.spyOn(documentStorage, 'move').mockImplementationOnce(async (from, to) => {
+      await new Promise((r) => setTimeout(r, 1000));
+      return realMove(from, to);
+    });
+    try {
+      const results = await Promise.all([
+        replace(token, id, { PHOTO: { buf: PNG, name: 'a.png' } }),
+        replace(token, id, { PHOTO: { buf: NEW_PDF, name: 'b.pdf' } }),
+      ]);
+      expect(results.map((r) => r.status)).toEqual([HTTP_STATUS.OK, HTTP_STATUS.OK]);
+    } finally {
+      move.mockRestore();
+    }
+    const rows = await rowsOf(id, 'PHOTO');
+    expect(rows).toHaveLength(1);
+    const [row] = rows;
+    expect(row!.storageKey).toMatch(new RegExp(`^students/${code}/PHOTO\\.(png|pdf)$`));
+    expect(sha256(fs.readFileSync(file(row!.storageKey)))).toBe(row!.sha256);
+    expect(fs.readdirSync(file(`students/${code}`)).filter((n) => n.startsWith('PHOTO'))).toEqual([row!.storageKey.split('/').pop()]);
+    expect(staged(code)).toEqual([]);
+    expect(await advisoryLocks()).toBe(0);
   });
 });
