@@ -2,10 +2,13 @@ import { District } from '../../cms/masters/district/district.model';
 import { TechnologyTrack } from '../../masters/technology-track/technology-track.model';
 import { TrainingCentre } from '../../masters/training-centre/training-centre.model';
 import type { Paginated } from '../../shared/utils/pagination';
-import { referenceRepository, type ReferenceCentreRow, type ReferenceCountsRow } from './reference.repository';
+import {
+  referenceRepository, type ReferenceCentreRow, type ReferenceCountsRow, type ReferencePullRows,
+} from './reference.repository';
 import type {
   CentreRefOption, ReferenceCentre, ReferenceCentreListQuery, ReferenceDatasetSummary, ReferenceDistrict,
-  ReferenceDistrictListQuery, ReferenceSummary, ReferenceTrack, ReferenceTrackListQuery, TrackRefOption,
+  ReferenceDistrictListQuery, ReferencePull, ReferencePullQuery, ReferencePullStatus, ReferenceSummary, ReferenceTrack,
+  ReferenceTrackListQuery, TrackRefOption,
 } from './reference.types';
 
 /* Requires the state relation (every district read in ReferenceRepository joins it). */
@@ -58,6 +61,50 @@ const toSummary = (c: ReferenceCountsRow, lastUpdatedAt = c.lastUpdatedAt): Refe
 const latest = (...dates: (Date | null)[]): Date | null =>
   dates.reduce<Date | null>((max, d) => (d && (!max || d > max) ? d : max), null);
 
+/* API-122: a deleted row is sent as INACTIVE, the same as a deactivated one. */
+const pullStatus = (r: { isActive: boolean; isDelete: boolean }): ReferencePullStatus =>
+  r.isActive && !r.isDelete ? 'ACTIVE' : 'INACTIVE';
+
+/* Maps one page of pullSnapshot rows to the API-122 wire shape (AMRUT_KALASH_03 §16.3.10). */
+export const toReferencePull = (rows: ReferencePullRows, q: ReferencePullQuery): ReferencePull => ({
+  districts: rows.districts.map((d) => ({
+    district_id: d.id,
+    district_code: d.code,
+    name_en: d.name,
+    name_mr: null,
+    status: pullStatus(d),
+    updated_at: d.updatedAt,
+  })),
+  centres: rows.centres.map((c) => ({
+    centre_id: c.id,
+    centre_code: c.code,
+    district_code: c.districtCode,
+    district_name: c.districtName,
+    name: c.name,
+    centre_type: c.centreTypeName,
+    taluka: c.talukaName,
+    readiness_status: null,
+    max_seating_capacity: c.maxSeatingCapacity,
+    computer_systems: c.computerSystems,
+    tracks_offered: null,
+    status: pullStatus(c),
+    updated_at: c.sourceUpdatedAt,
+  })),
+  tracks: rows.tracks.map((t) => ({
+    track_id: t.id,
+    track_code: t.code,
+    name: t.name,
+    name_mr: null,
+    sort_order: t.sortOrder,
+    status: pullStatus(t),
+    updated_at: t.updatedAt,
+  })),
+  as_of: rows.asOf,
+  page: q.page,
+  page_size: q.pageSize,
+  has_more: rows.hasMore,
+});
+
 /*
  * Reference Data (UI-314; AMRUT_KALASH_03 L-03, L-07, BRL-309, DB-303) — read-only.
  *
@@ -109,6 +156,14 @@ export class ReferenceService {
   async trackOptions(entityId?: string): Promise<TrackRefOption[]> {
     const rows = await referenceRepository.selectableTracks(entityId);
     return rows.map((t) => ({ id: t.id, name: t.name, code: t.code }));
+  }
+
+  /*
+   * API-122 GET /integration/v1/reference: one page of the lists the LMS server (lms-api) copies into its own
+   * read-only reference tables. Read-only like everything here; deleted rows are included as INACTIVE.
+   */
+  async pullSnapshot(q: ReferencePullQuery): Promise<ReferencePull> {
+    return toReferencePull(await referenceRepository.pullSnapshot(q), q);
   }
 }
 

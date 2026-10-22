@@ -8,7 +8,7 @@ import { TrainingCentre } from '../../masters/training-centre/training-centre.mo
 import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../shared/utils/pagination';
 import type {
   ReferenceCentreListQuery, ReferenceCentreSortField, ReferenceDistrictListQuery, ReferenceDistrictSortField,
-  ReferenceTrackListQuery, ReferenceTrackSortField,
+  ReferencePullQuery, ReferenceTrackListQuery, ReferenceTrackSortField,
 } from './reference.types';
 
 /* sortBy → SQL, so joined parent names are sortable without exposing a column name to clients. */
@@ -60,6 +60,50 @@ export interface ReferenceCountsRow {
   total: number;
   active: number;
   lastUpdatedAt: Date | null;
+}
+
+/* Rows as pullSnapshot selects them (API-122). Deleted rows are included, so each row carries isDelete. */
+export interface ReferencePullDistrictRow {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  isDelete: boolean;
+  updatedAt: Date;
+}
+
+export interface ReferencePullCentreRow {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  isDelete: boolean;
+  districtCode: string;
+  districtName: string;
+  centreTypeName: string | null;
+  talukaName: string | null;
+  maxSeatingCapacity: number | null;
+  computerSystems: number | null;
+  sourceUpdatedAt: Date;
+}
+
+export interface ReferencePullTrackRow {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  isDelete: boolean;
+  updatedAt: Date;
+}
+
+/* One page of each list, read in one snapshot; asOf is that snapshot's database time. */
+export interface ReferencePullRows {
+  asOf: Date;
+  districts: ReferencePullDistrictRow[];
+  centres: ReferencePullCentreRow[];
+  tracks: ReferencePullTrackRow[];
+  hasMore: boolean;
 }
 
 /*
@@ -231,6 +275,98 @@ export class ReferenceRepository {
   /* Latest change of any capacity & infrastructure record: it feeds the centres' capacity columns. */
   async infrastructureLastUpdatedAt(manager?: EntityManager): Promise<Date | null> {
     return (await this.counts(CentreInfrastructure, manager)).lastUpdatedAt;
+  }
+
+  /* ---- API-122 pull (the LMS server's reference copy) ---- */
+
+  /*
+   * One page of districts, centres and tracks for GET /integration/v1/reference. Unlike every read above, deleted
+   * rows are included (the caller sends them as INACTIVE, so the LMS copy deactivates them; it never deletes).
+   * Each list is ordered by (createdAt, id) and paged by the same page; one extra row per list tells whether that
+   * list goes on. The three reads share one read-only REPEATABLE READ transaction, so a page is one consistent
+   * snapshot and asOf is its time. updatedSince keeps rows changed at or after it (the full lists when absent).
+   *
+   * The order key never changes (these tables are soft-delete only), because every page is its own snapshot: under
+   * an (updatedAt, id) order a row edited between two page requests moved behind the next page's start and pushed
+   * the row after it into the pages already read, so that row was missing from the pull, and lms-api sets every row
+   * missing from a full pull INACTIVE. With a fixed key an edit moves nothing; an insert can repeat a row, never
+   * skip one.
+   */
+  pullSnapshot({ updatedSince, page, pageSize }: ReferencePullQuery): Promise<ReferencePullRows> {
+    const offset = (page - 1) * pageSize;
+    const limit = pageSize + 1;
+    return AppDataSource.transaction('REPEATABLE READ', async (manager) => {
+      await manager.query('SET TRANSACTION READ ONLY');
+      const [{ asOf }]: { asOf: Date }[] = await manager.query(`SELECT now() AS "asOf"`);
+
+      const districts = this.repo(District, manager)
+        .createQueryBuilder('d')
+        .select('d.id', 'id')
+        .addSelect('d.code', 'code')
+        .addSelect('d.name', 'name')
+        .addSelect('d.isActive', 'isActive')
+        .addSelect('d.isDelete', 'isDelete')
+        .addSelect('d.updatedAt', 'updatedAt');
+      if (updatedSince) districts.where('d.updatedAt >= :updatedSince', { updatedSince });
+      const districtRows = await districts
+        .orderBy('d.createdAt', 'ASC')
+        .addOrderBy('d.id', 'ASC')
+        .offset(offset)
+        .limit(limit)
+        .getRawMany<ReferencePullDistrictRow>();
+
+      /* Same joins as centres() minus the state, and without its isDelete filter. district is NOT NULL (RESTRICT). */
+      const centres = this.repo(TrainingCentre, manager)
+        .createQueryBuilder('tc')
+        .innerJoin('tc.district', 'd')
+        .leftJoin('tc.centreType', 'ct')
+        .leftJoin('tc.taluka', 'tk')
+        .leftJoin(CentreInfrastructure, 'ci', '"ci"."centreId" = "tc"."id" AND "ci"."isDelete" = false')
+        .select('tc.id', 'id')
+        .addSelect('tc.code', 'code')
+        .addSelect('tc.name', 'name')
+        .addSelect('tc.isActive', 'isActive')
+        .addSelect('tc.isDelete', 'isDelete')
+        .addSelect('d.code', 'districtCode')
+        .addSelect('d.name', 'districtName')
+        .addSelect('ct.name', 'centreTypeName')
+        .addSelect('tk.name', 'talukaName')
+        .addSelect('"ci"."maxSeatingCapacity"', 'maxSeatingCapacity')
+        .addSelect('"ci"."computerSystems"', 'computerSystems')
+        .addSelect(CENTRE_SOURCE_UPDATED_AT, 'sourceUpdatedAt');
+      if (updatedSince) centres.where(`${CENTRE_SOURCE_UPDATED_AT} >= :updatedSince`, { updatedSince });
+      const centreRows = await centres
+        .orderBy('tc.createdAt', 'ASC')
+        .addOrderBy('tc.id', 'ASC')
+        .offset(offset)
+        .limit(limit)
+        .getRawMany<ReferencePullCentreRow>();
+
+      const tracks = this.repo(TechnologyTrack, manager)
+        .createQueryBuilder('t')
+        .select('t.id', 'id')
+        .addSelect('t.code', 'code')
+        .addSelect('t.name', 'name')
+        .addSelect('t.sortOrder', 'sortOrder')
+        .addSelect('t.isActive', 'isActive')
+        .addSelect('t.isDelete', 'isDelete')
+        .addSelect('t.updatedAt', 'updatedAt');
+      if (updatedSince) tracks.where('t.updatedAt >= :updatedSince', { updatedSince });
+      const trackRows = await tracks
+        .orderBy('t.createdAt', 'ASC')
+        .addOrderBy('t.id', 'ASC')
+        .offset(offset)
+        .limit(limit)
+        .getRawMany<ReferencePullTrackRow>();
+
+      return {
+        asOf,
+        districts: districtRows.slice(0, pageSize),
+        centres: centreRows.slice(0, pageSize),
+        tracks: trackRows.slice(0, pageSize),
+        hasMore: [districtRows, centreRows, trackRows].some((rows) => rows.length > pageSize),
+      };
+    });
   }
 }
 
