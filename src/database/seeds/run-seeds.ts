@@ -7,6 +7,8 @@ import { seedModulesPage } from './seed-modules-page';
 import { seedProgrammeHighlight } from './seed-programme-highlight';
 import { seedProgrammePage } from './seed-programme-page';
 import { seedRbac } from './seed-rbac';
+import { seedHomeHero } from './seed-home-hero';
+import { seedAmrutImpact } from './seed-amrut-impact';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
 async function main() {
@@ -29,6 +31,10 @@ async function main() {
     console.log('Programme section seed complete:', await seedProgrammeHighlight(AppDataSource));
     // eslint-disable-next-line no-console
     console.log('Programme page seed complete:', await seedProgrammePage(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Home hero seed complete:', await seedHomeHero(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log("AMRUT's Impact seed complete:", await seedAmrutImpact(AppDataSource));
   } finally {
     await AppDataSource.destroy();
   }

@@ -16,7 +16,8 @@ export interface SeedSummary {
 /*
  * Idempotent RBAC seed (safe to run any number of times, in one transaction):
  * - Permissions: upserted by code among non-deleted rows. Name / module / description are refreshed;
- *   isActive and soft-deleted rows are left alone (an admin's deactivation is respected).
+ *   isActive and soft-deleted rows are left alone (an admin's deactivation is respected, and a deactivated
+ *   legacy code moves no grants to its replacements).
  * - Roles: created by code if missing. Existing roles are not modified.
  * - Grants: a newly created role receives its default permissions. SUPER_ADMIN ('ALL') is re-synced
  *   on every run so it always holds every catalogue permission. Grants of existing non-system roles
@@ -48,7 +49,10 @@ export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
     for (const [oldCode, { retire, to }] of Object.entries(LEGACY_CODE_MAP)) {
       const old = await permRepo.findOne({ where: { code: oldCode, isDelete: false } });
       if (!old) continue;
-      const targets = (retire ? to : to.filter((c) => createdNow.has(c))).map((c) => byCode.get(c)).filter((x): x is Permission => !!x);
+      /* A deactivated code grants nothing, so its holders get no replacements (a retired one is still soft-deleted below). */
+      const targets = !old.isActive
+        ? []
+        : (retire ? to : to.filter((c) => createdNow.has(c))).map((c) => byCode.get(c)).filter((x): x is Permission => !!x);
       const holders = await grantRepo.find({ where: { permissionId: old.id, isDelete: false } });
       for (const g of holders) {
         const have = new Set((await grantRepo.find({ where: { roleId: g.roleId, isDelete: false } })).map((x) => x.permissionId));

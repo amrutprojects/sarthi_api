@@ -60,11 +60,18 @@ export const AUDIT_ACTIONS = {
   FOOTER_UPDATE: 'cms.footer.update',
   FOOTER_STATUS: 'cms.footer.status',
   MODULES_PAGE_UPDATE: 'cms.modules-page.update',
-  HOME_GLANCE_UPDATE: 'cms.home-glance.update',
   HIGHLIGHT_UPDATE: 'cms.programme-highlight.update',
   HIGHLIGHT_STATUS: 'cms.programme-highlight.status',
+  HERO_UPDATE: 'cms.home-hero.update',
+  HERO_STATUS: 'cms.home-hero.status',
   PROGRAMME_PAGE_UPDATE: 'cms.programme-page.update',
   PROGRAMME_PAGE_STATUS: 'cms.programme-page.status',
+  IMPACT_STAT_CREATE: 'cms.amrut-impact-stat.create',
+  IMPACT_STAT_UPDATE: 'cms.amrut-impact-stat.update',
+  IMPACT_STAT_STATUS: 'cms.amrut-impact-stat.status',
+  IMPACT_STAT_DELETE: 'cms.amrut-impact-stat.delete',
+  IMPACT_STATS_REORDER: 'cms.amrut-impact-stats.reorder',
+  IMPACT_SECTION_UPDATE: 'cms.amrut-impact-section.update',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

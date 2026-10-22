@@ -125,6 +125,35 @@ documentEndpoint({
   response: envelope(z.object({}).passthrough().nullable()),
 });
 
+const HomeHero = z.object({
+  /* The two buttons printed on every slide; their links are fixed (/programme and /track). */
+  readMoreLabel: Bilingual,
+  checkStatusLabel: Bilingual,
+  /* Visible slides only, already in display order. `ctaLink` is a page of this site, e.g. '/apply'. */
+  slides: z.array(
+    z.object({
+      tag: Bilingual,
+      title: Bilingual,
+      description: Bilingual,
+      ctaLabel: Bilingual,
+      ctaLink: z.string(),
+    }),
+  ),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/hero',
+  tag,
+  summary: 'Published home page hero banner',
+  description:
+    'The rotating banner at the top of the home page: the tag, heading, description and button of each slide, and the labels of ' +
+    'the two buttons shown on every slide, in Marathi and English. `data` is null when unpublished or not configured; the ' +
+    'website then renders its bundled copy.',
+  permission: 'public',
+  response: envelope(HomeHero.nullable()),
+});
+
 const ProgrammePage = z.object({
   intro: Bilingual,
   objectives: z.array(Bilingual),
@@ -158,4 +187,25 @@ documentEndpoint({
     'in Marathi and English. `data` is null when unpublished; the website then renders its bundled copy.',
   permission: 'public',
   response: envelope(ProgrammePage.nullable()),
+});
+
+const Impact = z.object({
+  heading: Bilingual,
+  /* false: the website leaves the section out (stats is then empty). */
+  showSection: z.boolean(),
+  /* Active cards only, already in display order. `value` is printed exactly as entered, e.g. "1,000+". */
+  stats: z.array(z.object({ id: z.string().uuid(), value: z.string(), label: Bilingual })),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/impact',
+  tag,
+  summary: "AMRUT's Impact (अमृतचा प्रभाव) figures",
+  description:
+    "The AMRUT's Impact band of the home page: its heading and the active statistic cards in display order, in Marathi and " +
+    'English. Every figure is entered by hand — none is counted automatically. Managed in the admin panel under CMS → AMRUT ' +
+    'Impact Management. `data` is null when the section has not been configured.',
+  permission: 'public',
+  response: envelope(Impact.nullable()),
 });

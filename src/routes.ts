@@ -19,6 +19,8 @@ import {
   publicGeographyRouter,
   publicModulesRouter, publicHighlightRouter,
   publicProgrammeRouter,
+  publicHeroRouter,
+  publicImpactRouter,
 } from './cms';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
@@ -46,3 +48,5 @@ apiRouter.use('/public/footer', publicFooterRouter);
 apiRouter.use('/public/modules', publicModulesRouter);
 apiRouter.use('/public/highlight', publicHighlightRouter);
 apiRouter.use('/public/programme', publicProgrammeRouter);
+apiRouter.use('/public/hero', publicHeroRouter);
+apiRouter.use('/public/impact', publicImpactRouter);

@@ -4,6 +4,8 @@ import { PROGRAMME_MODULE_ENTITIES } from './modules/modules.entities';
 import { HIGHLIGHT_ENTITIES } from './highlight/highlight.entities';
 import { MASTER_ENTITIES } from './masters/masters.entities';
 import { PROGRAMME_PAGE_ENTITIES } from './programme/programme.entities';
+import { HERO_ENTITIES } from './hero/hero.entities';
+import { IMPACT_ENTITIES } from './impact/impact.entities';
 
 export { ContactOrganization, ContactPageSettings } from './contact/contact.entities';
 export { District, State, Taluka } from './masters/masters.entities';
@@ -11,6 +13,8 @@ export { FooterLink, FooterSection, FooterSettings } from './footer/footer.entit
 export { ProgrammeElectiveDomain, ProgrammeModule, ProgrammeModuleSettings } from './modules/modules.entities';
 export { ProgrammeHighlight, ProgrammeHighlightObjective } from './highlight/highlight.entities';
 export { ProgrammePageSettings } from './programme/programme.entities';
+export { HomeHero, HomeHeroSlide } from './hero/hero.entities';
+export { ImpactSection, ImpactStat } from './impact/impact.entities';
 
 /*
  * Every model the CMS contributes to the DataSource, picked up by src/entities/index.ts.
@@ -26,4 +30,6 @@ export const CMS_ENTITIES = [
   ...FOOTER_ENTITIES,
   ...PROGRAMME_MODULE_ENTITIES, ...HIGHLIGHT_ENTITIES,
   ...PROGRAMME_PAGE_ENTITIES,
+  ...HERO_ENTITIES,
+  ...IMPACT_ENTITIES,
 ];
