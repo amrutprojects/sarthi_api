@@ -85,6 +85,7 @@ export class RoleService {
         if (perms.length !== new Set(input.permissionIds).size)
           throw AppError.badRequest('Some permissions do not exist, are deleted or are inactive');
         rbacService.assertCanGrantPermissions(actor, perms);
+        rbacService.assertWithinRoleScope(role, perms);
         await m.getRepository(RolePermission).insert(perms.map((p) => ({ roleId: role.id, permissionId: p.id, assignedById: actor.id })));
       }
       await auditService.recordInTx(m, req, {
@@ -181,6 +182,7 @@ export class RoleService {
           wanted.filter((p) => !found.has(p)).map((p) => ({ field: 'permissionIds', message: p })),
         );
       }
+      rbacService.assertWithinRoleScope(role, perms);
 
       const current = await roleRepository.findRolePermissionGrants(id, m);
       const currentIds = new Set(current.map((g) => g.permissionId));

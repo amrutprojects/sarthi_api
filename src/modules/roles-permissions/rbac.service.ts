@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { ERROR_CODES, HTTP_STATUS } from '../../constants/api-response.constants';
 import { appConfig } from '../../config/app.config';
+import { isWebsitePermission } from './permission.constants';
 import { ROLE_CODES } from './role.constants';
 import type { Permission } from './permissions/permission.entity';
 import type { Role } from './roles/role.entity';
@@ -14,6 +15,9 @@ interface CacheEntry {
   roleCodes: string[];
   at: number;
 }
+
+/* The admin panel workspace an account signs in to: the full panel, or the CMS-only one of a Website Admin. */
+export type Portal = 'admin' | 'website';
 
 /*
  * Database-driven RBAC.
@@ -30,6 +34,9 @@ interface CacheEntry {
  * 4. Only a Super Admin may change the permissions of a role they hold (that would change their own access).
  * 5. The SUPER_ADMIN role cannot be deleted, deactivated or have its grants edited through the API,
  *    and the last active Super Admin cannot be removed, deactivated or deleted.
+ * 6. The WEBSITE_ADMIN role grants website (CMS menu) permissions only.
+ * 7. A Website Admin holds no other role. With rule 6 this keeps a Website Admin account inside the CMS; as a
+ *    backstop, getAuthorization() drops any other code such an account would get (e.g. from a direct database edit).
  */
 export class RbacService {
   private cache = new Map<string, CacheEntry>();
@@ -43,7 +50,9 @@ export class RbacService {
       roleRepository.findUserAssignments(userId, manager),
     ]);
     const roleCodes = assignments.filter((a) => a.role && !a.role.isDelete && a.role.isActive).map((a) => a.role.code);
-    const entry: CacheEntry = { codes: new Set(codes), roleCodes, at: Date.now() };
+    /* Rules 6 and 7, enforced again at the source: a Website Admin's effective permissions never leave the website. */
+    const effective = roleCodes.includes(ROLE_CODES.WEBSITE_ADMIN) ? codes.filter(isWebsitePermission) : codes;
+    const entry: CacheEntry = { codes: new Set(effective), roleCodes, at: Date.now() };
     if (appConfig.permissionCacheTtlMs > 0) this.cache.set(userId, entry);
     return { permissions: entry.codes, roleCodes };
   }
@@ -58,6 +67,33 @@ export class RbacService {
 
   isSuperAdmin(auth: AuthUser): boolean {
     return auth.roleCodes.includes(ROLE_CODES.SUPER_ADMIN);
+  }
+
+  /*
+   * Workspace of an account from the codes of its assigned roles. Inactive roles count too: a Website Admin whose
+   * role is deactivated gets an empty CMS workspace, not the programme panel.
+   */
+  portalOf(roleCodes: string[]): Portal {
+    return roleCodes.includes(ROLE_CODES.WEBSITE_ADMIN) ? 'website' : 'admin';
+  }
+
+  /* Rule 6. */
+  assertWithinRoleScope(role: Pick<Role, 'code'>, permissions: Pick<Permission, 'code'>[]): void {
+    if (role.code !== ROLE_CODES.WEBSITE_ADMIN) return;
+    const outside = permissions.filter((p) => !isWebsitePermission(p.code)).map((p) => p.code);
+    if (outside.length) {
+      throw AppError.badRequest(
+        'The Website Admin role can only hold permissions of the CMS menu',
+        outside.map((m) => ({ field: 'permissionIds', message: m })),
+      );
+    }
+  }
+
+  /* Rule 7, on the complete role set a user is about to hold. */
+  assertExclusiveRoles(roles: Pick<Role, 'code'>[]): void {
+    if (roles.length > 1 && roles.some((r) => r.code === ROLE_CODES.WEBSITE_ADMIN)) {
+      throw AppError.badRequest('A Website Admin cannot hold any other role', [{ field: 'roleIds', message: ROLE_CODES.WEBSITE_ADMIN }]);
+    }
   }
 
   /* Rule 2: every permission the roles carry must already be held by the actor. */
