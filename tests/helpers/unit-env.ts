@@ -15,5 +15,6 @@ const defaults: Record<string, string> = {
   STUDENT_INDEX_KEY: Buffer.alloc(32, 2).toString('base64'),
   BCRYPT_ROUNDS: '4',
   LOG_LEVEL: 'silent',
+  LMS_INTEGRATION_SECRET: 'unit-test-lms-integration-secret-0123456789',
 };
 for (const [k, v] of Object.entries(defaults)) process.env[k] = v;

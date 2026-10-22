@@ -17,6 +17,10 @@ export interface RoleDefinition {
   exceptModules?: string[];
 }
 
+/* ADMIN: an Admin Panel role (Admin Panel menus and permissions). LMS: an LMS role (LMS menus only). */
+export const ROLE_PLATFORMS = ['ADMIN', 'LMS'] as const;
+export type RolePlatform = (typeof ROLE_PLATFORMS)[number];
+
 export const ROLE_CODES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
   SUMAGO_SUPER_ADMIN: 'SUMAGO_SUPER_ADMIN',

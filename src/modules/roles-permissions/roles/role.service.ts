@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import type { EntityManager } from 'typeorm';
 import { ERROR_CODES, HTTP_STATUS, MESSAGES } from '../../../constants/api-response.constants';
 import { AppDataSource } from '../../../config/database.config';
 import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
@@ -11,6 +12,7 @@ import { AppError } from '../../../shared/errors/app-error';
 import type { ListQuery, Paginated } from '../../../shared/utils/pagination';
 import { auditService } from '../../audit';
 import { rbacService } from '../rbac.service';
+import type { RolePlatform } from '../role.constants';
 
 export interface PublicRoleDetail {
   id: string;
@@ -18,6 +20,7 @@ export interface PublicRoleDetail {
   code: string;
   description: string | null;
   isSystem: boolean;
+  platform: RolePlatform;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +33,7 @@ const toPublic = (r: Role): PublicRoleDetail => ({
   code: r.code,
   description: r.description,
   isSystem: r.isSystem,
+  platform: r.platform,
   isActive: r.isActive,
   createdAt: r.createdAt,
   updatedAt: r.updatedAt,
@@ -39,13 +43,17 @@ export interface CreateRoleInput {
   name: string;
   code: string;
   description?: string | null;
+  platform?: RolePlatform;
   isActive?: boolean;
   permissionIds?: string[];
 }
 export interface UpdateRoleInput {
   name?: string;
   description?: string | null;
+  platform?: RolePlatform;
 }
+
+const LMS_ROLE_PERMISSIONS_REFUSED = 'An LMS role carries LMS menus, not Admin Panel permissions';
 
 export class RoleService {
   async list(q: ListQuery<RoleSortField>): Promise<Paginated<PublicRoleDetail>> {
@@ -74,12 +82,14 @@ export class RoleService {
           name: input.name,
           code: input.code,
           description: input.description ?? null,
+          platform: input.platform ?? 'ADMIN',
           isActive: input.isActive ?? true,
           isSystem: false,
         },
         m,
       );
       if (input.permissionIds?.length) {
+        if (role.platform === 'LMS') throw AppError.badRequest(LMS_ROLE_PERMISSIONS_REFUSED);
         if (!actor.permissions.has('permissions.assign')) throw AppError.forbidden('You need permissions.assign to grant permissions');
         const perms = await permissionRepository.findUsableByIds([...new Set(input.permissionIds)], m);
         if (perms.length !== new Set(input.permissionIds).size)
@@ -91,7 +101,7 @@ export class RoleService {
         action: AUDIT_ACTIONS.ROLE_CREATE,
         resource: 'role',
         resourceId: role.id,
-        details: { code: role.code, permissionIds: input.permissionIds ?? [] },
+        details: { code: role.code, platform: role.platform, permissionIds: input.permissionIds ?? [] },
       });
       return role.id;
     });
@@ -103,6 +113,7 @@ export class RoleService {
     await AppDataSource.transaction(async (m) => {
       const role = await roleRepository.findById(id, { manager: m });
       if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
+      if (input.platform && input.platform !== role.platform) await this.assertCanSwitchPlatform(role, m);
       await roleRepository.update(id, { ...input }, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.ROLE_UPDATE,
@@ -163,12 +174,30 @@ export class RoleService {
     return this.permissionsOf(id);
   }
 
+  /*
+   * A role changes application only while it carries nothing of its current kind, so a switch never silently keeps
+   * (or drops) grants. System roles stay Admin Panel roles.
+   */
+  private async assertCanSwitchPlatform(role: Role, m: EntityManager): Promise<void> {
+    if (role.isSystem) throw new AppError(HTTP_STATUS.FORBIDDEN, 'System roles stay Admin Panel roles', ERROR_CODES.PROTECTED_ROLE);
+    if (role.platform === 'ADMIN') {
+      if ((await roleRepository.findRolePermissionGrants(role.id, m)).length)
+        throw AppError.badRequest('Remove this role’s Admin Panel permissions before making it an LMS role');
+    } else {
+      const ticked: unknown[] = await m.query(`SELECT 1 FROM "role_lms_permissions" WHERE "roleId" = $1 AND "isDelete" = false LIMIT 1`, [
+        role.id,
+      ]);
+      if (ticked.length) throw AppError.badRequest('Untick this role’s LMS menus before making it an Admin Panel role');
+    }
+  }
+
   /* Replaces the role's permission set atomically, with the anti-escalation checks of RbacService. */
   async replacePermissions(id: string, permissionIds: string[], actor: AuthUser, req?: Request) {
     await AppDataSource.transaction(async (m) => {
       const role = await roleRepository.findById(id, { manager: m });
       if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
       if (!role.isActive) throw AppError.badRequest('Cannot change the permissions of an inactive role');
+      if (role.platform === 'LMS') throw AppError.badRequest(LMS_ROLE_PERMISSIONS_REFUSED);
       rbacService.assertNotProtectedRole(role, 'edited');
       rbacService.assertNotEditingOwnRole(actor, role);
 

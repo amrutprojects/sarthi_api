@@ -5,6 +5,7 @@ import { ImportRow } from '../modules/students/import/import-row.entity';
 import { Permission } from '../modules/roles-permissions/permissions/permission.entity';
 import { RevokedToken } from '../modules/auth/revoked-token.entity';
 import { RoleMenuVisibility } from '../modules/roles-permissions/menu-visibility/role-menu-visibility.entity';
+import { RoleLmsPermission } from '../modules/lms-access/role-lms-permission.entity';
 import { RolePermission } from '../modules/roles-permissions/role-permission.entity';
 import { Role } from '../modules/roles-permissions/roles/role.entity';
 import { Student } from '../modules/students/register/student.entity';
@@ -17,7 +18,20 @@ import { CMS_ENTITIES, ContactOrganization, ContactPageSettings, District, State
 
 export { AppBaseEntity } from './base.entity';
 export { Caste, DocumentType, Education, Region };
-export { AuditLog, ImportBatch, ImportRow, Permission, RevokedToken, Role, RoleMenuVisibility, RolePermission, Student, User, UserRole };
+export {
+  AuditLog,
+  ImportBatch,
+  ImportRow,
+  Permission,
+  RevokedToken,
+  Role,
+  RoleLmsPermission,
+  RoleMenuVisibility,
+  RolePermission,
+  Student,
+  User,
+  UserRole,
+};
 export { ContactOrganization, ContactPageSettings, District, State, Taluka };
 export type { AuditOutcome } from '../modules/audit';
 
@@ -31,6 +45,7 @@ export const ENTITIES = [
   AuditLog,
   RevokedToken,
   RoleMenuVisibility,
+  RoleLmsPermission,
   ImportBatch,
   ImportRow,
   Student,

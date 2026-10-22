@@ -111,6 +111,12 @@ const schema = z.object({
 
   /* Serve OpenAPI JSON and Swagger UI (default: on, except in production). */
   API_DOCS_ENABLED: z.enum(['true', 'false']).optional(),
+
+  /*
+   * Shared secret the LMS signs its /integration/v1/lms calls with (HMAC-SHA256). Unset = the LMS cannot sign in
+   * Admin Panel users. The LMS holds the same value.
+   */
+  LMS_INTEGRATION_SECRET: z.string().min(32, 'LMS_INTEGRATION_SECRET must be at least 32 characters').optional(),
 });
 
 /*

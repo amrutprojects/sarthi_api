@@ -12,12 +12,14 @@ import { roleRouter } from './modules/roles-permissions/roles/role.routes';
 import { userRouter } from './modules/users/user.routes';
 import { MASTERS } from './modules/masters';
 import { masterRouter } from './modules/masters/master.routes';
+import { lmsAccessRouter, lmsIntegrationRouter } from './modules/lms-access/lms-access.routes';
 import {
   cmsRouter,
   publicContactRouter,
   publicFooterRouter,
   publicGeographyRouter,
-  publicModulesRouter, publicHighlightRouter,
+  publicModulesRouter,
+  publicHighlightRouter,
   publicProgrammeRouter,
 } from './cms';
 
@@ -34,6 +36,7 @@ apiRouter.use('/students', studentRouter);
 apiRouter.use('/student-registrations', registrationRouter);
 apiRouter.use('/permissions', permissionRouter);
 apiRouter.use('/audit-logs', auditLogRouter);
+apiRouter.use('/lms-access', lmsAccessRouter);
 for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
 
 /* CMS content and geography masters. Every route under /cms requires a session (see src/cms/index.ts). */
@@ -46,3 +49,10 @@ apiRouter.use('/public/footer', publicFooterRouter);
 apiRouter.use('/public/modules', publicModulesRouter);
 apiRouter.use('/public/highlight', publicHighlightRouter);
 apiRouter.use('/public/programme', publicProgrammeRouter);
+
+/*
+ * Service-to-service calls, mounted at /integration/v1 by app.ts (not under /api/v1): no session, each router
+ * authenticates its caller by request signature.
+ */
+export const integrationRouter = Router();
+integrationRouter.use('/lms', lmsIntegrationRouter);

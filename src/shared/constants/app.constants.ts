@@ -65,6 +65,9 @@ export const AUDIT_ACTIONS = {
   HIGHLIGHT_STATUS: 'cms.programme-highlight.status',
   PROGRAMME_PAGE_UPDATE: 'cms.programme-page.update',
   PROGRAMME_PAGE_STATUS: 'cms.programme-page.status',
+  ROLE_LMS_PERMISSIONS_REPLACE: 'role.lms-permissions.replace',
+  LMS_SIGN_IN: 'lms.sign-in',
+  LMS_SIGN_IN_REFUSED: 'lms.sign-in.refused',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

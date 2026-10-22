@@ -25,6 +25,7 @@ import { RemainingRegistrationNumbers1793600000000 } from './1793600000000-Remai
 import { CmsProgrammePage1793700000000 } from './1793700000000-CmsProgrammePage';
 import { ProgrammeFactSheet1793800000000 } from './1793800000000-ProgrammeFactSheet';
 import { ModulesLabelAndVisibility1793900000000 } from './1793900000000-ModulesLabelAndVisibility';
+import { LmsRoles1794000000000 } from './1794000000000-LmsRoles';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -62,4 +63,5 @@ export const MIGRATIONS = [
   CmsProgrammePage1793700000000,
   ProgrammeFactSheet1793800000000,
   ModulesLabelAndVisibility1793900000000,
+  LmsRoles1794000000000,
 ];
