@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../../config/database.config';
+import { seedContactDirectory } from './seed-contact-directory';
 import { seedContactPage } from './seed-contact-page';
 import { seedFooter } from './seed-footer';
 import { seedMasters } from './seed-masters';
@@ -21,6 +22,8 @@ async function main() {
     /* The CMS page content. Each is idempotent and does nothing once configured. */
     // eslint-disable-next-line no-console
     console.log('Contact page seed complete:', await seedContactPage(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Contact coordinators & district offices seed complete:', await seedContactDirectory(AppDataSource));
     // eslint-disable-next-line no-console
     console.log('Footer seed complete:', await seedFooter(AppDataSource));
     // eslint-disable-next-line no-console

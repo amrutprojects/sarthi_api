@@ -87,6 +87,44 @@ const organization = z
     }
   });
 
+/*
+ * A coordinator's phone may keep digits masked with X ("+91 98XXX 41201"), as the public site has
+ * always shown them; an X counts as a digit for the length rule.
+ */
+const coordinatorPhone = z
+  .string()
+  .trim()
+  .max(32)
+  .regex(/^\+?[0-9Xx ()-]+$/, 'Use digits (or X for a masked digit), spaces, brackets and hyphens only, optionally starting with +')
+  .refine((v) => {
+    const digits = v.replace(/[^0-9Xx]/g, '').length;
+    return digits >= 6 && digits <= 20;
+  }, 'Must contain between 6 and 20 digits');
+
+const coordinator = z
+  .object({
+    name: z.string().trim().min(1, 'Coordinator name is required').max(120, 'Coordinator name must be at most 120 characters'),
+    phone: coordinatorPhone,
+    email: contactEmail.nullish(),
+    districtIds: z.array(z.string().uuid('Invalid district')).max(100).default([]),
+    displayOrder: z.coerce.number().int().min(0).max(999).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict();
+
+/* Every Collectorate field is optional: the website shows "to be supplied" for what is missing. */
+const districtOffice = z
+  .object({
+    districtId: z.string().uuid('Invalid district'),
+    collectorName: z.string().trim().max(150, 'Collector name must be at most 150 characters').nullish(),
+    address: optionalBilingual(500, 'Office address'),
+    phone: contactPhone.nullish(),
+    email: contactEmail.nullish(),
+    officeHours: optionalBilingual(120, 'Office hours'),
+    isActive: z.boolean().optional(),
+  })
+  .strict();
+
 export const updateContactPageSchema = {
   body: z
     .object({
@@ -95,6 +133,8 @@ export const updateContactPageSchema = {
       isPublished: z.boolean().optional(),
       /* Both cards are expected; the cap leaves room for the extra cards the brief anticipates. */
       organizations: z.array(organization).min(1, 'At least one organisation is required').max(ORG_TYPES.length),
+      coordinators: z.array(coordinator).max(100).optional(),
+      districtOffices: z.array(districtOffice).max(500).optional(),
     })
     .strict(),
 };
