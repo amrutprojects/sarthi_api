@@ -29,4 +29,9 @@ export const appConfig = {
   },
   bodyLimit: '100kb',
   apiDocsEnabled: env.API_DOCS_ENABLED ? env.API_DOCS_ENABLED === 'true' : !env.isProduction,
+  lmsIntegration: {
+    secret: env.LMS_INTEGRATION_SECRET ?? '',
+    /* Accepted clock difference between the LMS and this API, in seconds. */
+    maxSkewSeconds: 300,
+  },
 } as const;

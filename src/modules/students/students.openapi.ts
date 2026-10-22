@@ -547,10 +547,11 @@ documentEndpoint({
   path: '/student-registrations/:id',
   tag: regTag,
   summary: 'Soft-delete a student (kept for history)',
+  description: '409 while a batch assignment references the student; remove the assignment first.',
   permission: 'registrations.delete',
   request: { params: registrationIdSchema.params },
   response: envelope(z.null()),
-  errors: [404],
+  errors: [404, 409],
 });
 documentEndpoint({
   method: 'post',

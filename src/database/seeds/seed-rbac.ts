@@ -1,4 +1,4 @@
-import type { DataSource, EntityManager } from 'typeorm';
+import { In, type DataSource, type EntityManager } from 'typeorm';
 import { ALL_PERMISSIONS, LEGACY_CODE_MAP } from '../../modules/roles-permissions';
 import { ROLES } from '../../modules/roles-permissions';
 import { Permission } from '../../modules/roles-permissions';
@@ -16,8 +16,7 @@ export interface SeedSummary {
 /*
  * Idempotent RBAC seed (safe to run any number of times, in one transaction):
  * - Permissions: upserted by code among non-deleted rows. Name / module / description are refreshed;
- *   isActive and soft-deleted rows are left alone (an admin's deactivation is respected, and a deactivated
- *   legacy code moves no grants to its replacements).
+ *   isActive and soft-deleted rows are left alone (an admin's deactivation is respected).
  * - Roles: created by code if missing. Existing roles are not modified.
  * - Grants: a newly created role receives its default permissions. SUPER_ADMIN ('ALL') is re-synced
  *   on every run so it always holds every catalogue permission. Grants of existing non-system roles
@@ -30,13 +29,20 @@ export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
     const roleRepo = m.getRepository(Role);
     const grantRepo = m.getRepository(RolePermission);
 
+    /*
+     * Codes that have ever had a row, soft-deleted ones included. The carry-over below runs only for a code seen
+     * for the first time: a code an admin deleted is re-created for the catalogue (and SUPER_ADMIN), but its
+     * holders are not re-granted it, so the deletion sticks.
+     */
+    const everExisted = new Set(
+      (await permRepo.find({ where: { code: In(ALL_PERMISSIONS.map((d) => d.code)) }, select: { code: true } })).map((p) => p.code),
+    );
+
     const byCode = new Map<string, Permission>();
-    const createdNow = new Set<string>();
     for (const def of ALL_PERMISSIONS) {
       let p = await permRepo.findOne({ where: { code: def.code, isDelete: false } });
       if (!p) {
         p = await permRepo.save(permRepo.create({ ...def }));
-        createdNow.add(def.code);
         summary.permissionsCreated++;
       } else if (p.name !== def.name || p.module !== def.module || p.description !== def.description) {
         await permRepo.update(p.id, { name: def.name, module: def.module, description: def.description });
@@ -49,10 +55,15 @@ export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
     for (const [oldCode, { retire, to }] of Object.entries(LEGACY_CODE_MAP)) {
       const old = await permRepo.findOne({ where: { code: oldCode, isDelete: false } });
       if (!old) continue;
-      /* A deactivated code grants nothing, so its holders get no replacements (a retired one is still soft-deleted below). */
-      const targets = !old.isActive
-        ? []
-        : (retire ? to : to.filter((c) => createdNow.has(c))).map((c) => byCode.get(c)).filter((x): x is Permission => !!x);
+      /*
+       * An inactive source grants nothing, so it passes nothing on: a retired code hands over no grants, and the
+       * first-time counterparts of a kept code start inactive, so an admin's deactivation carries over with them.
+       */
+      const targetCodes = retire ? (old.isActive ? to : []) : to.filter((c) => !everExisted.has(c));
+      const targets = targetCodes.map((c) => byCode.get(c)).filter((x): x is Permission => !!x);
+      if (!retire && !old.isActive && targets.length) {
+        await permRepo.update({ id: In(targets.map((t) => t.id)) }, { isActive: false });
+      }
       const holders = await grantRepo.find({ where: { permissionId: old.id, isDelete: false } });
       for (const g of holders) {
         const have = new Set((await grantRepo.find({ where: { roleId: g.roleId, isDelete: false } })).map((x) => x.permissionId));

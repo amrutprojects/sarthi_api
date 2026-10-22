@@ -597,7 +597,7 @@ describe('Access control', () => {
   });
 
   it('another CMS permission does not open this section', async () => {
-    const other = await actorWith(['cms-schemes.view', 'cms-schemes.update']);
+    const other = await actorWith(['cms-highlight.view', 'cms-highlight.update']);
     expect((await request(app).get(ADMIN_URL).set(auth(other.token))).status).toBe(403);
     expect((await request(app).get(`${ADMIN_URL}/settings`).set(auth(other.token))).status).toBe(403);
   });

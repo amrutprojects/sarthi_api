@@ -12,7 +12,7 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.middle
 import { requestId } from './middleware/request-id.middleware';
 import swaggerUi from 'swagger-ui-express';
 import { openApiDocument } from './openapi';
-import { apiRouter } from './routes';
+import { apiRouter, integrationRouter } from './routes';
 import { ApiResponse } from './utils/api-response';
 
 /* Builds the Express app (no listening, no DB connection) so tests can drive it with Supertest. */
@@ -54,6 +54,17 @@ export function createApp(): Express {
         ApiResponse.error(res, HTTP_STATUS.TOO_MANY_REQUESTS, RESPONSE_MESSAGES.TOO_MANY_REQUESTS, ERROR_CODES.RATE_LIMITED);
       },
     }),
+  );
+  /* Before the general JSON parser: integration calls keep their exact body bytes for the signature check. */
+  app.use(
+    '/integration/v1',
+    express.json({
+      limit: '10kb',
+      verify: (req, _res, buf) => {
+        (req as express.Request).rawBody = buf;
+      },
+    }),
+    integrationRouter,
   );
   app.use(express.json({ limit: appConfig.bodyLimit }));
 

@@ -125,6 +125,22 @@ documentEndpoint({
   response: envelope(z.object({}).passthrough().nullable()),
 });
 
+documentEndpoint({
+  method: 'get',
+  path: '/public/highlight',
+  tag,
+  summary: 'Home page programme section',
+  description:
+    'Heading, subheading, tagline, certification line and objectives of the home page programme band, in Marathi and English. ' +
+    'Only active objectives, in display order. `data` is null when the section is unpublished; the website then renders its bundled copy.',
+  permission: 'public',
+  response: envelope(
+    z
+      .object({ heading: Bilingual, subheading: Bilingual, tagline: Bilingual, certification: Bilingual, objectives: z.array(Bilingual) })
+      .nullable(),
+  ),
+});
+
 const HomeHero = z.object({
   /* The two buttons printed on every slide; their links are fixed (/programme and /track). */
   readMoreLabel: Bilingual,
@@ -187,6 +203,77 @@ documentEndpoint({
     'in Marathi and English. `data` is null when unpublished; the website then renders its bundled copy.',
   permission: 'public',
   response: envelope(ProgrammePage.nullable()),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/faqs',
+  tag,
+  summary: 'Active FAQs',
+  description: 'The questions on the public FAQ page, in Marathi and English, in display order. Only active, non-deleted questions. Managed in the admin panel under CMS → FAQ Management.',
+  permission: 'public',
+  response: envelope(z.array(z.object({ question: Bilingual, answer: Bilingual }))),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/eligibility',
+  tag,
+  summary: 'Eligibility page content',
+  description:
+    'The text, eligibility criteria and required documents on the public Eligibility page, in Marathi and English. ' +
+    'Each list holds only active, non-deleted entries, in display order; an empty list means every entry of that kind is ' +
+    'deactivated. `data` is null when the page has not been configured — the website then renders its own bundled copy. ' +
+    'Managed in the admin panel under CMS → Eligibility Page Management.',
+  permission: 'public',
+  response: envelope(
+    z
+      .object({
+        pageTitle: Bilingual,
+        pageSubtitle: Bilingual,
+        criteriaHeading: Bilingual,
+        documentsHeading: Bilingual,
+        noteTitle: Bilingual,
+        noteBody: Bilingual,
+        criteria: z.array(z.object({ label: Bilingual, value: Bilingual })),
+        documents: z.array(Bilingual),
+      })
+      .nullable(),
+  ),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/apply',
+  tag,
+  summary: 'Apply page content',
+  description:
+    'The text, application steps, "At a glance" rows and call to action on the public Apply ("How to Apply") page, in ' +
+    'Marathi and English, plus the official portal link (https only). Each list holds only active, non-deleted entries, ' +
+    'in display order; an empty list means every entry of that kind is deactivated. `documents` is the Eligibility ' +
+    "page's active required documents (the same list, managed under CMS → Eligibility Page Management). `data` is null " +
+    'when the page has not been configured — the website then renders its own bundled copy. Managed in the admin panel ' +
+    'under CMS → Apply Page Management.',
+  permission: 'public',
+  response: envelope(
+    z
+      .object({
+        pageTitle: Bilingual,
+        pageSubtitle: Bilingual,
+        noteTitle: Bilingual,
+        noteBody: Bilingual,
+        glanceHeading: Bilingual,
+        documentsHeading: Bilingual,
+        ctaText: Bilingual,
+        ctaLabel: Bilingual,
+        ctaUrl: z.string().url(),
+        ctaHint: Bilingual,
+        steps: z.array(z.object({ title: Bilingual, description: Bilingual })),
+        facts: z.array(z.object({ label: Bilingual, value: Bilingual })),
+        documents: z.array(Bilingual),
+      })
+      .nullable(),
+  ),
 });
 
 const Impact = z.object({

@@ -9,6 +9,8 @@ declare global {
       auth?: AuthUser;
       /* Parsed, validated inputs set by validateRequest(). */
       validated?: { body?: unknown; query?: unknown; params?: unknown };
+      /* Exact request body bytes, kept only on /integration/v1 so its signature can be checked. */
+      rawBody?: Buffer;
     }
   }
 }

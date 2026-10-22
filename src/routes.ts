@@ -12,16 +12,22 @@ import { roleRouter } from './modules/roles-permissions/roles/role.routes';
 import { userRouter } from './modules/users/user.routes';
 import { MASTERS } from './modules/masters';
 import { masterRouter } from './modules/masters/master.routes';
+import { lmsAccessRouter, lmsIntegrationRouter } from './modules/lms-access/lms-access.routes';
 import {
   cmsRouter,
   publicContactRouter,
   publicFooterRouter,
   publicGeographyRouter,
-  publicModulesRouter, publicHighlightRouter,
+  publicModulesRouter,
+  publicHighlightRouter,
   publicProgrammeRouter,
+  publicFaqRouter,
+  publicEligibilityRouter,
+  publicApplyRouter,
   publicHeroRouter,
   publicImpactRouter,
 } from './cms';
+import { lmsRouter } from './lms';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
 export const apiRouter = Router();
@@ -36,10 +42,14 @@ apiRouter.use('/students', studentRouter);
 apiRouter.use('/student-registrations', registrationRouter);
 apiRouter.use('/permissions', permissionRouter);
 apiRouter.use('/audit-logs', auditLogRouter);
+apiRouter.use('/lms-access', lmsAccessRouter);
 for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
 
-/* CMS content and geography masters. Every route under /cms requires a session (see src/cms/index.ts). */
+/* CMS content, geography masters and the Masters group. Every route under /cms requires a session (see src/cms/index.ts). */
 apiRouter.use('/cms', cmsRouter);
+
+/* LMS Admin masters. Every route under /lms requires a session (see src/lms/index.ts). */
+apiRouter.use('/lms', lmsRouter);
 
 /* Read-only content for the public website. Unauthenticated by design — see the route files. */
 apiRouter.use('/public/geography', publicGeographyRouter);
@@ -48,5 +58,15 @@ apiRouter.use('/public/footer', publicFooterRouter);
 apiRouter.use('/public/modules', publicModulesRouter);
 apiRouter.use('/public/highlight', publicHighlightRouter);
 apiRouter.use('/public/programme', publicProgrammeRouter);
+apiRouter.use('/public/faqs', publicFaqRouter);
+apiRouter.use('/public/eligibility', publicEligibilityRouter);
+apiRouter.use('/public/apply', publicApplyRouter);
+
+/*
+ * Service-to-service calls, mounted at /integration/v1 by app.ts (not under /api/v1): no session, each router
+ * authenticates its caller by request signature.
+ */
+export const integrationRouter = Router();
+integrationRouter.use('/lms', lmsIntegrationRouter);
 apiRouter.use('/public/hero', publicHeroRouter);
 apiRouter.use('/public/impact', publicImpactRouter);

@@ -37,6 +37,7 @@ export const RoleDto = registry.register(
     code: z.string(),
     description: z.string().nullable(),
     isSystem: z.boolean(),
+    platform: z.enum(['ADMIN', 'LMS']).describe('ADMIN: Admin Panel role (Admin Panel permissions). LMS: LMS role (LMS menus only).'),
     isActive: z.boolean(),
     ...ts,
     permissions: z.array(PermissionRef).optional().describe('Included on GET /roles/{id}'),

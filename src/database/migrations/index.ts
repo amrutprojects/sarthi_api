@@ -16,15 +16,28 @@ import { DomainsForAllModules1793100000000 } from './1793100000000-DomainsForAll
 import { ProgrammeDistrictCount1793300000000 } from './1793300000000-ProgrammeDistrictCount';
 import { PerModuleHours1793400000000 } from './1793400000000-PerModuleHours';
 import { CmsProgrammeHighlight1793500000000 } from './1793500000000-CmsProgrammeHighlight';
-
 import { DocumentVerification1793200000000 } from './1793200000000-DocumentVerification';
 import { RegistrationNumber1793300000000 } from './1793300000000-RegistrationNumber';
 import { RegistrationNumberShort1793400000000 } from './1793400000000-RegistrationNumberShort';
 import { ImportedRegistrationNumbers1793500000000 } from './1793500000000-ImportedRegistrationNumbers';
 import { RemainingRegistrationNumbers1793600000000 } from './1793600000000-RemainingRegistrationNumbers';
 import { CmsProgrammePage1793700000000 } from './1793700000000-CmsProgrammePage';
+import { CmsFaqs1793700000000 } from './1793700000000-CmsFaqs';
+import { CmsEligibility1793800000000 } from './1793800000000-CmsEligibility';
+import { CmsApplyPage1793900000000 } from './1793900000000-CmsApplyPage';
+import { CmsMasters1792400000000 } from './1792400000000-CmsMasters';
+import { TechnologyTracks1792500000000 } from './1792500000000-TechnologyTracks';
+import { LmsEntities1792600000000 } from './1792600000000-LmsEntities';
+import { LmsBranding1792700000000 } from './1792700000000-LmsBranding';
+import { LmsAcademicCalendars1792710000000 } from './1792710000000-LmsAcademicCalendars';
+import { LmsFormFields1792720000000 } from './1792720000000-LmsFormFields';
+import { LmsCourses1792730000000 } from './1792730000000-LmsCourses';
+import { LmsCourseModules1792740000000 } from './1792740000000-LmsCourseModules';
+import { LmsTrackVariants1792750000000 } from './1792750000000-LmsTrackVariants';
+
 import { ProgrammeFactSheet1793800000000 } from './1793800000000-ProgrammeFactSheet';
 import { ModulesLabelAndVisibility1793900000000 } from './1793900000000-ModulesLabelAndVisibility';
+import { LmsRoles1794000000000 } from './1794000000000-LmsRoles';
 import { CmsHomeHero1794000000000 } from './1794000000000-CmsHomeHero';
 import { CmsAmrutImpact1794500000000 } from './1794500000000-CmsAmrutImpact';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
@@ -62,8 +75,21 @@ export const MIGRATIONS = [
   ImportedRegistrationNumbers1793500000000,
   RemainingRegistrationNumbers1793600000000,
   CmsProgrammePage1793700000000,
+  CmsFaqs1793700000000,
+  CmsEligibility1793800000000,
+  CmsApplyPage1793900000000,
+  CmsMasters1792400000000,
+  TechnologyTracks1792500000000,
+  LmsEntities1792600000000,
+  LmsBranding1792700000000,
+  LmsAcademicCalendars1792710000000,
+  LmsFormFields1792720000000,
+  LmsCourses1792730000000,
+  LmsCourseModules1792740000000,
+  LmsTrackVariants1792750000000,
   ProgrammeFactSheet1793800000000,
   ModulesLabelAndVisibility1793900000000,
+  LmsRoles1794000000000,
   CmsHomeHero1794000000000,
   CmsAmrutImpact1794500000000,
 ];
