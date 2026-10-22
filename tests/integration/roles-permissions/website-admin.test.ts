@@ -100,6 +100,18 @@ describe('the Website Admin role', () => {
     expect(await grantedCodes()).toEqual(SEEDED);
   });
 
+  it('picks up a menu added after the role was created when the seed runs again', async () => {
+    /* As on a database seeded before AMRUT Impact Management existed: the role has never held its codes. */
+    await AppDataSource.query(
+      `DELETE FROM "role_permissions" WHERE "roleId" = $1 AND "permissionId" IN (SELECT "id" FROM "permissions" WHERE "code" LIKE 'cms-impact.%')`,
+      [websiteRoleId],
+    );
+    expect((await grantedCodes()).filter((c) => c.startsWith('cms-impact.'))).toEqual([]);
+
+    await seedRbac(AppDataSource);
+    expect(await grantedCodes()).toEqual(SEEDED);
+  });
+
   it('keeps an administrator’s narrowed permissions when the seed runs again', async () => {
     expect((await setRolePermissions(['cms-faqs.view'])).status).toBe(200);
     await seedRbac(AppDataSource);
