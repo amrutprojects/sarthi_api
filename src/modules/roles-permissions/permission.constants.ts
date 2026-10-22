@@ -60,6 +60,7 @@ export const MENUS = {
   'cms-programme': 'Programme Page Management',
   'cms-faqs': 'FAQ Management',
   'cms-eligibility': 'Eligibility Page Management',
+  'cms-apply': 'Apply Page Management',
   'cms-states': 'State Master',
   'cms-districts': 'District Master',
   'cms-talukas': 'Taluka Master',
@@ -166,6 +167,10 @@ export const PERMISSIONS = {
   CMS_ELIGIBILITY_CREATE: def('cms-eligibility.create', 'Add Eligibility Page Management', 'Add in the Eligibility Page Management menu'),
   CMS_ELIGIBILITY_UPDATE: def('cms-eligibility.update', 'Update Eligibility Page Management', 'Update in the Eligibility Page Management menu'),
   CMS_ELIGIBILITY_DELETE: def('cms-eligibility.delete', 'Delete Eligibility Page Management', 'Delete in the Eligibility Page Management menu'),
+  CMS_APPLY_VIEW: def('cms-apply.view', 'View Apply Page Management', 'View in the Apply Page Management menu'),
+  CMS_APPLY_CREATE: def('cms-apply.create', 'Add Apply Page Management', 'Add in the Apply Page Management menu'),
+  CMS_APPLY_UPDATE: def('cms-apply.update', 'Update Apply Page Management', 'Update in the Apply Page Management menu'),
+  CMS_APPLY_DELETE: def('cms-apply.delete', 'Delete Apply Page Management', 'Delete in the Apply Page Management menu'),
   CMS_STATES_VIEW: def('cms-states.view', 'View State Master', 'View in the State Master menu'),
   CMS_STATES_CREATE: def('cms-states.create', 'Add State Master', 'Add in the State Master menu'),
   CMS_STATES_UPDATE: def('cms-states.update', 'Update State Master', 'Update in the State Master menu'),
@@ -267,13 +272,14 @@ export const PERMISSIONS = {
 
 /* The CMS sidebar keys, in menu order: website content, geography, then the Masters group. */
 export const CMS_MENUS = [
-  'cms-contact',
-  'cms-footer',
-  'cms-modules',
-  'cms-programme',
-  'cms-states',
-  'cms-districts',
-  'cms-talukas',
+  'cms-contact', 'cms-footer', 'cms-modules', 'cms-programme', 'cms-faqs', 'cms-eligibility', 'cms-apply',
+  'cms-states', 'cms-districts', 'cms-talukas',
+  'cms-departments', 'cms-colleges', 'cms-documents', 'cms-batches', 'cms-batch-assignments', 'cms-centre-types', 'cms-training-centres', 'cms-centre-locations', 'cms-centre-infrastructure',
+] as const satisfies readonly MenuKey[];
+
+/* The LMS Admin sidebar keys, in menu order. */
+export const LMS_MENUS = [
+  'lms-reference', 'lms-entities', 'lms-branding', 'lms-calendars', 'lms-learning-config', 'lms-form-fields', 'lms-courses', 'lms-course-modules', 'lms-track-variants',
 ] as const satisfies readonly MenuKey[];
 
 export type PermissionKey = keyof typeof PERMISSIONS;

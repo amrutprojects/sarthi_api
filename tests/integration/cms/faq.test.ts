@@ -96,6 +96,21 @@ describe('FAQ Management CRUD', () => {
     await request(app).delete(`${API}/cms/faqs/${faq.id}`).set(auth(admin.token));
   });
 
+  it('never assigns an order past the 9999 the edit form accepts', async () => {
+    const last = await makeFaq({ displayOrder: 9999 });
+    const next = await makeFaq();
+    expect(next.displayOrder).toBe(9999);
+
+    /* The row stays editable: its own order passes the update validator. */
+    const edited = await request(app)
+      .patch(`${API}/cms/faqs/${next.id}`)
+      .set(auth(admin.token))
+      .send({ answer: { mr: 'संपादित उत्तर', en: 'Edited answer' }, displayOrder: next.displayOrder });
+    expect(edited.status).toBe(200);
+
+    for (const row of [last, next]) await request(app).delete(`${API}/cms/faqs/${row.id}`).set(auth(admin.token));
+  });
+
   it('hides a deactivated FAQ from the website and shows it again when activated', async () => {
     const faq = await makeFaq();
     expect(await publicQuestions()).toContain(faq.question.en);

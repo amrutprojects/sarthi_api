@@ -4,6 +4,7 @@ import { PROGRAMME_MODULE_ENTITIES } from './modules/modules.entities';
 import { HIGHLIGHT_ENTITIES } from './highlight/highlight.entities';
 import { FAQ_ENTITIES } from './faq/faq.entities';
 import { ELIGIBILITY_ENTITIES } from './eligibility/eligibility.entities';
+import { APPLY_ENTITIES } from './apply/apply.entities';
 import { MASTER_ENTITIES } from './masters/masters.entities';
 import { PROGRAMME_PAGE_ENTITIES } from './programme/programme.entities';
 
@@ -15,6 +16,7 @@ export { ProgrammeHighlight, ProgrammeHighlightObjective } from './highlight/hig
 export { ProgrammePageSettings } from './programme/programme.entities';
 export { Faq } from './faq/faq.entities';
 export { EligibilityItem, EligibilityPageSettings } from './eligibility/eligibility.entities';
+export { ApplyPageItem, ApplyPageSettings } from './apply/apply.entities';
 
 /*
  * Every model the CMS contributes to the DataSource, picked up by src/entities/index.ts.
@@ -25,16 +27,13 @@ export { EligibilityItem, EligibilityPageSettings } from './eligibility/eligibil
  * the moment ENTITIES reads it.
  */
 export const CMS_ENTITIES = [
-  
   ...MASTER_ENTITIES,
- 
   ...CONTACT_ENTITIES,
- 
   ...FOOTER_ENTITIES,
- 
-  ...PROGRAMME_MODULE_ENTITIES, ...HIGHLIGHT_ENTITIES,
+  ...PROGRAMME_MODULE_ENTITIES,
+  ...HIGHLIGHT_ENTITIES,
   ...PROGRAMME_PAGE_ENTITIES,
-,
   ...FAQ_ENTITIES,
   ...ELIGIBILITY_ENTITIES,
+  ...APPLY_ENTITIES,
 ];

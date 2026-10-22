@@ -168,6 +168,12 @@ export const AUDIT_ACTIONS = {
   ELIGIBILITY_ITEM_STATUS: 'cms.eligibility-item.status',
   ELIGIBILITY_ITEM_DELETE: 'cms.eligibility-item.delete',
   ELIGIBILITY_ITEM_RESTORE: 'cms.eligibility-item.restore',
+  APPLY_SETTINGS_UPDATE: 'cms.apply-settings.update',
+  APPLY_ITEM_CREATE: 'cms.apply-item.create',
+  APPLY_ITEM_UPDATE: 'cms.apply-item.update',
+  APPLY_ITEM_STATUS: 'cms.apply-item.status',
+  APPLY_ITEM_DELETE: 'cms.apply-item.delete',
+  APPLY_ITEM_RESTORE: 'cms.apply-item.restore',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

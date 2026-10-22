@@ -84,7 +84,8 @@ export class EligibilityItemRepository extends BaseRepository<EligibilityItem> {
       .andWhere('i.kind = :kind', { kind })
       .select('MAX(i.displayOrder)', 'max')
       .getRawOne<{ max: number | null }>();
-    return row?.max == null ? 1 : Number(row.max) + 1;
+    /* Capped at the validator's 9999, or the new row could never be saved again from the Edit form. */
+    return row?.max == null ? 1 : Math.min(Number(row.max) + 1, 9999);
   }
 }
 

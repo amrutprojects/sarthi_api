@@ -52,7 +52,8 @@ export class FaqRepository extends BaseRepository<Faq> {
   /* The order a question gets when none is given: after every live question. */
   async nextDisplayOrder(manager?: EntityManager): Promise<number> {
     const row = await this.query('f', manager).select('MAX(f.displayOrder)', 'max').getRawOne<{ max: number | null }>();
-    return row?.max == null ? 1 : Number(row.max) + 1;
+    /* Capped at the validator's 9999, or the new row could never be saved again from the Edit form. */
+    return row?.max == null ? 1 : Math.min(Number(row.max) + 1, 9999);
   }
 }
 

@@ -222,6 +222,21 @@ describe('Eligibility items CRUD', () => {
     expect((await makeItem(documentBody({ displayOrder: 3 }))).displayOrder).toBe(3);
   });
 
+  it('never assigns an order past the 9999 the edit form accepts', async () => {
+    const last = await makeItem(documentBody({ displayOrder: 9999 }));
+    const next = await makeItem(documentBody());
+    expect(next.displayOrder).toBe(9999);
+
+    /* The row stays editable: its own order passes the update validator. */
+    const edited = await request(app)
+      .patch(`${ITEMS}/${next.id}`)
+      .set(auth(admin.token))
+      .send({ label: label(), displayOrder: next.displayOrder });
+    expect(edited.status).toBe(200);
+
+    for (const row of [last, next]) await request(app).delete(`${ITEMS}/${row.id}`).set(auth(admin.token));
+  });
+
   it('filters the list by kind and searches values as well as labels', async () => {
     const docs = await request(app).get(ITEMS).query({ kind: 'DOCUMENT', limit: 100 }).set(auth(admin.token));
     expect(docs.status).toBe(200);

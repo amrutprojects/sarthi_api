@@ -24,6 +24,7 @@ import { RemainingRegistrationNumbers1793600000000 } from './1793600000000-Remai
 import { CmsProgrammePage1793700000000 } from './1793700000000-CmsProgrammePage';
 import { CmsFaqs1793700000000 } from './1793700000000-CmsFaqs';
 import { CmsEligibility1793800000000 } from './1793800000000-CmsEligibility';
+import { CmsApplyPage1793900000000 } from './1793900000000-CmsApplyPage';
 import { CmsMasters1792400000000 } from './1792400000000-CmsMasters';
 import { TechnologyTracks1792500000000 } from './1792500000000-TechnologyTracks';
 import { LmsEntities1792600000000 } from './1792600000000-LmsEntities';
@@ -71,6 +72,7 @@ export const MIGRATIONS = [
   CmsProgrammePage1793700000000,
   CmsFaqs1793700000000,
   CmsEligibility1793800000000,
+  CmsApplyPage1793900000000,
   CmsMasters1792400000000,
   TechnologyTracks1792500000000,
   LmsEntities1792600000000,
