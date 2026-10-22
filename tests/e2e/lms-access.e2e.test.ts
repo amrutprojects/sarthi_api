@@ -4,6 +4,7 @@ import { appConfig } from '../../src/config/app.config';
 import { signLmsRequest } from '../../src/modules/lms-access';
 import {
   API,
+  AppDataSource,
   PASSWORD,
   auth,
   createRoleWith,
@@ -73,6 +74,17 @@ describe('LMS roles and Admin Panel sign-in for the LMS', () => {
       .send({ codes: ['dashboard.approve.all'] });
     expect(unknown.status).toBe(HTTP_STATUS.BAD_REQUEST);
 
+    /* Sensitive LMS codes are granted only inside the LMS, never on an Admin Panel LMS role. */
+    const sensitive = await request(app)
+      .put(`${API}/lms-access/roles/${role.id}`)
+      .set(auth(token))
+      .send({ codes: ['batch.view', 'certificate.approve', 'iam.permission.status'] });
+    expect(sensitive.status).toBe(HTTP_STATUS.BAD_REQUEST);
+    expect(sensitive.body.error.details.map((d: { message: string }) => d.message)).toEqual([
+      'certificate.approve',
+      'iam.permission.status',
+    ]);
+
     /* A role switches application only once it carries nothing of its current kind. */
     const busy = await request(app).patch(`${API}/roles/${adminRole.id}`).set(auth(token)).send({ platform: 'LMS' });
     expect(busy.status).toBe(HTTP_STATUS.BAD_REQUEST);
@@ -101,6 +113,11 @@ describe('LMS roles and Admin Panel sign-in for the LMS', () => {
       (ok.body.data.roles as { code: string; lmsPermissions: string[] }[]).map((r) => [r.code, r.lmsPermissions]),
     );
     expect(byCode).toEqual({ [role.code]: ['attendance.view', 'batch.view'], [second.code]: ['oft.view'] });
+
+    /* A sensitive code that reached the table some other way is never shown or handed to the LMS. */
+    await AppDataSource.query(`INSERT INTO "role_lms_permissions" ("roleId", "code") VALUES ($1, 'certificate.approve')`, [role.id]);
+    const shown = await request(app).get(`${API}/lms-access/roles/${role.id}`).set(auth(token));
+    expect(shown.body.data.codes).not.toContain('certificate.approve');
 
     const access = await signed('get', `${INT}/users/${user.id}/access`);
     expect(access.status).toBe(HTTP_STATUS.OK);

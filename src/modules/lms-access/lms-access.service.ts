@@ -10,7 +10,7 @@ import { auditService } from '../audit';
 import type { AuthUser } from '../auth';
 import { Role, rbacService } from '../roles-permissions';
 import { userService } from '../users';
-import { LMS_CODES, lmsCatalogue } from './lms-catalogue';
+import { LMS_CODES, LMS_GRANTABLE_CODES, LMS_SENSITIVE_CODES, lmsCatalogue } from './lms-catalogue';
 import { RoleLmsPermission } from './role-lms-permission.entity';
 
 /* A real bcrypt hash of a random value, so an unknown email costs the same time as a wrong password. */
@@ -56,7 +56,7 @@ export class LmsAccessService {
     const role = await AppDataSource.getRepository(Role).findOne({ where: { id: roleId, isDelete: false } });
     if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
     const rows = await this.repo().find({ where: { roleId, isDelete: false }, order: { code: 'ASC' } });
-    return { roleId: role.id, code: role.code, name: role.name, codes: rows.map((r) => r.code) };
+    return { roleId: role.id, code: role.code, name: role.name, codes: rows.map((r) => r.code).filter((c) => LMS_GRANTABLE_CODES.has(c)) };
   }
 
   /* Same guard rails as the role's own permissions: no inactive role, and no editing a role you hold unless Super Admin. */
@@ -67,6 +67,13 @@ export class LmsAccessService {
       throw AppError.badRequest(
         'Some LMS permissions do not exist',
         unknown.map((c) => ({ field: 'codes', message: c })),
+      );
+    }
+    const sensitive = wanted.filter((c) => LMS_SENSITIVE_CODES.has(c));
+    if (sensitive.length) {
+      throw AppError.badRequest(
+        'Sensitive LMS permissions are granted only inside the LMS, not on an Admin Panel LMS role',
+        sensitive.map((c) => ({ field: 'codes', message: c })),
       );
     }
 
@@ -112,7 +119,9 @@ export class LmsAccessService {
     const active = user.isActive;
     const codesOf = (roleId?: string) =>
       active
-        ? [...new Set(rows.filter((r) => !roleId || r.roleId === roleId).map((r) => r.code))].filter((c) => LMS_CODES.has(c)).sort()
+        ? [...new Set(rows.filter((r) => !roleId || r.roleId === roleId).map((r) => r.code))]
+            .filter((c) => LMS_GRANTABLE_CODES.has(c))
+            .sort()
         : [];
     return {
       user: { id: user.id, email: user.email, name: user.name },

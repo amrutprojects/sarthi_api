@@ -61,12 +61,20 @@ const AREAS: Record<string, { label: string; group: (typeof LMS_GROUP_ORDER)[num
 
 export const LMS_CODES: ReadonlySet<string> = new Set(LMS_PERMISSIONS.map((p) => p.code));
 
+/*
+ * Sensitive LMS codes (Table 21's sensitive column: user and role administration, approvals, releases, exports,
+ * retention, the permission switch...). They are never granted from the Admin Panel: the LMS grants them only through
+ * its own roles, where a reason and the segregation-of-duties checks apply (user decision, 22 Oct 2026).
+ */
+export const LMS_SENSITIVE_CODES: ReadonlySet<string> = new Set(LMS_PERMISSIONS.filter((p) => p.sensitive).map((p) => p.code));
+/* The LMS codes an Admin Panel LMS role may carry. */
+export const LMS_GRANTABLE_CODES: ReadonlySet<string> = new Set(LMS_PERMISSIONS.filter((p) => !p.sensitive).map((p) => p.code));
+
 /* "iam.role.grant_sensitive" in area "iam" → "Role · grant sensitive". */
 function actionLabel(code: string, area: string): string {
-  const tail = code
-    .slice(area.length + 1)
-    .replace(/\./g, ' · ')
-    .replace(/_/g, ' ');
+  /* A few codes sit in another module than their prefix (e.g. attempt.void in evaluation): keep the whole code then. */
+  const rest = code.startsWith(`${area}.`) ? code.slice(area.length + 1) : code;
+  const tail = rest.replace(/\./g, ' · ').replace(/_/g, ' ');
   return tail.charAt(0).toUpperCase() + tail.slice(1);
 }
 
