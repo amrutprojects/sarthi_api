@@ -43,6 +43,7 @@ export class RoleAssignmentService {
         wanted.filter((r) => !found.has(r)).map((r) => ({ field: 'roleIds', message: r })),
       );
     }
+    rbacService.assertExclusiveRoles(roles);
 
     const current = await roleRepository.findUserAssignments(userId, m);
     const currentIds = new Set(current.map((a) => a.roleId));

@@ -1,4 +1,4 @@
-import { menuVisibilityService } from '../roles-permissions';
+import { menuVisibilityService, rbacService } from '../roles-permissions';
 import { MESSAGES, RESPONSE_MESSAGES } from '../../constants/api-response.constants';
 import type { Request, Response } from 'express';
 import { body } from '../../middleware/validate-request.middleware';
@@ -31,10 +31,11 @@ export const authController = {
     const auth = authOf(req);
     const user = await userService.get(auth.id);
     const hiddenMenus = await menuVisibilityService.hiddenMenusFor(auth.roleCodes);
+    const portal = rbacService.portalOf((user.roles ?? []).map((r) => r.code));
     res.setHeader('Cache-Control', 'no-store');
     ApiResponse.ok(
       res,
-      { ...user, permissions: [...auth.permissions].sort(), hiddenMenus, csrfToken: csrfTokenFor(auth.sessionId) },
+      { ...user, permissions: [...auth.permissions].sort(), hiddenMenus, portal, csrfToken: csrfTokenFor(auth.sessionId) },
       MESSAGES.retrieved('Current user'),
     );
   }),

@@ -64,7 +64,8 @@ documentEndpoint({
   tag,
   summary: 'Published Contact page content',
   description:
-    'The banner and the organisation cards shown on the public Contact page, in Marathi and English. ' +
+    'The banner, the organisation cards, the district / cluster coordinators and the per-district office ' +
+    '(Collectorate) details shown on the public Contact pages, in Marathi and English. ' +
     '`data` is null when the page is unpublished or has not been configured — a normal state, not an ' +
     'error: the website then renders its own bundled copy.',
   permission: 'public',
@@ -83,6 +84,24 @@ documentEndpoint({
             phone: z.string().optional(),
             websiteUrl: z.string().url().optional(),
             helpdeskHours: Bilingual.optional(),
+          }),
+        ),
+        coordinators: z.array(
+          z.object({
+            name: z.string(),
+            phone: z.string(),
+            email: z.string().email().optional(),
+            districts: z.array(z.object({ code: z.string(), name: z.string() })),
+          }),
+        ),
+        districtOffices: z.array(
+          z.object({
+            district: z.object({ code: z.string(), name: z.string() }),
+            collectorName: z.string().optional(),
+            address: Bilingual.optional(),
+            phone: z.string().optional(),
+            email: z.string().email().optional(),
+            officeHours: Bilingual.optional(),
           }),
         ),
       })

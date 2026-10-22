@@ -883,8 +883,11 @@ describe('migration 1794000000000', () => {
          VALUES ($1, 't', 't', 'h', 'h', 'd', 'd', 'b', 'b', '/apply')`,
         [hero.id],
       );
-      /* ON DELETE RESTRICT reports restrict_violation (23001) rather than the generic 23503. */
-      expect(await attempt(qr, `DELETE FROM "home_hero" WHERE "id" = $1`, [hero.id])).toBe('23001');
+      /*
+       * The delete is refused by ON DELETE RESTRICT. Newer PostgreSQL reports restrict_violation (23001);
+       * PostgreSQL 17 and earlier report the generic foreign_key_violation (23503).
+       */
+      expect(['23001', '23503']).toContain(await attempt(qr, `DELETE FROM "home_hero" WHERE "id" = $1`, [hero.id]));
 
       const triggers: { tgname: string }[] = await qr.query(
         `SELECT tgname FROM pg_trigger WHERE tgname IN ('TRG_home_hero_updated_at', 'TRG_home_hero_slides_updated_at') ORDER BY tgname`,

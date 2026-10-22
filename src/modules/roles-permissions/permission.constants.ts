@@ -287,6 +287,19 @@ export const LMS_MENUS = [
   'lms-reference', 'lms-entities', 'lms-branding', 'lms-calendars', 'lms-learning-config', 'lms-form-fields', 'lms-courses', 'lms-course-modules', 'lms-track-variants',
 ] as const satisfies readonly MenuKey[];
 
+/*
+ * The public website's menus: the admin panel's "CMS" sidebar group (the content pages and the geography masters),
+ * in menu order. The Website Admin role is confined to these (RbacService rules 6 and 7); the Masters group served
+ * under /cms is not part of the website.
+ */
+export const WEBSITE_MENUS = [
+  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-hero', 'cms-highlight', 'cms-impact', 'cms-programme',
+  'cms-states', 'cms-districts', 'cms-talukas',
+] as const satisfies readonly MenuKey[];
+
+/* True when the code belongs to one of the WEBSITE_MENUS (`<menu>.<action>`). */
+export const isWebsitePermission = (code: string): boolean => (WEBSITE_MENUS as readonly string[]).includes(code.split('.')[0]);
+
 export type PermissionKey = keyof typeof PERMISSIONS;
 export type PermissionCode = string;
 
