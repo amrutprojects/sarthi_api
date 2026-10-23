@@ -8,6 +8,10 @@ import { APPLY_ENTITIES } from './apply/apply.entities';
 import { MASTER_ENTITIES } from './masters/masters.entities';
 import { PROGRAMME_PAGE_ENTITIES } from './programme/programme.entities';
 import { HERO_ENTITIES } from './hero/hero.entities';
+import { BOARD_ENTITIES } from './board/board.entities';
+import { ECOSYSTEM_ENTITIES } from './ecosystem/ecosystem.entities';
+import { SCHEMES_ENTITIES } from './schemes/schemes.entities';
+import { ABOUT_ENTITIES } from './about/about.entities';
 import { IMPACT_ENTITIES } from './impact/impact.entities';
 
 export { ContactOrganization, ContactPageSettings } from './contact/contact.entities';
@@ -20,6 +24,10 @@ export { Faq } from './faq/faq.entities';
 export { EligibilityItem, EligibilityPageSettings } from './eligibility/eligibility.entities';
 export { ApplyPageItem, ApplyPageSettings } from './apply/apply.entities';
 export { HomeHero, HomeHeroSlide } from './hero/hero.entities';
+export { BoardMember, BoardSection } from './board/board.entities';
+export { EcosystemProgramme, EcosystemSection } from './ecosystem/ecosystem.entities';
+export { AmrutScheme, AmrutSchemesSection } from './schemes/schemes.entities';
+export { AboutCard, AboutFact, AboutSection } from './about/about.entities';
 export { ImpactSection, ImpactStat } from './impact/impact.entities';
 
 /*
@@ -41,5 +49,9 @@ export const CMS_ENTITIES = [
   ...ELIGIBILITY_ENTITIES,
   ...APPLY_ENTITIES,
   ...HERO_ENTITIES,
+  ...BOARD_ENTITIES,
+  ...ECOSYSTEM_ENTITIES,
+  ...SCHEMES_ENTITIES,
+  ...ABOUT_ENTITIES,
   ...IMPACT_ENTITIES,
 ];

@@ -9,6 +9,10 @@ import { seedProgrammeHighlight } from './seed-programme-highlight';
 import { seedProgrammePage } from './seed-programme-page';
 import { seedRbac } from './seed-rbac';
 import { seedHomeHero } from './seed-home-hero';
+import { seedBoardMembers } from './seed-board-members';
+import { seedEcosystem } from './seed-ecosystem';
+import { seedAmrutSchemes } from './seed-amrut-schemes';
+import { seedAboutAmrut } from './seed-about-amrut';
 import { seedAmrutImpact } from './seed-amrut-impact';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
@@ -36,6 +40,14 @@ async function main() {
     console.log('Programme page seed complete:', await seedProgrammePage(AppDataSource));
     // eslint-disable-next-line no-console
     console.log('Home hero seed complete:', await seedHomeHero(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Board members seed complete:', await seedBoardMembers(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('AMRUT Ecosystem seed complete:', await seedEcosystem(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('AMRUT Schemes seed complete:', await seedAmrutSchemes(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('About AMRUT seed complete:', await seedAboutAmrut(AppDataSource));
     // eslint-disable-next-line no-console
     console.log("AMRUT's Impact seed complete:", await seedAmrutImpact(AppDataSource));
   } finally {

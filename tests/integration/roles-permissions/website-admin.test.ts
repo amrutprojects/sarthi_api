@@ -1,7 +1,11 @@
 import type { Express } from 'express';
 import { Permission, RolePermission } from '../../../src/database/entities';
+import { seedAboutAmrut } from '../../../src/database/seeds/seed-about-amrut';
 import { seedAmrutImpact } from '../../../src/database/seeds/seed-amrut-impact';
+import { seedAmrutSchemes } from '../../../src/database/seeds/seed-amrut-schemes';
+import { seedBoardMembers } from '../../../src/database/seeds/seed-board-members';
 import { seedContactPage } from '../../../src/database/seeds/seed-contact-page';
+import { seedEcosystem } from '../../../src/database/seeds/seed-ecosystem';
 import { seedFooter } from '../../../src/database/seeds/seed-footer';
 import { seedHomeHero } from '../../../src/database/seeds/seed-home-hero';
 import { seedModulesPage } from '../../../src/database/seeds/seed-modules-page';
@@ -34,7 +38,19 @@ beforeAll(async () => {
   admin = await superAdmin();
   websiteRoleId = await roleId(ROLE_CODES.WEBSITE_ADMIN);
   /* The website's singleton pages, as `npm run seed` creates them. */
-  for (const seed of [seedContactPage, seedFooter, seedModulesPage, seedHomeHero, seedProgrammeHighlight, seedAmrutImpact, seedProgrammePage]) {
+  for (const seed of [
+    seedContactPage,
+    seedFooter,
+    seedModulesPage,
+    seedHomeHero,
+    seedProgrammeHighlight,
+    seedBoardMembers,
+    seedEcosystem,
+    seedAmrutSchemes,
+    seedAmrutImpact,
+    seedAboutAmrut,
+    seedProgrammePage,
+  ]) {
     await seed(AppDataSource);
   }
 });
@@ -42,7 +58,19 @@ afterAll(teardownTestApp);
 
 /* The seeded grant: singleton pages are viewed and edited, list pages and geography masters also add and delete. */
 const PAGES = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-hero', 'cms-highlight', 'cms-programme'];
-const LISTS = ['cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-impact', 'cms-states', 'cms-districts', 'cms-talukas'];
+const LISTS = [
+  'cms-faqs',
+  'cms-eligibility',
+  'cms-apply',
+  'cms-board',
+  'cms-ecosystem',
+  'cms-schemes',
+  'cms-impact',
+  'cms-about',
+  'cms-states',
+  'cms-districts',
+  'cms-talukas',
+];
 const SEEDED = [
   ...PAGES.flatMap((m) => [`${m}.view`, `${m}.update`]),
   ...LISTS.flatMap((m) => [`${m}.view`, `${m}.create`, `${m}.update`, `${m}.delete`]),
@@ -158,8 +186,15 @@ describe('CMS operations as a Website Admin', () => {
       '/cms/modules',
       '/cms/hero',
       '/cms/highlight',
+      '/cms/board-members',
+      '/cms/board-members/settings',
+      '/cms/ecosystem',
+      '/cms/ecosystem/settings',
+      '/cms/schemes',
+      '/cms/schemes/settings',
       '/cms/impact',
       '/cms/impact/settings',
+      '/cms/about',
       '/cms/programme',
       '/cms/faqs',
       '/cms/eligibility/settings',

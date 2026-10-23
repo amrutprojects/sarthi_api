@@ -56,6 +56,10 @@ export const MENUS = {
   'cms-footer': 'Footer Management',
   'cms-modules': 'Modules Page Management',
   'cms-hero': 'Home Hero Section',
+  'cms-board': 'Board Members Management',
+  'cms-ecosystem': 'The AMRUT Ecosystem',
+  'cms-schemes': 'AMRUT Schemes Management',
+  'cms-about': 'About AMRUT Management',
   'cms-impact': 'AMRUT Impact Management',
   'cms-highlight': 'Home Programme Section',
   'cms-programme': 'Programme Page Management',
@@ -154,6 +158,22 @@ export const PERMISSIONS = {
   CMS_FOOTER_UPDATE: def('cms-footer.update', 'Update Footer Management', 'Update in the Footer Management menu'),
   CMS_HERO_VIEW: def('cms-hero.view', 'View Home Hero Section', 'View in the Home Hero Section menu'),
   CMS_HERO_UPDATE: def('cms-hero.update', 'Update Home Hero Section', 'Update in the Home Hero Section menu'),
+  CMS_BOARD_VIEW: def('cms-board.view', 'View Board Members Management', 'View in the Board Members Management menu'),
+  CMS_BOARD_CREATE: def('cms-board.create', 'Add Board Members Management', 'Add in the Board Members Management menu'),
+  CMS_BOARD_UPDATE: def('cms-board.update', 'Update Board Members Management', 'Update in the Board Members Management menu'),
+  CMS_BOARD_DELETE: def('cms-board.delete', 'Delete Board Members Management', 'Delete in the Board Members Management menu'),
+  CMS_ECOSYSTEM_VIEW: def('cms-ecosystem.view', 'View The AMRUT Ecosystem', 'View in the The AMRUT Ecosystem menu'),
+  CMS_ECOSYSTEM_CREATE: def('cms-ecosystem.create', 'Add The AMRUT Ecosystem', 'Add in the The AMRUT Ecosystem menu'),
+  CMS_ECOSYSTEM_UPDATE: def('cms-ecosystem.update', 'Update The AMRUT Ecosystem', 'Update in the The AMRUT Ecosystem menu'),
+  CMS_ECOSYSTEM_DELETE: def('cms-ecosystem.delete', 'Delete The AMRUT Ecosystem', 'Delete in the The AMRUT Ecosystem menu'),
+  CMS_SCHEMES_VIEW: def('cms-schemes.view', 'View AMRUT Schemes Management', 'View in the AMRUT Schemes Management menu'),
+  CMS_SCHEMES_CREATE: def('cms-schemes.create', 'Add AMRUT Schemes Management', 'Add in the AMRUT Schemes Management menu'),
+  CMS_SCHEMES_UPDATE: def('cms-schemes.update', 'Update AMRUT Schemes Management', 'Update in the AMRUT Schemes Management menu'),
+  CMS_SCHEMES_DELETE: def('cms-schemes.delete', 'Delete AMRUT Schemes Management', 'Delete in the AMRUT Schemes Management menu'),
+  CMS_ABOUT_VIEW: def('cms-about.view', 'View About AMRUT Management', 'View in the About AMRUT Management menu'),
+  CMS_ABOUT_CREATE: def('cms-about.create', 'Add About AMRUT Management', 'Add in the About AMRUT Management menu'),
+  CMS_ABOUT_UPDATE: def('cms-about.update', 'Update About AMRUT Management', 'Update in the About AMRUT Management menu'),
+  CMS_ABOUT_DELETE: def('cms-about.delete', 'Delete About AMRUT Management', 'Delete in the About AMRUT Management menu'),
   CMS_IMPACT_VIEW: def('cms-impact.view', 'View AMRUT Impact Management', 'View in the AMRUT Impact Management menu'),
   CMS_IMPACT_CREATE: def('cms-impact.create', 'Add AMRUT Impact Management', 'Add in the AMRUT Impact Management menu'),
   CMS_IMPACT_UPDATE: def('cms-impact.update', 'Update AMRUT Impact Management', 'Update in the AMRUT Impact Management menu'),
@@ -293,7 +313,8 @@ export const LMS_MENUS = [
  * under /cms is not part of the website.
  */
 export const WEBSITE_MENUS = [
-  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-hero', 'cms-highlight', 'cms-impact', 'cms-programme',
+  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-hero', 'cms-highlight',
+  'cms-board', 'cms-ecosystem', 'cms-schemes', 'cms-impact', 'cms-about', 'cms-programme',
   'cms-states', 'cms-districts', 'cms-talukas',
 ] as const satisfies readonly MenuKey[];
 
