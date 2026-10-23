@@ -39,7 +39,8 @@ function record(over: Record<string, string> = {}): Record<string, string> {
     approved_at: '2026-01-10T06:30:00Z',
   };
   for (const f of HEADER.filter((h) => h.startsWith('doc_') && !h.endsWith('_barcode'))) v[f] = 'Yes';
-  v.doc_income_ews_barcode = 'BC-1';
+  v.doc_income_ews_barcode = '271234567890123456';
+  v.doc_domicile_barcode = '281234567890123456';
   return { ...v, ...over };
 }
 const csv = (rows: Record<string, string>[], header = HEADER) =>

@@ -18,7 +18,7 @@ import { DOCUMENTS, REGISTRATION_MASTER_FIELDS } from '../student.constants';
 import type { EditRegistrationBody, ListRegistrationsQuery } from './registration-admin.validation';
 import { registrationService, resolveMasters, type PreparedDocument } from './registration.service';
 import { validateCandidate } from '../import/row-validator';
-import { adminRegistrationData } from './registration-admin.validation';
+import { adminRegistrationData, barcodeMap } from './registration-admin.validation';
 
 /*
  * Checks uploaded document files (field name = document type code; type from the content; extension agrees) and
@@ -64,9 +64,7 @@ async function prepareFiles(
   return { prepared, seen };
 }
 
-const replaceDocumentsData = z
-  .object({ barcodes: z.record(z.string().trim().max(64, 'Barcode must be at most 64 characters')).optional() })
-  .strict();
+const replaceDocumentsData = z.object({ barcodes: barcodeMap.optional() }).strict();
 
 type ListItem = ReturnType<typeof publicStudent> & { unmasked?: { email: string | null; mobile: string | null } };
 const BARCODE = new Map(DOCUMENTS.map((d) => [d.key, d.barcode]));

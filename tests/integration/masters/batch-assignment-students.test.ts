@@ -59,7 +59,7 @@ async function pendingRegistrant(token: string, firstName: string, lastName: str
     technology: 'T03',
     education_id: await masterId('educations', 'B.Com'),
     declaration_accepted: true,
-    barcodes: { INCOME_EWS: 'EWS-2026-0001' },
+    barcodes: { INCOME_EWS: '271234567890123456', DOMICILE: '281234567890123456' },
   };
   const mandatory: { code: string }[] = await AppDataSource.query(
     `SELECT "code" FROM "document_types" WHERE "isMandatory" AND "isActive" AND NOT "isDelete"`,

@@ -1,5 +1,14 @@
 import crypto from 'crypto';
-import { APPROVED_STATUS, DOCUMENTS, RELIGIONS, TRACKS, TRACKS_NOT_OFFERED, type IssueCode } from '../student.constants';
+import {
+  APPROVED_STATUS,
+  BARCODE_FORMAT_MESSAGE,
+  BARCODE_RE,
+  DOCUMENTS,
+  RELIGIONS,
+  TRACKS,
+  TRACKS_NOT_OFFERED,
+  type IssueCode,
+} from '../student.constants';
 import type { MasterLookup } from '../../masters';
 import { aadhaarBlindIndex, encryptAadhaar, verhoeffValid } from '../aadhaar';
 
@@ -152,8 +161,8 @@ export function validateCandidate(raw: Record<string, string>, masters: MasterLo
 
   const firstName = text('first_name', 'First name', 100, { name: true });
   const lastName = text('last_name', 'Last name', 100, { name: true });
-  const fatherName = text('father_name', 'Father name', 150);
-  const motherName = text('mother_name', 'Mother name', 150);
+  const fatherName = text('father_name', 'Father name', 150, { name: true });
+  const motherName = text('mother_name', 'Mother name', 150, { name: true });
   const currentAddress = text('current_address', 'Current address', 500, { collapseSpaces: false });
 
   let email: string | null = get('email').trim().toLowerCase() || null;
@@ -313,6 +322,7 @@ export function validateRow(raw: Record<string, string>, masters: MasterLookup):
     if (path) add(`doc_${k}`, 'DOC_MISSING', `${d.label}: waiting for "${path}" in the documents ZIP`);
     else if (required && !supplied && !raw) add(`doc_${k}`, 'DOC_MISSING', `${d.label} not supplied`);
     if (d.barcode === 'required' && (supplied || path) && !barcode) add(`doc_${k}_barcode`, 'REQUIRED', `${d.label} barcode is required`);
+    if (barcode && !BARCODE_RE.test(barcode)) add(`doc_${k}_barcode`, 'BARCODE_INVALID', `${d.label} barcode ${BARCODE_FORMAT_MESSAGE}`);
   }
 
   return {

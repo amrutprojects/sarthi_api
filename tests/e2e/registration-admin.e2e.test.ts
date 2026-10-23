@@ -41,7 +41,7 @@ async function data(over: Record<string, unknown> = {}) {
     technology: 'T03',
     education_id: await masterId('educations', 'B.Com'),
     declaration_accepted: true,
-    barcodes: { INCOME_EWS: 'EWS-2026-0001' },
+    barcodes: { INCOME_EWS: '271234567890123456', DOMICILE: '281234567890123456' },
     ...over,
   };
 }
@@ -94,7 +94,7 @@ describe('admin registration entry with documents', () => {
     expect(res.body.data).toMatchObject({ registration_id: expect.stringMatching(/^REG-/), status: 'REGISTRATION_PENDING' });
 
     const student = await AppDataSource.getRepository(Student).findOneByOrFail({ id: res.body.data.id });
-    expect(student.documents.INCOME_EWS).toMatchObject({ supplied: true, barcode: 'EWS-2026-0001' });
+    expect(student.documents.INCOME_EWS).toMatchObject({ supplied: true, barcode: '271234567890123456' });
     expect(student.documents.PAN_CARD).toMatchObject({ supplied: true });
     const files = await AppDataSource.getRepository(StudentDocument).find({ where: { studentId: student.id } });
     expect(files.length).toBe((await mandatoryCodes()).length + 1);
@@ -116,7 +116,7 @@ describe('admin registration entry with documents', () => {
     const res = await post(token, await data({ barcodes: {}, email: 'nope' }), files);
     expect(res.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     const fields = res.body.error.details.map((d: { field: string }) => d.field).sort();
-    expect(fields).toEqual(['body.barcodes.INCOME_EWS', 'body.email', 'files.PHOTO', 'files.SIGNATURE']);
+    expect(fields).toEqual(['body.barcodes.DOMICILE', 'body.barcodes.INCOME_EWS', 'body.email', 'files.PHOTO', 'files.SIGNATURE']);
     expect(await AppDataSource.getRepository(Student).count()).toBe(0);
   });
 
@@ -315,14 +315,14 @@ describe('admin registration entry with documents', () => {
     const res = await request(app)
       .post(`${URL}/${id}/documents`)
       .set('Authorization', `Bearer ${token}`)
-      .field('data', JSON.stringify({ barcodes: { INCOME_EWS: 'EWS-NEW-1' } }))
+      .field('data', JSON.stringify({ barcodes: { INCOME_EWS: '279999999999999999' } }))
       .attach('PHOTO', PNG, 'new-photo.png');
     expect(res.status).toBe(HTTP_STATUS.OK);
     const newPhoto = res.body.data.files.find((f: { docType: string }) => f.docType === 'PHOTO');
     expect(newPhoto).toMatchObject({ originalName: 'new-photo.png', mimeType: 'image/png', verifiedAt: null });
     expect(newPhoto.id).not.toBe(oldPhoto.id);
     const ews = res.body.data.documents.find((d: { key: string }) => d.key === 'INCOME_EWS');
-    expect(ews.barcode).toBe('EWS-NEW-1');
+    expect(ews.barcode).toBe('279999999999999999');
     const [old] = await AppDataSource.query(`SELECT "isDelete", "storageKey" FROM "student_documents" WHERE "id" = $1`, [oldPhoto.id]);
     expect(old.isDelete).toBe(true);
     expect(old.storageKey).toContain('/_replaced/');
@@ -340,6 +340,16 @@ describe('admin registration entry with documents', () => {
       .field('data', JSON.stringify({ barcodes: { INCOME_EWS: '' } }));
     expect(noBarcode.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     expect(noBarcode.body.error.details.map((d: { field: string }) => d.field)).toEqual(['body.barcodes.INCOME_EWS']);
+
+    const badBarcode = await request(app)
+      .post(`${URL}/${id}/documents`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('data', JSON.stringify({ barcodes: { INCOME_EWS: 'EWS-NEW-1', DOMICILE: '28123456789012345' } }));
+    expect(badBarcode.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(badBarcode.body.error.details.map((d: { field: string }) => d.field).sort()).toEqual([
+      'body.barcodes.DOMICILE',
+      'body.barcodes.INCOME_EWS',
+    ]);
 
     const viewer = await actorWith(['registrations.view']);
     const denied = await request(app)

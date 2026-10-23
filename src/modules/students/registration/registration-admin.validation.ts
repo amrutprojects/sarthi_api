@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { listQuerySchema } from '../../../shared/utils/pagination';
 import { idParams, statusBody, uuid } from '../../../shared/validation/common.validation';
-import { STUDENT_SOURCE, STUDENT_STATUS } from '../student.constants';
+import { BARCODE_FORMAT_MESSAGE, BARCODE_RE, STUDENT_SOURCE, STUDENT_STATUS } from '../student.constants';
 import { registrationBody } from './registration.validation';
 
 export const REGISTRATION_SORT_FIELDS = ['createdAt', 'code', 'firstName'] as const;
@@ -30,11 +30,21 @@ export const registrationDocumentSchema = { params: idParams.extend({ documentId
  * Admin-entered registration (multipart): field "data" holds this JSON; each document file is sent in a field named
  * after its document type code (PHOTO, AADHAAR_CARD, …). Documents come from the files, so "documents" is not accepted.
  */
+/*
+ * Barcodes per document type code. An empty value means "none given": whether one is required is decided with the
+ * files (a required barcode is needed only when that document is uploaded).
+ */
+export const barcodeMap = z.record(
+  z
+    .string()
+    .trim()
+    .refine((v) => v === '' || BARCODE_RE.test(v), `Barcode ${BARCODE_FORMAT_MESSAGE}`),
+);
+
 export const adminRegistrationData = registrationBody
   .omit({ documents: true })
   .extend({
-    barcodes: z
-      .record(z.string().trim().max(64, 'Barcode must be at most 64 characters'))
+    barcodes: barcodeMap
       .optional()
       .describe('Barcode per document type code, e.g. { "INCOME_EWS": "…" }'),
   })

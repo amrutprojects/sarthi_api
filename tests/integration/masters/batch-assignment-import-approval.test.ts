@@ -75,7 +75,7 @@ async function pendingRegistrant(token: string, aadhaarNumber: string): Promise<
     technology: 'T03',
     education_id: await masterId('educations', 'B.Com'),
     declaration_accepted: true,
-    barcodes: { INCOME_EWS: 'EWS-2026-0001' },
+    barcodes: { INCOME_EWS: '271234567890123456', DOMICILE: '281234567890123456' },
   };
   const mandatory: { code: string }[] = await AppDataSource.query(
     `SELECT "code" FROM "document_types" WHERE "isMandatory" AND "isActive" AND NOT "isDelete"`,
@@ -111,7 +111,8 @@ function record(over: Record<string, string> = {}): Record<string, string> {
     approved_at: APPROVED_AT,
   };
   for (const f of HEADER.filter((h) => h.startsWith('doc_') && !h.endsWith('_barcode'))) v[f] = 'Yes';
-  v.doc_income_ews_barcode = 'BC-1';
+  v.doc_income_ews_barcode = '271234567890123456';
+  v.doc_domicile_barcode = '281234567890123456';
   return { ...v, ...over };
 }
 const csv = (rows: Record<string, string>[]) =>
