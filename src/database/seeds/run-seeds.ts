@@ -1,7 +1,13 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../../config/database.config';
+import { seedAmrutSchemes } from './seed-amrut-schemes';
+import { seedAboutAmrut } from './seed-about-amrut';
+import { seedAmrutImpact } from './seed-amrut-impact';
+import { seedBoardMembers } from './seed-board-members';
 import { seedContactPage } from './seed-contact-page';
+import { seedEcosystem } from './seed-ecosystem';
 import { seedFooter } from './seed-footer';
+import { seedHomeHero } from './seed-home-hero';
 import { seedMasters } from './seed-masters';
 import { seedModulesPage } from './seed-modules-page';
 import { seedProgrammeHighlight } from './seed-programme-highlight';
@@ -29,6 +35,18 @@ async function main() {
     console.log('Programme section seed complete:', await seedProgrammeHighlight(AppDataSource));
     // eslint-disable-next-line no-console
     console.log('Programme page seed complete:', await seedProgrammePage(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Home hero seed complete:', await seedHomeHero(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Board members seed complete:', await seedBoardMembers(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('AMRUT Ecosystem seed complete:', await seedEcosystem(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('AMRUT Schemes seed complete:', await seedAmrutSchemes(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('About AMRUT seed complete:', await seedAboutAmrut(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log("AMRUT's Impact seed complete:", await seedAmrutImpact(AppDataSource));
   } finally {
     await AppDataSource.destroy();
   }

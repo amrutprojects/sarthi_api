@@ -55,7 +55,12 @@ export const MENUS = {
   'cms-contact': 'Contact Page Management',
   'cms-footer': 'Footer Management',
   'cms-modules': 'Modules Page Management',
-  'cms-home': 'Home Page Figures',
+  'cms-hero': 'Home Hero Section',
+  'cms-board': 'Board Members Management',
+  'cms-ecosystem': 'The AMRUT Ecosystem',
+  'cms-schemes': 'AMRUT Schemes Management',
+  'cms-about': 'About AMRUT Management',
+  'cms-impact': 'AMRUT Impact Management',
   'cms-highlight': 'Home Programme Section',
   'cms-programme': 'Programme Page Management',
   'cms-states': 'State Master',
@@ -130,10 +135,30 @@ export const PERMISSIONS = {
   CMS_CONTACT_UPDATE: def('cms-contact.update', 'Update Contact Page Management', 'Update in the Contact Page Management menu'),
   CMS_FOOTER_VIEW: def('cms-footer.view', 'View Footer Management', 'View in the Footer Management menu'),
   CMS_FOOTER_UPDATE: def('cms-footer.update', 'Update Footer Management', 'Update in the Footer Management menu'),
+  CMS_HERO_VIEW: def('cms-hero.view', 'View Home Hero Section', 'View in the Home Hero Section menu'),
+  CMS_HERO_UPDATE: def('cms-hero.update', 'Update Home Hero Section', 'Update in the Home Hero Section menu'),
+  CMS_BOARD_VIEW: def('cms-board.view', 'View Board Members Management', 'View in the Board Members Management menu'),
+  CMS_BOARD_CREATE: def('cms-board.create', 'Add Board Members Management', 'Add in the Board Members Management menu'),
+  CMS_BOARD_UPDATE: def('cms-board.update', 'Update Board Members Management', 'Update in the Board Members Management menu'),
+  CMS_BOARD_DELETE: def('cms-board.delete', 'Delete Board Members Management', 'Delete in the Board Members Management menu'),
+  CMS_ECOSYSTEM_VIEW: def('cms-ecosystem.view', 'View The AMRUT Ecosystem', 'View in the The AMRUT Ecosystem menu'),
+  CMS_ECOSYSTEM_CREATE: def('cms-ecosystem.create', 'Add The AMRUT Ecosystem', 'Add in the The AMRUT Ecosystem menu'),
+  CMS_ECOSYSTEM_UPDATE: def('cms-ecosystem.update', 'Update The AMRUT Ecosystem', 'Update in the The AMRUT Ecosystem menu'),
+  CMS_ECOSYSTEM_DELETE: def('cms-ecosystem.delete', 'Delete The AMRUT Ecosystem', 'Delete in the The AMRUT Ecosystem menu'),
+  CMS_SCHEMES_VIEW: def('cms-schemes.view', 'View AMRUT Schemes Management', 'View in the AMRUT Schemes Management menu'),
+  CMS_SCHEMES_CREATE: def('cms-schemes.create', 'Add AMRUT Schemes Management', 'Add in the AMRUT Schemes Management menu'),
+  CMS_SCHEMES_UPDATE: def('cms-schemes.update', 'Update AMRUT Schemes Management', 'Update in the AMRUT Schemes Management menu'),
+  CMS_SCHEMES_DELETE: def('cms-schemes.delete', 'Delete AMRUT Schemes Management', 'Delete in the AMRUT Schemes Management menu'),
+  CMS_ABOUT_VIEW: def('cms-about.view', 'View About AMRUT Management', 'View in the About AMRUT Management menu'),
+  CMS_ABOUT_CREATE: def('cms-about.create', 'Add About AMRUT Management', 'Add in the About AMRUT Management menu'),
+  CMS_ABOUT_UPDATE: def('cms-about.update', 'Update About AMRUT Management', 'Update in the About AMRUT Management menu'),
+  CMS_ABOUT_DELETE: def('cms-about.delete', 'Delete About AMRUT Management', 'Delete in the About AMRUT Management menu'),
+  CMS_IMPACT_VIEW: def('cms-impact.view', 'View AMRUT Impact Management', 'View in the AMRUT Impact Management menu'),
+  CMS_IMPACT_CREATE: def('cms-impact.create', 'Add AMRUT Impact Management', 'Add in the AMRUT Impact Management menu'),
+  CMS_IMPACT_UPDATE: def('cms-impact.update', 'Update AMRUT Impact Management', 'Update in the AMRUT Impact Management menu'),
+  CMS_IMPACT_DELETE: def('cms-impact.delete', 'Delete AMRUT Impact Management', 'Delete in the AMRUT Impact Management menu'),
   CMS_HIGHLIGHT_VIEW: def('cms-highlight.view', 'View Home Programme Section', 'View in the Home Programme Section menu'),
   CMS_HIGHLIGHT_UPDATE: def('cms-highlight.update', 'Update Home Programme Section', 'Update in the Home Programme Section menu'),
-  CMS_HOME_VIEW: def('cms-home.view', 'View Home Page Figures', 'View in the Home Page Figures menu'),
-  CMS_HOME_UPDATE: def('cms-home.update', 'Update Home Page Figures', 'Update in the Home Page Figures menu'),
   CMS_MODULES_VIEW: def('cms-modules.view', 'View Modules Page Management', 'View in the Modules Page Management menu'),
   CMS_MODULES_UPDATE: def('cms-modules.update', 'Update Modules Page Management', 'Update in the Modules Page Management menu'),
   CMS_PROGRAMME_VIEW: def('cms-programme.view', 'View Programme Page Management', 'View in the Programme Page Management menu'),
@@ -186,6 +211,8 @@ export const menuCodes = (menus: MenuKey[], actions: readonly MenuAction[] = MEN
  * Codes from the earlier catalogue → their replacements. On a seed run, a role holding a retired code is
  * granted its replacements and the retired permission is soft-deleted; a role holding a kept code is
  * granted those replacements that the same run newly created. Both happen once, so later edits stick.
+ * A menu merged into another retires all five of its codes the same way, each to the matching action.
+ * A code an administrator deactivated grants nothing, so its holders receive no replacements (a retired one is still soft-deleted).
  */
 export const LEGACY_CODE_MAP: Record<string, { retire: boolean; to: string[] }> = {
   'dashboard.view': { retire: false, to: menuCodes(['exec', 'today'], ['view']) },
@@ -213,4 +240,10 @@ export const LEGACY_CODE_MAP: Record<string, { retire: boolean; to: string[] }> 
   'lms.manage': { retire: true, to: menuCodes(['lms'], ['update']) },
   'settings.view': { retire: false, to: menuCodes(['admin'], ['view']) },
   'settings.update': { retire: false, to: menuCodes(['admin'], ['update']) },
+  /* Home Page Figures was merged into Home Hero Section, which now edits the "Programme at a glance" card. */
+  'cms-home.view': { retire: true, to: menuCodes(['cms-hero'], ['view']) },
+  'cms-home.create': { retire: true, to: menuCodes(['cms-hero'], ['create']) },
+  'cms-home.update': { retire: true, to: menuCodes(['cms-hero'], ['update']) },
+  'cms-home.delete': { retire: true, to: menuCodes(['cms-hero'], ['delete']) },
+  'cms-home.approve': { retire: true, to: menuCodes(['cms-hero'], ['approve']) },
 };

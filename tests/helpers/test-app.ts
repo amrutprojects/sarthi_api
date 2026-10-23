@@ -38,7 +38,7 @@ export async function resetData(): Promise<void> {
   await AppDataSource.query(
     'TRUNCATE "revoked_tokens", "audit_logs", "role_menu_visibility", "student_documents", "import_rows", "students", "import_batches", "idempotency_keys", "role_permissions", "user_roles", "permissions", "roles", "users", ' +
       '"talukas", "districts", "states", "contact_organizations", "contact_page_settings", "programme_page_settings", ' +
-      '"programme_elective_domains", "programme_modules", "programme_module_settings" RESTART IDENTITY CASCADE',
+      '"programme_elective_domains", "programme_modules", "programme_module_settings", "home_hero_slides", "home_hero", "board_members", "board_section", "ecosystem_programmes", "ecosystem_section", "amrut_schemes", "amrut_schemes_section", "about_cards", "about_facts", "about_section", "impact_stats", "impact_section" RESTART IDENTITY CASCADE',
   );
   await seedRbac(AppDataSource);
   rbacService.invalidate();

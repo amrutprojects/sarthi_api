@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5001
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../amrut-kalash-web", "run", "dev"],
+      "env": { "API_PROXY_TARGET": "http://localhost:5001" },
+      "port": 5173
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../amrut-kalash-admin", "run", "dev"],
+      "env": { "VITE_API_BASE_URL": "/api/v1" },
+      "port": 5174
+    }
+  ]
+}

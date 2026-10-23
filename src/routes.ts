@@ -17,6 +17,12 @@ import {
   publicContactRouter,
   publicFooterRouter,
   publicGeographyRouter,
+  publicHeroRouter,
+  publicBoardRouter,
+  publicEcosystemRouter,
+  publicSchemesRouter,
+  publicAboutRouter,
+  publicImpactRouter,
   publicModulesRouter, publicHighlightRouter,
   publicProgrammeRouter,
 } from './cms';
@@ -45,4 +51,10 @@ apiRouter.use('/public/contact', publicContactRouter);
 apiRouter.use('/public/footer', publicFooterRouter);
 apiRouter.use('/public/modules', publicModulesRouter);
 apiRouter.use('/public/highlight', publicHighlightRouter);
+apiRouter.use('/public/hero', publicHeroRouter);
+apiRouter.use('/public/board-members', publicBoardRouter);
+apiRouter.use('/public/ecosystem', publicEcosystemRouter);
+apiRouter.use('/public/schemes', publicSchemesRouter);
+apiRouter.use('/public/about', publicAboutRouter);
+apiRouter.use('/public/impact', publicImpactRouter);
 apiRouter.use('/public/programme', publicProgrammeRouter);
