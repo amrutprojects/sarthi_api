@@ -11,6 +11,7 @@ type IdParams = { id: string };
 const factInput = ({ label, value, ...rest }: UpdateFactBody) => ({ first: label, second: value, ...rest });
 const cardInput = ({ heading, description, ...rest }: UpdateCardBody) => ({ first: heading, second: description, ...rest });
 
+
 export const aboutController = {
   get: asyncHandler(async (_req: Request, res: Response) => {
     ApiResponse.ok(res, await aboutService.getAdmin(), 'About AMRUT retrieved successfully');
