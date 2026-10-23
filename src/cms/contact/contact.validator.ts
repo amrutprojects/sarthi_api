@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { idParams, statusBody } from '../../shared/validation/common.validation';
+import { listQueryAscSchema } from '../../shared/utils/pagination';
 import { ORG_TYPES } from './contact.model';
 
 /*
@@ -144,5 +146,37 @@ export const contactStatusSchema = {
   body: z.object({ isPublished: z.boolean() }).strict(),
 };
 
+/*
+ * The coordinator and district office sections, one entry at a time. Each entry takes exactly the
+ * fields of a list entry of the PUT; an update carries any subset of them.
+ */
+const atLeastOneField = (b: object) => Object.keys(b).length > 0;
+
+export const contactItemIdSchema = { params: idParams };
+export const contactItemStatusSchema = { params: idParams, body: statusBody };
+
+/* Display order first: the admin list reads in the order the website shows the cards. */
+export const listCoordinatorsSchema = { query: listQueryAscSchema(['displayOrder', 'name', 'createdAt', 'updatedAt'] as const) };
+export const createCoordinatorSchema = { body: coordinator };
+/* districtIds, when sent, replaces the coordinator's districts in the order given. */
+export const updateCoordinatorSchema = {
+  params: idParams,
+  body: coordinator.partial().refine(atLeastOneField, 'Provide at least one field to update'),
+};
+
+/* District name first: the order the website lists the offices in. */
+export const listDistrictOfficesSchema = { query: listQueryAscSchema(['district', 'collectorName', 'createdAt', 'updatedAt'] as const) };
+export const createDistrictOfficeSchema = { body: districtOffice };
+export const updateDistrictOfficeSchema = {
+  params: idParams,
+  body: districtOffice.partial().refine(atLeastOneField, 'Provide at least one field to update'),
+};
+
 export type UpdateContactPageBody = z.infer<typeof updateContactPageSchema.body>;
 export type ContactStatusBody = z.infer<typeof contactStatusSchema.body>;
+export type ListCoordinatorsQuery = z.infer<typeof listCoordinatorsSchema.query>;
+export type CreateCoordinatorBody = z.infer<typeof createCoordinatorSchema.body>;
+export type UpdateCoordinatorBody = z.infer<typeof updateCoordinatorSchema.body>;
+export type ListDistrictOfficesQuery = z.infer<typeof listDistrictOfficesSchema.query>;
+export type CreateDistrictOfficeBody = z.infer<typeof createDistrictOfficeSchema.body>;
+export type UpdateDistrictOfficeBody = z.infer<typeof updateDistrictOfficeSchema.body>;

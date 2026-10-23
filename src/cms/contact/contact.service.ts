@@ -1,9 +1,11 @@
 import type { Request } from 'express';
 import { In, type EntityManager } from 'typeorm';
 import { AppDataSource } from '../../config/database.config';
+import { ERROR_CODES, HTTP_STATUS } from '../../constants/api-response.constants';
 import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { auditService } from '../../modules/audit/audit.service';
 import { AppError } from '../../shared/errors/app-error';
+import type { Paginated } from '../../shared/utils/pagination';
 import { District } from '../masters/district/district.model';
 import {
   ContactCoordinator,
@@ -20,7 +22,13 @@ import type {
   AdminDistrictOffice,
   AdminOrganization,
   Bilingual,
+  CoordinatorListQuery,
+  CreateCoordinatorInput,
+  CreateDistrictOfficeInput,
+  DistrictOfficeListQuery,
   DistrictRef,
+  PatchCoordinatorInput,
+  PatchDistrictOfficeInput,
   PublicContactPage,
   PublicCoordinator,
   PublicDistrictOffice,
@@ -30,6 +38,14 @@ import type {
   UpdateDistrictOfficeInput,
   UpdateOrganizationInput,
 } from './contact.types';
+
+const NOT_CONFIGURED = 'The Contact page has not been configured yet. Run the database seed to create it.';
+const COORDINATOR_NOT_FOUND = 'Coordinator not found';
+const OFFICE_NOT_FOUND = 'District office not found';
+
+/* A 409 that also names the field, so the admin form can show it against the right input. */
+const conflict = (message: string, details: { field: string; message: string }[]) =>
+  new AppError(HTTP_STATUS.CONFLICT, message, ERROR_CODES.CONFLICT, details);
 
 /* Null when neither half is stored — the two columns are always written together. */
 const pair = (mr: string | null, en: string | null): Bilingual | null => (mr !== null && en !== null ? { mr, en } : null);
@@ -97,6 +113,8 @@ const toAdminCoordinator = (c: ContactCoordinator): AdminCoordinator => ({
   districts: coveredDistricts(c).map(districtRef),
   displayOrder: c.displayOrder,
   isActive: c.isActive,
+  createdAt: c.createdAt,
+  updatedAt: c.updatedAt,
 });
 
 const toAdminDistrictOffice = (o: ContactDistrictOffice): AdminDistrictOffice => ({
@@ -108,6 +126,8 @@ const toAdminDistrictOffice = (o: ContactDistrictOffice): AdminDistrictOffice =>
   email: o.email,
   officeHours: pair(o.officeHoursMr, o.officeHoursEn),
   isActive: o.isActive,
+  createdAt: o.createdAt,
+  updatedAt: o.updatedAt,
 });
 
 const toPublicCoordinator = (c: ContactCoordinator): PublicCoordinator => ({
@@ -141,6 +161,19 @@ const officeColumns = (input: UpdateDistrictOfficeInput) => ({
   isActive: input.isActive ?? true,
 });
 
+/* The columns an office update changes: only the fields it carries. Null (or a blank name) clears one. */
+const officePatchColumns = (input: PatchDistrictOfficeInput) => ({
+  ...(input.districtId === undefined ? {} : { districtId: input.districtId }),
+  ...(input.collectorName === undefined ? {} : { collectorName: input.collectorName || null }),
+  ...(input.address === undefined ? {} : { addressMr: input.address?.mr ?? null, addressEn: input.address?.en ?? null }),
+  ...(input.phone === undefined ? {} : { phone: input.phone || null }),
+  ...(input.email === undefined ? {} : { email: input.email || null }),
+  ...(input.officeHours === undefined
+    ? {}
+    : { officeHoursMr: input.officeHours?.mr ?? null, officeHoursEn: input.officeHours?.en ?? null }),
+  ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+});
+
 /*
  * Contact page content (CMS).
  *
@@ -149,16 +182,25 @@ const officeColumns = (input: UpdateDistrictOfficeInput) => ({
  * (the seed has not run), not something a request should silently repair — the admin read reports it
  * plainly and the public read degrades to "nothing published" so the website shows its own copy.
  *
+ * The coordinator and district office sections can also be edited one entry at a time (list, get,
+ * create, update, status, soft delete), which is what the admin's per-section pages use; the PUT keeps
+ * accepting them as whole lists. Either way every write is audited as a Contact page change.
+ *
  * Every rule here is also a database constraint (per-type required fields, one card per type, the
- * single settings row). The checks exist to return a readable 4xx instead of a raw constraint error.
+ * single settings row, one coordinator and one live office per district). The checks exist to return a
+ * readable 4xx instead of a raw constraint error.
  */
 export class ContactService {
+  /* The live configuration. Every admin read and write needs it, and its absence is reported plainly. */
+  private async requireSettings(m?: EntityManager): Promise<ContactPageSettings> {
+    const settings = await contactRepository.findSettings(m);
+    if (!settings) throw AppError.notFound(NOT_CONFIGURED);
+    return settings;
+  }
+
   /* The configuration an administrator edits, including inactive cards. */
   async getForAdmin(): Promise<AdminContactPage> {
-    const settings = await contactRepository.findSettings();
-    if (!settings) {
-      throw AppError.notFound('The Contact page has not been configured yet. Run the database seed to create it.');
-    }
+    const settings = await this.requireSettings();
     const [organizations, coordinators, offices] = await Promise.all([
       contactRepository.findOrganizations(settings.id),
       contactRepository.findCoordinators(settings.id),
@@ -218,10 +260,7 @@ export class ContactService {
    */
   async update(input: UpdateContactPageInput, req?: Request): Promise<AdminContactPage> {
     await AppDataSource.transaction(async (m) => {
-      const settings = await contactRepository.findSettings(m);
-      if (!settings) {
-        throw AppError.notFound('The Contact page has not been configured yet. Run the database seed to create it.');
-      }
+      const settings = await this.requireSettings(m);
 
       const seen = new Set<OrgType>();
       for (const org of input.organizations) {
@@ -327,11 +366,16 @@ export class ContactService {
           isActive: c.isActive ?? true,
         }),
       );
-      const districtIds = [...new Set(c.districtIds)];
-      if (districtIds.length) {
-        await links.insert(districtIds.map((districtId, displayOrder) => ({ coordinatorId: saved.id, districtId, displayOrder })));
-      }
+      await this.linkDistricts(m, saved.id, [...new Set(c.districtIds)]);
     }
+  }
+
+  /* Writes a coordinator's district links in the order given, lead district first. */
+  private async linkDistricts(m: EntityManager, coordinatorId: string, districtIds: string[]): Promise<void> {
+    if (districtIds.length === 0) return;
+    await m
+      .getRepository(ContactCoordinatorDistrict)
+      .insert(districtIds.map((districtId, displayOrder) => ({ coordinatorId, districtId, displayOrder })));
   }
 
   /* District offices are matched by district: present ones are updated or created, absent ones retired. */
@@ -363,10 +407,7 @@ export class ContactService {
   /* Publish / unpublish on its own, so visibility can be changed without resubmitting the content. */
   async setPublished(isPublished: boolean, req?: Request): Promise<AdminContactPage> {
     await AppDataSource.transaction(async (m) => {
-      const settings = await contactRepository.findSettings(m);
-      if (!settings) {
-        throw AppError.notFound('The Contact page has not been configured yet. Run the database seed to create it.');
-      }
+      const settings = await this.requireSettings(m);
       await contactRepository.update(settings.id, { isPublished }, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.CONTACT_PAGE_STATUS,
@@ -376,6 +417,214 @@ export class ContactService {
       });
     });
     return this.getForAdmin();
+  }
+
+  /*
+   * Every write to the coordinator and district office sections is audited as a change to the Contact
+   * page, naming the section, the operation and the entry.
+   */
+  private recordSectionChange(
+    m: EntityManager,
+    req: Request | undefined,
+    settingsId: string,
+    section: 'coordinators' | 'district-offices',
+    op: 'create' | 'update' | 'status' | 'delete',
+    id: string,
+  ): Promise<void> {
+    return auditService.recordInTx(m, req, {
+      action: AUDIT_ACTIONS.CONTACT_PAGE_UPDATE,
+      resource: 'contact-page',
+      resourceId: settingsId,
+      details: { section, op, id },
+    });
+  }
+
+  /* ---------------- coordinators, one card at a time ---------------- */
+
+  async listCoordinators(q: CoordinatorListQuery): Promise<Paginated<AdminCoordinator>> {
+    const settings = await this.requireSettings();
+    const page = await contactRepository.listCoordinators(settings.id, q);
+    return { items: page.items.map(toAdminCoordinator), meta: page.meta };
+  }
+
+  async getCoordinator(id: string): Promise<AdminCoordinator> {
+    const settings = await this.requireSettings();
+    const coordinator = await contactRepository.findCoordinator(settings.id, id);
+    if (!coordinator) throw AppError.notFound(COORDINATOR_NOT_FOUND);
+    return toAdminCoordinator(coordinator);
+  }
+
+  private async requireCoordinator(m: EntityManager, settingsId: string, id: string): Promise<ContactCoordinator> {
+    const coordinator = await contactRepository.coordinators(m).findOne({ where: { id, settingsId, isDelete: false } });
+    if (!coordinator) throw AppError.notFound(COORDINATOR_NOT_FOUND);
+    return coordinator;
+  }
+
+  /*
+   * The districts a coordinator is given: live districts only (400 otherwise), and none already covered
+   * by another live coordinator (409 naming the district and its coordinator) — the website must have
+   * one answer to "who is the coordinator for this district?".
+   */
+  private async assertCoordinatorDistricts(m: EntityManager, districtIds: string[], coordinatorId?: string): Promise<void> {
+    if (districtIds.length === 0) return;
+    await this.assertDistrictsExist(m, districtIds, 'districtIds');
+    const covered = await contactRepository.findCoveredDistricts(districtIds, { excludeId: coordinatorId, manager: m });
+    if (covered.length) {
+      const details = covered.map((cd) => ({
+        field: 'districtIds',
+        message: `${cd.district.name} is already covered by ${cd.coordinator.name}`,
+      }));
+      throw conflict(
+        details.length === 1 ? details[0].message : 'Some of the selected districts are already covered by other coordinators',
+        details,
+      );
+    }
+  }
+
+  /* A new card goes after every live card unless an order is given. */
+  async createCoordinator(input: CreateCoordinatorInput, req?: Request): Promise<AdminCoordinator> {
+    const id = await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      const districtIds = [...new Set(input.districtIds)];
+      await this.assertCoordinatorDistricts(m, districtIds);
+      const repo = contactRepository.coordinators(m);
+      const saved = await repo.save(
+        repo.create({
+          settingsId: settings.id,
+          name: input.name,
+          phone: input.phone,
+          email: input.email || null,
+          displayOrder: input.displayOrder ?? (await contactRepository.nextCoordinatorOrder(settings.id, m)),
+          isActive: input.isActive ?? true,
+        }),
+      );
+      await this.linkDistricts(m, saved.id, districtIds);
+      await this.recordSectionChange(m, req, settings.id, 'coordinators', 'create', saved.id);
+      return saved.id;
+    });
+    return this.getCoordinator(id);
+  }
+
+  /* Any subset of the fields. districtIds, when sent, replaces the card's districts in the order given. */
+  async updateCoordinator(id: string, input: PatchCoordinatorInput, req?: Request): Promise<AdminCoordinator> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.requireCoordinator(m, settings.id, id);
+      const districtIds = input.districtIds && [...new Set(input.districtIds)];
+      if (districtIds) await this.assertCoordinatorDistricts(m, districtIds, id);
+      /* Written even when only the districts change, so updatedAt still records the edit. */
+      await contactRepository.coordinators(m).update(id, {
+        ...(input.name === undefined ? {} : { name: input.name }),
+        ...(input.phone === undefined ? {} : { phone: input.phone }),
+        ...(input.email === undefined ? {} : { email: input.email || null }),
+        ...(input.displayOrder === undefined ? {} : { displayOrder: input.displayOrder }),
+        ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+      });
+      if (districtIds) {
+        await m.getRepository(ContactCoordinatorDistrict).delete({ coordinatorId: id });
+        await this.linkDistricts(m, id, districtIds);
+      }
+      await this.recordSectionChange(m, req, settings.id, 'coordinators', 'update', id);
+    });
+    return this.getCoordinator(id);
+  }
+
+  /* Deactivation hides the card from the website but keeps it, and its districts, here. */
+  async setCoordinatorStatus(id: string, isActive: boolean, req?: Request): Promise<AdminCoordinator> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.requireCoordinator(m, settings.id, id);
+      await contactRepository.coordinators(m).update(id, { isActive });
+      await this.recordSectionChange(m, req, settings.id, 'coordinators', 'status', id);
+    });
+    return this.getCoordinator(id);
+  }
+
+  /* Soft-deletes the card and removes its district links, so its districts are free for another coordinator. */
+  async removeCoordinator(id: string, req?: Request): Promise<void> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.requireCoordinator(m, settings.id, id);
+      await m.getRepository(ContactCoordinatorDistrict).delete({ coordinatorId: id });
+      await contactRepository.coordinators(m).update(id, { isDelete: true, isActive: false });
+      await this.recordSectionChange(m, req, settings.id, 'coordinators', 'delete', id);
+    });
+  }
+
+  /* ---------------- district offices, one entry at a time ---------------- */
+
+  async listDistrictOffices(q: DistrictOfficeListQuery): Promise<Paginated<AdminDistrictOffice>> {
+    const settings = await this.requireSettings();
+    const page = await contactRepository.listDistrictOffices(settings.id, q);
+    return { items: page.items.map(toAdminDistrictOffice), meta: page.meta };
+  }
+
+  async getDistrictOffice(id: string): Promise<AdminDistrictOffice> {
+    const settings = await this.requireSettings();
+    const office = await contactRepository.findDistrictOffice(settings.id, id);
+    if (!office) throw AppError.notFound(OFFICE_NOT_FOUND);
+    return toAdminDistrictOffice(office);
+  }
+
+  private async requireOffice(m: EntityManager, settingsId: string, id: string): Promise<ContactDistrictOffice> {
+    const office = await contactRepository.findDistrictOffice(settingsId, id, m);
+    if (!office) throw AppError.notFound(OFFICE_NOT_FOUND);
+    return office;
+  }
+
+  /* An office's district: a live district (400 otherwise) that has no other live office entry (409). */
+  private async assertOfficeDistrict(m: EntityManager, districtId: string, officeId?: string): Promise<void> {
+    await this.assertDistrictsExist(m, [districtId], 'districtId');
+    const clash = await contactRepository.findOfficeOfDistrict(districtId, { excludeId: officeId, manager: m });
+    if (clash) {
+      const message = `${clash.district.name} already has an office entry`;
+      throw conflict(message, [{ field: 'districtId', message }]);
+    }
+  }
+
+  async createDistrictOffice(input: CreateDistrictOfficeInput, req?: Request): Promise<AdminDistrictOffice> {
+    const id = await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.assertOfficeDistrict(m, input.districtId);
+      const repo = m.getRepository(ContactDistrictOffice);
+      const saved = await repo.save(repo.create({ settingsId: settings.id, districtId: input.districtId, ...officeColumns(input) }));
+      await this.recordSectionChange(m, req, settings.id, 'district-offices', 'create', saved.id);
+      return saved.id;
+    });
+    return this.getDistrictOffice(id);
+  }
+
+  /* Any subset of the fields; a new districtId moves the entry to that district. */
+  async updateDistrictOffice(id: string, input: PatchDistrictOfficeInput, req?: Request): Promise<AdminDistrictOffice> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      const current = await this.requireOffice(m, settings.id, id);
+      if (input.districtId !== undefined && input.districtId !== current.districtId)
+        await this.assertOfficeDistrict(m, input.districtId, id);
+      await m.getRepository(ContactDistrictOffice).update(id, officePatchColumns(input));
+      await this.recordSectionChange(m, req, settings.id, 'district-offices', 'update', id);
+    });
+    return this.getDistrictOffice(id);
+  }
+
+  async setDistrictOfficeStatus(id: string, isActive: boolean, req?: Request): Promise<AdminDistrictOffice> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.requireOffice(m, settings.id, id);
+      await m.getRepository(ContactDistrictOffice).update(id, { isActive });
+      await this.recordSectionChange(m, req, settings.id, 'district-offices', 'status', id);
+    });
+    return this.getDistrictOffice(id);
+  }
+
+  /* Soft-deletes the entry, which frees its district for a new one. */
+  async removeDistrictOffice(id: string, req?: Request): Promise<void> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.requireOffice(m, settings.id, id);
+      await m.getRepository(ContactDistrictOffice).update(id, { isDelete: true, isActive: false });
+      await this.recordSectionChange(m, req, settings.id, 'district-offices', 'delete', id);
+    });
   }
 }
 

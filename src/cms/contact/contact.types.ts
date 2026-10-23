@@ -1,3 +1,4 @@
+import type { ListQuery } from '../../shared/utils/pagination';
 import type { OrgType } from './contact.model';
 
 /* A Marathi/English pair, matching the website's Bilingual type (public-site/content/types.ts). */
@@ -41,6 +42,8 @@ export interface AdminCoordinator {
   districts: DistrictRef[];
   displayOrder: number;
   isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface AdminDistrictOffice {
@@ -52,7 +55,17 @@ export interface AdminDistrictOffice {
   email: string | null;
   officeHours: Bilingual | null;
   isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+/* Columns a client may sort the two section lists by (?sortBy=). Anything else is rejected by the validator. */
+export type CoordinatorSortField = 'displayOrder' | 'name' | 'createdAt' | 'updatedAt';
+export type CoordinatorListQuery = ListQuery<CoordinatorSortField>;
+
+/* `district` sorts by the district's name, the order the website lists the offices in. */
+export type DistrictOfficeSortField = 'district' | 'collectorName' | 'createdAt' | 'updatedAt';
+export type DistrictOfficeListQuery = ListQuery<DistrictOfficeSortField>;
 
 export interface AdminContactPage {
   id: string;
@@ -147,6 +160,15 @@ export interface UpdateDistrictOfficeInput {
   officeHours?: Bilingual | null;
   isActive?: boolean;
 }
+
+/*
+ * The one-item endpoints (/coordinators, /district-offices) take the fields of one list entry of the
+ * PUT. An update carries any subset of them; an absent field leaves its column as it is.
+ */
+export type CreateCoordinatorInput = UpdateCoordinatorInput;
+export type PatchCoordinatorInput = Partial<UpdateCoordinatorInput>;
+export type CreateDistrictOfficeInput = UpdateDistrictOfficeInput;
+export type PatchDistrictOfficeInput = Partial<UpdateDistrictOfficeInput>;
 
 /*
  * coordinators / districtOffices are optional: a payload that omits a list leaves that section

@@ -1,6 +1,10 @@
 import type { Express } from 'express';
 import { Repository, type ObjectLiteral } from 'typeorm';
-import { AppDataSource, API, actorWith, auth, request, setupTestApp, superAdmin, teardownTestApp, type TestActor } from '../../helpers/test-app';
+import {
+  AppDataSource, API, actorWith, auth, createUser, login, request, setupTestApp, superAdmin, teardownTestApp, type TestActor,
+} from '../../helpers/test-app';
+import { MISSING_ID, makeDistrict, makeState } from '../../cms/helpers';
+import { ROLE_CODES } from '../../../src/modules/roles-permissions/role.constants';
 import { seedContactPage } from '../../../src/database/seeds/seed-contact-page';
 import { seedContactDirectory } from '../../../src/database/seeds/seed-contact-directory';
 import { ContactDistrictOffice, ContactOrganization, ContactPageSettings } from '../../../src/cms/contact/contact.model';
@@ -431,10 +435,13 @@ describe('Contact directory seed (coordinators and district offices)', () => {
     pageSubtitle: Pair;
     isPublished: boolean;
     organizations: (Omit<OrgPayload, 'role' | 'address' | 'helpdeskHours'> & { id: string; role: Pair | null; address: Pair | null; helpdeskHours: Pair | null })[];
-    coordinators: { id: string; name: string; phone: string; email: string | null; districts: Ref[]; displayOrder: number; isActive: boolean }[];
+    coordinators: {
+      id: string; name: string; phone: string; email: string | null; districts: Ref[]; displayOrder: number; isActive: boolean;
+      createdAt: string; updatedAt: string;
+    }[];
     districtOffices: {
       id: string; district: Ref; collectorName: string | null; address: Pair | null; phone: string | null; email: string | null;
-      officeHours: Pair | null; isActive: boolean;
+      officeHours: Pair | null; isActive: boolean; createdAt: string; updatedAt: string;
     }[];
   }
   interface PublicCoordinator { name: string; phone: string; email?: string; districts: { code: string; name: string }[] }
@@ -685,9 +692,11 @@ describe('Contact directory seed (coordinators and district offices)', () => {
     const res = await put(toAdminPayload(before));
     expect(res.status).toBe(200);
 
-    /* Coordinators are re-created on save (new ids); everything else is updated in place. */
+    /* Coordinators are re-created on save (new ids); everything else is updated in place (new updatedAt). */
     const comparable = (p: AdminPage) => ({
-      ...p, createdAt: undefined, updatedAt: undefined, coordinators: p.coordinators.map(({ id: _id, ...c }) => c),
+      ...p, createdAt: undefined, updatedAt: undefined,
+      coordinators: p.coordinators.map(({ id: _id, createdAt: _c, updatedAt: _u, ...c }) => c),
+      districtOffices: p.districtOffices.map(({ createdAt: _c, updatedAt: _u, ...o }) => o),
     });
     expect(comparable(res.body.data)).toEqual(comparable(before));
     expect(comparable(await adminPage())).toEqual(comparable(before));
@@ -713,5 +722,636 @@ describe('Contact directory seed (coordinators and district offices)', () => {
       districtOffices: [{ districtId: '00000000-0000-4000-8000-000000000000', phone: '+91 20XXX 12345' }],
     });
     expect(office.status).toBe(422);
+  });
+});
+
+/*
+ * The coordinator and district office sections one entry at a time — what the admin's per-section
+ * list, form and view pages use. Each block works on districts of a state of its own and starts every
+ * test from two empty sections.
+ */
+const COORDINATORS_URL = `${ADMIN_URL}/coordinators`;
+const OFFICES_URL = `${ADMIN_URL}/district-offices`;
+
+interface ApiRef { id: string; name: string; code: string }
+interface ApiCoordinator {
+  id: string; name: string; phone: string; email: string | null; districts: ApiRef[]; displayOrder: number; isActive: boolean;
+  createdAt: string; updatedAt: string;
+}
+interface ApiDistrictOffice {
+  id: string; district: ApiRef; collectorName: string | null; address: Pair | null; phone: string | null; email: string | null;
+  officeHours: Pair | null; isActive: boolean; createdAt: string; updatedAt: string;
+}
+type Listed = { body: { data: { id: string }[] } };
+
+const clearSections = async () => {
+  await AppDataSource.query(`DELETE FROM "contact_coordinator_districts"`);
+  await AppDataSource.query(`DELETE FROM "contact_coordinators"`);
+  await AppDataSource.query(`DELETE FROM "contact_district_offices"`);
+};
+
+/* A state and its districts, created through the API; the districts are returned by name. */
+const sectionDistricts = async (stateName: string, stateCode: string, list: [string, string][]) => {
+  const state = await makeState(app, admin.token, stateName, stateCode);
+  const districts: Record<string, ApiRef> = {};
+  for (const [name, code] of list) districts[name] = { id: (await makeDistrict(app, admin.token, state.id, name, code)).id, name, code };
+  return { stateId: state.id, districts };
+};
+
+const idsOf = (res: Listed) => res.body.data.map((x) => x.id);
+const adminView = async () => (await request(app).get(ADMIN_URL).set(auth(admin.token)).expect(200)).body.data;
+const publicView = async () => (await request(app).get(PUBLIC_URL).expect(200)).body.data;
+const publish = () => request(app).patch(`${ADMIN_URL}/status`).set(auth(admin.token)).send({ isPublished: true }).expect(200);
+
+describe('Contact coordinators, one card at a time', () => {
+  let stateId: string;
+  let d: Record<string, ApiRef>;
+
+  const post = (body: object) => request(app).post(COORDINATORS_URL).set(auth(admin.token)).send(body);
+  const patch = (id: string, body: object) => request(app).patch(`${COORDINATORS_URL}/${id}`).set(auth(admin.token)).send(body);
+  const setStatus = (id: string, body: object) => request(app).patch(`${COORDINATORS_URL}/${id}/status`).set(auth(admin.token)).send(body);
+  const get = (id: string) => request(app).get(`${COORDINATORS_URL}/${id}`).set(auth(admin.token));
+  const remove = (id: string) => request(app).delete(`${COORDINATORS_URL}/${id}`).set(auth(admin.token));
+  const list = (q: Record<string, string | number> = {}) => request(app).get(COORDINATORS_URL).query(q).set(auth(admin.token));
+  const names = (res: { body: { data: ApiCoordinator[] } }) => res.body.data.map((c) => c.name);
+  const make = async (body: object): Promise<ApiCoordinator> => {
+    const res = await post(body);
+    if (res.status !== 201) throw new Error(`POST coordinator failed (${res.status}): ${JSON.stringify(res.body)}`);
+    return res.body.data;
+  };
+
+  beforeAll(async () => {
+    ({ stateId, districts: d } = await sectionDistricts('Coordinator Test State', 'CRS', [
+      ['Satara', 'SAT'], ['Sangli', 'SAN'], ['Kolhapur', 'KOL'], ['Solapur', 'SOL'], ['Ratnagiri', 'RAT'],
+    ]));
+    await publish();
+  });
+  beforeEach(clearSections);
+  afterAll(clearSections);
+
+  it('creates a card at the end of the list, its districts in the order given', async () => {
+    const first = await post({ name: 'Asha Patil', phone: '+91 98XXX 10001', email: 'Asha.Patil@Sumago.demo', districtIds: [d.Sangli.id, d.Satara.id] });
+    expect(first.status).toBe(201);
+    expect(first.body.data).toEqual({
+      id: expect.any(String), name: 'Asha Patil', phone: '+91 98XXX 10001', email: 'asha.patil@sumago.demo',
+      districts: [d.Sangli, d.Satara], displayOrder: 0, isActive: true, createdAt: expect.any(String), updatedAt: expect.any(String),
+    });
+
+    expect(await make({ name: 'Bhushan Rao', phone: '+91 98000 10002', districtIds: [] })).toMatchObject({ email: null, districts: [], displayOrder: 1 });
+    /* An explicit order and status are kept, and the next card still goes after it. */
+    expect(await make({ name: 'Chitra Joshi', phone: '+91 98000 10003', displayOrder: 7, isActive: false })).toMatchObject({ displayOrder: 7, isActive: false });
+    expect((await make({ name: 'Dinesh More', phone: '+91 98000 10004' })).displayOrder).toBe(8);
+  });
+
+  it('never assigns an order past the 999 the edit form accepts', async () => {
+    await make({ name: 'Last', phone: '+91 98000 10005', displayOrder: 999 });
+    expect((await make({ name: 'After last', phone: '+91 98000 10006' })).displayOrder).toBe(999);
+  });
+
+  it('gets one card (404 when missing, 422 for a malformed id)', async () => {
+    const c = await make({ name: 'Asha Patil', phone: '+91 98000 20001', districtIds: [d.Kolhapur.id] });
+    const res = await get(c.id);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(c);
+    expect((await get(MISSING_ID)).status).toBe(404);
+    expect((await get('not-a-uuid')).status).toBe(422);
+  });
+
+  it('lists a page at a time, in display order unless sorted otherwise', async () => {
+    for (const [i, name] of ['Kiran', 'Anil', 'Meena'].entries()) await make({ name, phone: `+91 98000 3000${i}` });
+
+    const first = await list({ limit: 2 });
+    expect(first.status).toBe(200);
+    expect(names(first)).toEqual(['Kiran', 'Anil']);
+    expect(first.body.meta).toEqual({ page: 1, limit: 2, total: 3, totalPages: 2 });
+    const second = await list({ limit: 2, page: 2 });
+    expect(names(second)).toEqual(['Meena']);
+    expect(second.body.meta).toEqual({ page: 2, limit: 2, total: 3, totalPages: 2 });
+
+    expect(names(await list({ sortBy: 'name' }))).toEqual(['Anil', 'Kiran', 'Meena']);
+    expect(names(await list({ sortBy: 'name', sortOrder: 'desc' }))).toEqual(['Meena', 'Kiran', 'Anil']);
+    expect(names(await list({ sortBy: 'createdAt', sortOrder: 'desc' }))).toEqual(['Meena', 'Anil', 'Kiran']);
+    expect(names(await list({ sortBy: 'displayOrder', sortOrder: 'desc' }))).toEqual(['Meena', 'Anil', 'Kiran']);
+    expect((await list({ sortBy: 'phone' })).status).toBe(422);
+  });
+
+  it('searches name, phone, email and the covered districts, ignoring case', async () => {
+    const asha = await make({ name: 'Asha Patil', phone: '+91 98111 40001', email: 'west@sumago.demo', districtIds: [d.Kolhapur.id] });
+    const bhushan = await make({ name: 'Bhushan Rao', phone: '+91 98222 40002', email: 'east@sumago.demo', districtIds: [d.Solapur.id] });
+    const found = async (search: string) => idsOf(await list({ search }));
+
+    expect(await found('asha')).toEqual([asha.id]);
+    expect(await found('98222')).toEqual([bhushan.id]);
+    expect(await found('WEST@')).toEqual([asha.id]);
+    expect(await found('solapur')).toEqual([bhushan.id]);
+    expect(await found('sumago')).toEqual([asha.id, bhushan.id]);
+    expect(await found('nobody')).toEqual([]);
+    /* LIKE wildcards are matched literally. */
+    expect(await found('%')).toEqual([]);
+
+    /* A page found through a district still carries every district of its cards. */
+    const res = await list({ search: 'kolhapur' });
+    expect(res.body.data[0].districts).toEqual([d.Kolhapur]);
+    expect(res.body.meta).toMatchObject({ total: 1 });
+  });
+
+  it('lists inactive cards too, unless filtered by status', async () => {
+    const on = await make({ name: 'Active One', phone: '+91 98000 50001' });
+    const off = await make({ name: 'Inactive One', phone: '+91 98000 50002', isActive: false });
+    expect(idsOf(await list())).toEqual([on.id, off.id]);
+    expect(idsOf(await list({ isActive: 'true' }))).toEqual([on.id]);
+    expect(idsOf(await list({ isActive: 'false' }))).toEqual([off.id]);
+  });
+
+  it('updates any subset of the fields and leaves the rest alone', async () => {
+    const c = await make({ name: 'Asha Patil', phone: '+91 98000 60001', email: 'asha@sumago.demo', districtIds: [d.Satara.id] });
+
+    const renamed = await patch(c.id, { name: 'Asha P. Patil' });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data).toEqual({ ...c, name: 'Asha P. Patil', updatedAt: expect.any(String) });
+
+    const cleared = await patch(c.id, { email: null, phone: '+91 98XXX 60001', displayOrder: 4, isActive: false });
+    expect(cleared.body.data).toMatchObject({ email: null, phone: '+91 98XXX 60001', displayOrder: 4, isActive: false, districts: [d.Satara] });
+
+    expect((await patch(c.id, {})).status).toBe(422);
+    expect((await patch(c.id, { phone: 'call me maybe' })).status).toBe(422);
+    expect((await patch(c.id, { somethingElse: 1 })).status).toBe(422);
+    expect((await patch(MISSING_ID, { name: 'Nobody' })).status).toBe(404);
+  });
+
+  it('re-orders and replaces the districts when districtIds is sent', async () => {
+    const c = await make({ name: 'Asha Patil', phone: '+91 98000 70001', districtIds: [d.Satara.id, d.Sangli.id, d.Kolhapur.id] });
+
+    const reordered = await patch(c.id, { districtIds: [d.Kolhapur.id, d.Satara.id, d.Sangli.id] });
+    expect(reordered.status).toBe(200);
+    expect(reordered.body.data.districts).toEqual([d.Kolhapur, d.Satara, d.Sangli]);
+    /* A districts-only edit still counts as an edit. */
+    expect(new Date(reordered.body.data.updatedAt).getTime()).toBeGreaterThan(new Date(c.updatedAt).getTime());
+    expect((await get(c.id)).body.data.districts).toEqual([d.Kolhapur, d.Satara, d.Sangli]);
+
+    const replaced = await patch(c.id, { districtIds: [d.Solapur.id] });
+    expect(replaced.body.data.districts).toEqual([d.Solapur]);
+    /* The districts it gave up are free for another coordinator. */
+    expect((await post({ name: 'Bhushan Rao', phone: '+91 98000 70002', districtIds: [d.Satara.id, d.Sangli.id] })).status).toBe(201);
+
+    /* A repeated id is kept once, where it first appears; an empty list removes every district. */
+    const repeated = await patch(c.id, { districtIds: [d.Ratnagiri.id, d.Solapur.id, d.Ratnagiri.id] });
+    expect(repeated.body.data.districts).toEqual([d.Ratnagiri, d.Solapur]);
+    expect((await patch(c.id, { districtIds: [] })).body.data.districts).toEqual([]);
+    /* Other fields are untouched by a districts-only edit. */
+    expect((await get(c.id)).body.data).toMatchObject({ name: 'Asha Patil', phone: '+91 98000 70001', displayOrder: 0 });
+  });
+
+  it('refuses a district another live coordinator covers (409), naming the district and the coordinator', async () => {
+    const asha = await make({ name: 'Asha Patil', phone: '+91 98000 80001', districtIds: [d.Satara.id] });
+    const bhushan = await make({ name: 'Bhushan Rao', phone: '+91 98000 80002', districtIds: [d.Sangli.id] });
+    const clash = [{ field: 'districtIds', message: 'Satara is already covered by Asha Patil' }];
+
+    const created = await post({ name: 'Chitra Joshi', phone: '+91 98000 80003', districtIds: [d.Kolhapur.id, d.Satara.id] });
+    expect(created.status).toBe(409);
+    expect(created.body.message).toBe('Satara is already covered by Asha Patil');
+    expect(created.body.error).toMatchObject({ code: 'CONFLICT', details: clash });
+
+    const moved = await patch(bhushan.id, { districtIds: [d.Sangli.id, d.Satara.id] });
+    expect(moved.status).toBe(409);
+    expect(moved.body.error.details).toEqual(clash);
+
+    /* Nothing was written by either refusal, and a card's own districts are not a clash. */
+    expect((await list()).body.meta.total).toBe(2);
+    expect((await get(bhushan.id)).body.data.districts).toEqual([d.Sangli]);
+    expect((await patch(asha.id, { districtIds: [d.Satara.id], name: 'Asha Patil' })).status).toBe(200);
+
+    /* One detail per clashing district, in district-name order. */
+    const both = await post({ name: 'Dinesh More', phone: '+91 98000 80004', districtIds: [d.Satara.id, d.Sangli.id] });
+    expect(both.status).toBe(409);
+    expect(both.body.error.details).toEqual([
+      { field: 'districtIds', message: 'Sangli is already covered by Bhushan Rao' },
+      { field: 'districtIds', message: 'Satara is already covered by Asha Patil' },
+    ]);
+  });
+
+  it('rejects an unknown or deleted district (400)', async () => {
+    const c = await make({ name: 'Asha Patil', phone: '+91 98000 90001' });
+    const unknown = await post({ name: 'Bhushan Rao', phone: '+91 98000 90002', districtIds: [MISSING_ID] });
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.error.details).toEqual([{ field: 'districtIds', message: 'Unknown district' }]);
+
+    const retired = await makeDistrict(app, admin.token, stateId, 'Retired District', 'RTD');
+    await AppDataSource.query(`UPDATE "districts" SET "isDelete" = true WHERE "id" = $1`, [retired.id]);
+    expect((await post({ name: 'Bhushan Rao', phone: '+91 98000 90002', districtIds: [retired.id] })).status).toBe(400);
+    expect((await patch(c.id, { districtIds: [d.Satara.id, retired.id] })).status).toBe(400);
+    expect((await get(c.id)).body.data.districts).toEqual([]);
+    expect((await post({ name: 'Bad id', phone: '+91 98000 90003', districtIds: ['pune'] })).status).toBe(422);
+  });
+
+  it('activates and deactivates a card; the website shows active cards only', async () => {
+    const c = await make({ name: 'Asha Patil', phone: '+91 98000 11001', districtIds: [d.Satara.id] });
+
+    const off = await setStatus(c.id, { isActive: false });
+    expect(off.status).toBe(200);
+    expect(off.body.data).toEqual({ ...c, isActive: false, updatedAt: expect.any(String) });
+    expect((await publicView()).coordinators).toEqual([]);
+    /* Still listed and viewable here, ready to switch back on. */
+    expect(idsOf(await list())).toEqual([c.id]);
+
+    const on = await setStatus(c.id, { isActive: true });
+    expect(on.body.data.isActive).toBe(true);
+    expect((await publicView()).coordinators).toEqual([{ name: 'Asha Patil', phone: '+91 98000 11001', districts: [{ code: 'SAT', name: 'Satara' }] }]);
+
+    expect((await setStatus(c.id, { isActive: 'yes' })).status).toBe(422);
+    expect((await setStatus(c.id, {})).status).toBe(422);
+    expect((await setStatus(MISSING_ID, { isActive: false })).status).toBe(404);
+  });
+
+  it('soft-deletes a card: gone from the list, the page and the website, its districts free again', async () => {
+    const c = await make({ name: 'Asha Patil', phone: '+91 98000 12001', districtIds: [d.Satara.id, d.Sangli.id] });
+
+    const res = await remove(c.id);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeNull();
+
+    expect((await get(c.id)).status).toBe(404);
+    expect((await patch(c.id, { name: 'Back again' })).status).toBe(404);
+    expect((await setStatus(c.id, { isActive: true })).status).toBe(404);
+    expect((await remove(c.id)).status).toBe(404);
+    expect((await list()).body.meta.total).toBe(0);
+    expect((await adminView()).coordinators).toEqual([]);
+    expect((await publicView()).coordinators).toEqual([]);
+
+    /* The row stays, retired, without its district links. */
+    const [row] = await AppDataSource.query(
+      `SELECT "isDelete", "isActive", (SELECT count(*) FROM "contact_coordinator_districts" WHERE "coordinatorId" = $1)::int AS links
+       FROM "contact_coordinators" WHERE "id" = $1`,
+      [c.id],
+    );
+    expect(row).toEqual({ isDelete: true, isActive: false, links: 0 });
+    expect((await post({ name: 'Bhushan Rao', phone: '+91 98000 12002', districtIds: [d.Satara.id] })).status).toBe(201);
+  });
+
+  it('feeds the website and the whole-page read, in display order with the saved district order', async () => {
+    await make({ name: 'Second', phone: '+91 98000 13002', districtIds: [d.Solapur.id], displayOrder: 2 });
+    await make({ name: 'First', phone: '+91 98000 13001', email: 'first@sumago.demo', districtIds: [d.Satara.id, d.Sangli.id], displayOrder: 1 });
+
+    expect((await publicView()).coordinators).toEqual([
+      { name: 'First', phone: '+91 98000 13001', email: 'first@sumago.demo', districts: [{ code: 'SAT', name: 'Satara' }, { code: 'SAN', name: 'Sangli' }] },
+      { name: 'Second', phone: '+91 98000 13002', districts: [{ code: 'SOL', name: 'Solapur' }] },
+    ]);
+
+    /* GET /cms/contact carries the same cards as the list, timestamps included. */
+    const page = await adminView();
+    expect(page.coordinators).toEqual((await list()).body.data);
+    expect(page.coordinators[0]).toEqual(expect.objectContaining({ createdAt: expect.any(String), updatedAt: expect.any(String) }));
+
+    /* A PUT that omits the coordinators list leaves the cards made here as they are. */
+    await request(app).put(ADMIN_URL).set(auth(admin.token)).send(validPayload()).expect(200);
+    expect((await adminView()).coordinators).toEqual(page.coordinators);
+  });
+
+  it('records every write in the audit log as a Contact page change', async () => {
+    const c = await make({ name: 'Audited', phone: '+91 98000 14001' });
+    await patch(c.id, { name: 'Audited again' }).expect(200);
+    await setStatus(c.id, { isActive: false }).expect(200);
+    await remove(c.id).expect(200);
+
+    const logs = await request(app).get(`${API}/audit-logs`).query({ action: 'cms.contact-page.update', limit: 100 }).set(auth(admin.token));
+    expect(logs.status).toBe(200);
+    const entries = (logs.body.data as { resource: string; details: { id?: string } }[]).filter((l) => l.details?.id === c.id);
+    expect(entries.map((l) => l.resource)).toEqual(['contact-page', 'contact-page', 'contact-page', 'contact-page']);
+    expect(entries.map((l) => l.details)).toEqual(
+      expect.arrayContaining(['create', 'update', 'status', 'delete'].map((op) => ({ section: 'coordinators', op, id: c.id }))),
+    );
+  });
+});
+
+describe('Contact district offices, one entry at a time', () => {
+  let d: Record<string, ApiRef>;
+
+  const post = (body: object) => request(app).post(OFFICES_URL).set(auth(admin.token)).send(body);
+  const patch = (id: string, body: object) => request(app).patch(`${OFFICES_URL}/${id}`).set(auth(admin.token)).send(body);
+  const setStatus = (id: string, body: object) => request(app).patch(`${OFFICES_URL}/${id}/status`).set(auth(admin.token)).send(body);
+  const get = (id: string) => request(app).get(`${OFFICES_URL}/${id}`).set(auth(admin.token));
+  const remove = (id: string) => request(app).delete(`${OFFICES_URL}/${id}`).set(auth(admin.token));
+  const list = (q: Record<string, string | number> = {}) => request(app).get(OFFICES_URL).query(q).set(auth(admin.token));
+  const districtNames = (res: { body: { data: ApiDistrictOffice[] } }) => res.body.data.map((o) => o.district.name);
+  const make = async (body: object): Promise<ApiDistrictOffice> => {
+    const res = await post(body);
+    if (res.status !== 201) throw new Error(`POST district office failed (${res.status}): ${JSON.stringify(res.body)}`);
+    return res.body.data;
+  };
+
+  const FULL = {
+    collectorName: 'Collector Akola',
+    address: { mr: 'जिल्हाधिकारी कार्यालय, अकोला', en: 'Collectorate, Akola' },
+    phone: '0724 243 5000',
+    email: 'Collector.Akola@Maharashtra.gov.in',
+    officeHours: { mr: 'सोम–शुक्र', en: 'Mon–Fri, 10:00 – 17:45' },
+  };
+
+  beforeAll(async () => {
+    ({ districts: d } = await sectionDistricts('Office Test State', 'OTS', [
+      ['Akola', 'AKO'], ['Beed', 'BEE'], ['Latur', 'LAT'], ['Thane', 'THA'], ['Wardha', 'WAR'],
+    ]));
+    await publish();
+  });
+  beforeEach(clearSections);
+  afterAll(clearSections);
+
+  it('creates an entry with just its district, or with every field', async () => {
+    const bare = await post({ districtId: d.Latur.id });
+    expect(bare.status).toBe(201);
+    expect(bare.body.data).toEqual({
+      id: expect.any(String), district: d.Latur, collectorName: null, address: null, phone: null, email: null, officeHours: null,
+      isActive: true, createdAt: expect.any(String), updatedAt: expect.any(String),
+    });
+
+    const full = await make({ districtId: d.Akola.id, ...FULL, isActive: false });
+    expect(full).toMatchObject({ ...FULL, district: d.Akola, email: 'collector.akola@maharashtra.gov.in', isActive: false });
+  });
+
+  it('gets one entry (404 when missing, 422 for a malformed id)', async () => {
+    const o = await make({ districtId: d.Beed.id, collectorName: 'Collector Beed' });
+    const res = await get(o.id);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(o);
+    expect((await get(MISSING_ID)).status).toBe(404);
+    expect((await get('not-a-uuid')).status).toBe(422);
+  });
+
+  it('refuses a second live entry for a district (409) and an unknown district (400)', async () => {
+    await make({ districtId: d.Latur.id });
+    const twice = await post({ districtId: d.Latur.id, collectorName: 'Someone else' });
+    expect(twice.status).toBe(409);
+    expect(twice.body.message).toBe('Latur already has an office entry');
+    expect(twice.body.error).toMatchObject({ code: 'CONFLICT', details: [{ field: 'districtId', message: 'Latur already has an office entry' }] });
+
+    const unknown = await post({ districtId: MISSING_ID });
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.error.details).toEqual([{ field: 'districtId', message: 'Unknown district' }]);
+
+    expect((await post({ collectorName: 'No district' })).status).toBe(422);
+    expect((await post({ districtId: d.Beed.id, phone: '+91 20XXX 12345' })).status).toBe(422);
+    expect((await list()).body.meta.total).toBe(1);
+  });
+
+  it('lists a page at a time, by district name unless sorted otherwise', async () => {
+    await make({ districtId: d.Thane.id, collectorName: 'B Collector' });
+    await make({ districtId: d.Akola.id, collectorName: 'C Collector' });
+    await make({ districtId: d.Latur.id, collectorName: 'A Collector' });
+
+    const first = await list({ limit: 2 });
+    expect(first.status).toBe(200);
+    expect(districtNames(first)).toEqual(['Akola', 'Latur']);
+    expect(first.body.meta).toEqual({ page: 1, limit: 2, total: 3, totalPages: 2 });
+    const second = await list({ limit: 2, page: 2 });
+    expect(districtNames(second)).toEqual(['Thane']);
+    expect(second.body.meta).toEqual({ page: 2, limit: 2, total: 3, totalPages: 2 });
+
+    expect(districtNames(await list({ sortOrder: 'desc' }))).toEqual(['Thane', 'Latur', 'Akola']);
+    expect(districtNames(await list({ sortBy: 'collectorName' }))).toEqual(['Latur', 'Thane', 'Akola']);
+    expect(districtNames(await list({ sortBy: 'createdAt', sortOrder: 'desc' }))).toEqual(['Latur', 'Akola', 'Thane']);
+    expect((await list({ sortBy: 'phone' })).status).toBe(422);
+  });
+
+  it('searches district name and code, collector, phone and email, ignoring case', async () => {
+    const akola = await make({ districtId: d.Akola.id, ...FULL });
+    const wardha = await make({ districtId: d.Wardha.id, collectorName: 'Collector Wardha', phone: '07152 243 446', email: 'collector.wardha@maharashtra.gov.in' });
+    const found = async (search: string) => idsOf(await list({ search }));
+
+    expect(await found('akola')).toEqual([akola.id]);
+    expect(await found('war')).toEqual([wardha.id]);
+    expect(await found('COLLECTOR WARDHA')).toEqual([wardha.id]);
+    expect(await found('243 446')).toEqual([wardha.id]);
+    expect(await found('maharashtra.gov.in')).toEqual([akola.id, wardha.id]);
+    expect(await found('nobody')).toEqual([]);
+    expect(await found('_')).toEqual([]);
+  });
+
+  it('lists inactive entries too, unless filtered by status', async () => {
+    const on = await make({ districtId: d.Akola.id });
+    const off = await make({ districtId: d.Beed.id, isActive: false });
+    expect(idsOf(await list())).toEqual([on.id, off.id]);
+    expect(idsOf(await list({ isActive: 'true' }))).toEqual([on.id]);
+    expect(idsOf(await list({ isActive: 'false' }))).toEqual([off.id]);
+  });
+
+  it('updates any subset of the fields; null clears one', async () => {
+    const o = await make({ districtId: d.Akola.id, ...FULL });
+
+    const renamed = await patch(o.id, { collectorName: 'New Collector' });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data).toEqual({ ...o, collectorName: 'New Collector', updatedAt: expect.any(String) });
+
+    const cleared = await patch(o.id, { address: null, phone: null, officeHours: { mr: 'सोम–शनि', en: 'Mon–Sat' } });
+    expect(cleared.body.data).toMatchObject({
+      collectorName: 'New Collector', address: null, phone: null, email: 'collector.akola@maharashtra.gov.in', officeHours: { mr: 'सोम–शनि', en: 'Mon–Sat' },
+    });
+
+    expect((await patch(o.id, {})).status).toBe(422);
+    expect((await patch(o.id, { address: { mr: 'फक्त मराठी' } })).status).toBe(422);
+    expect((await patch(o.id, { email: 'not-an-email' })).status).toBe(422);
+    expect((await patch(MISSING_ID, { collectorName: 'Nobody' })).status).toBe(404);
+  });
+
+  it('moves an entry to a free district, but not to a taken or unknown one', async () => {
+    const o = await make({ districtId: d.Akola.id, collectorName: 'Mover' });
+    await make({ districtId: d.Beed.id });
+
+    const moved = await patch(o.id, { districtId: d.Latur.id });
+    expect(moved.status).toBe(200);
+    expect(moved.body.data).toMatchObject({ district: d.Latur, collectorName: 'Mover' });
+    /* Sending its own district again is not a clash. */
+    expect((await patch(o.id, { districtId: d.Latur.id, collectorName: 'Mover' })).status).toBe(200);
+
+    const taken = await patch(o.id, { districtId: d.Beed.id });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error.details).toEqual([{ field: 'districtId', message: 'Beed already has an office entry' }]);
+    expect((await patch(o.id, { districtId: MISSING_ID })).status).toBe(400);
+    expect((await get(o.id)).body.data.district).toEqual(d.Latur);
+    /* The district it left is free again. */
+    expect((await post({ districtId: d.Akola.id })).status).toBe(201);
+  });
+
+  it('activates and deactivates an entry; the website shows active entries only', async () => {
+    const o = await make({ districtId: d.Akola.id, collectorName: 'Collector Akola' });
+
+    const off = await setStatus(o.id, { isActive: false });
+    expect(off.status).toBe(200);
+    expect(off.body.data).toEqual({ ...o, isActive: false, updatedAt: expect.any(String) });
+    expect((await publicView()).districtOffices).toEqual([]);
+
+    expect((await setStatus(o.id, { isActive: true })).body.data.isActive).toBe(true);
+    expect((await publicView()).districtOffices).toEqual([{ district: { code: 'AKO', name: 'Akola' }, collectorName: 'Collector Akola' }]);
+
+    expect((await setStatus(o.id, { isActive: 'no' })).status).toBe(422);
+    expect((await setStatus(MISSING_ID, { isActive: true })).status).toBe(404);
+  });
+
+  it('soft-deletes an entry: gone everywhere, and its district free for a new one', async () => {
+    const o = await make({ districtId: d.Thane.id, collectorName: 'Collector Thane' });
+
+    const res = await remove(o.id);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeNull();
+
+    expect((await get(o.id)).status).toBe(404);
+    expect((await patch(o.id, { collectorName: 'Back again' })).status).toBe(404);
+    expect((await setStatus(o.id, { isActive: true })).status).toBe(404);
+    expect((await remove(o.id)).status).toBe(404);
+    expect((await list()).body.meta.total).toBe(0);
+    expect((await adminView()).districtOffices).toEqual([]);
+    expect((await publicView()).districtOffices).toEqual([]);
+
+    const [row] = await AppDataSource.query(`SELECT "isDelete", "isActive" FROM "contact_district_offices" WHERE "id" = $1`, [o.id]);
+    expect(row).toEqual({ isDelete: true, isActive: false });
+    expect((await post({ districtId: d.Thane.id })).status).toBe(201);
+  });
+
+  it('feeds the website and the whole-page read in district-name order, blanks omitted publicly', async () => {
+    await make({ districtId: d.Wardha.id, phone: '07152 243 446' });
+    await make({ districtId: d.Akola.id, ...FULL });
+
+    expect((await publicView()).districtOffices).toEqual([
+      {
+        district: { code: 'AKO', name: 'Akola' }, collectorName: FULL.collectorName, address: FULL.address, phone: FULL.phone,
+        email: 'collector.akola@maharashtra.gov.in', officeHours: FULL.officeHours,
+      },
+      { district: { code: 'WAR', name: 'Wardha' }, phone: '07152 243 446' },
+    ]);
+
+    const page = await adminView();
+    expect(page.districtOffices).toEqual((await list()).body.data);
+    expect(page.districtOffices[0]).toEqual(expect.objectContaining({ createdAt: expect.any(String), updatedAt: expect.any(String) }));
+
+    await request(app).put(ADMIN_URL).set(auth(admin.token)).send(validPayload()).expect(200);
+    expect((await adminView()).districtOffices).toEqual(page.districtOffices);
+  });
+
+  it('records every write in the audit log as a Contact page change', async () => {
+    const o = await make({ districtId: d.Beed.id });
+    await patch(o.id, { collectorName: 'Audited' }).expect(200);
+    await setStatus(o.id, { isActive: false }).expect(200);
+    await remove(o.id).expect(200);
+
+    const logs = await request(app).get(`${API}/audit-logs`).query({ action: 'cms.contact-page.update', limit: 100 }).set(auth(admin.token));
+    const entries = (logs.body.data as { details: { id?: string } }[]).filter((l) => l.details?.id === o.id);
+    expect(entries.map((l) => l.details)).toEqual(
+      expect.arrayContaining(['create', 'update', 'status', 'delete'].map((op) => ({ section: 'district-offices', op, id: o.id }))),
+    );
+    expect(entries).toHaveLength(4);
+  });
+});
+
+describe('Contact sections while the page is not configured', () => {
+  it('answer 404 on every endpoint, reads and writes alike', async () => {
+    await clearSections();
+    const { districts } = await sectionDistricts('Unconfigured Test State', 'UTS', [['Jalna', 'JLN']]);
+    const coordinator = await request(app).post(COORDINATORS_URL).set(auth(admin.token)).send({ name: 'Kept', phone: '+91 98000 15001' }).expect(201);
+    const office = await request(app).post(OFFICES_URL).set(auth(admin.token)).send({ districtId: districts.Jalna.id }).expect(201);
+    const c = coordinator.body.data.id as string;
+    const o = office.body.data.id as string;
+
+    await AppDataSource.query(`UPDATE "contact_page_settings" SET "isDelete" = true WHERE NOT "isDelete"`);
+    try {
+      const calls = [
+        ['list coordinators', request(app).get(COORDINATORS_URL)],
+        ['get coordinator', request(app).get(`${COORDINATORS_URL}/${c}`)],
+        ['create coordinator', request(app).post(COORDINATORS_URL).send({ name: 'New', phone: '+91 98000 15002' })],
+        ['update coordinator', request(app).patch(`${COORDINATORS_URL}/${c}`).send({ name: 'Renamed' })],
+        ['coordinator status', request(app).patch(`${COORDINATORS_URL}/${c}/status`).send({ isActive: false })],
+        ['delete coordinator', request(app).delete(`${COORDINATORS_URL}/${c}`)],
+        ['list offices', request(app).get(OFFICES_URL)],
+        ['get office', request(app).get(`${OFFICES_URL}/${o}`)],
+        ['create office', request(app).post(OFFICES_URL).send({ districtId: districts.Jalna.id })],
+        ['update office', request(app).patch(`${OFFICES_URL}/${o}`).send({ collectorName: 'Renamed' })],
+        ['office status', request(app).patch(`${OFFICES_URL}/${o}/status`).send({ isActive: false })],
+        ['delete office', request(app).delete(`${OFFICES_URL}/${o}`)],
+      ] as const;
+      for (const [call, pending] of calls) {
+        const res = await pending.set(auth(admin.token));
+        expect({ call, status: res.status, message: res.body.message }).toEqual({
+          call, status: 404, message: expect.stringMatching(/^The Contact page has not been configured yet/),
+        });
+      }
+    } finally {
+      await AppDataSource.query(
+        `UPDATE "contact_page_settings" SET "isDelete" = false WHERE "id" = (SELECT "id" FROM "contact_page_settings" ORDER BY "createdAt" LIMIT 1)`,
+      );
+      await clearSections();
+    }
+  });
+});
+
+describe('Contact sections and permissions', () => {
+  let wa: TestActor;
+  let d: Record<string, ApiRef>;
+
+  beforeAll(async () => {
+    const user = await createUser({ roleCodes: [ROLE_CODES.WEBSITE_ADMIN] });
+    wa = { user, token: await login(user.email) };
+    ({ districts: d } = await sectionDistricts('Permission Test State', 'PTS', [['Gondia', 'GON'], ['Bhandara', 'BHA']]));
+    await publish();
+  });
+  beforeEach(clearSections);
+  afterAll(clearSections);
+
+  it('a Website Admin can list, view, create, edit, switch and delete coordinators', async () => {
+    const created = await request(app)
+      .post(COORDINATORS_URL)
+      .set(auth(wa.token))
+      .send({ name: 'Web Admin Card', phone: '+91 98000 16001', districtIds: [d.Gondia.id] });
+    expect(created.status).toBe(201);
+    const id = created.body.data.id as string;
+
+    expect((await request(app).get(COORDINATORS_URL).set(auth(wa.token))).body.data).toHaveLength(1);
+    expect((await request(app).get(`${COORDINATORS_URL}/${id}`).set(auth(wa.token))).status).toBe(200);
+    const edited = await request(app).patch(`${COORDINATORS_URL}/${id}`).set(auth(wa.token)).send({ districtIds: [d.Bhandara.id, d.Gondia.id] });
+    expect(edited.status).toBe(200);
+    expect(edited.body.data.districts).toEqual([d.Bhandara, d.Gondia]);
+    expect((await request(app).patch(`${COORDINATORS_URL}/${id}/status`).set(auth(wa.token)).send({ isActive: false })).status).toBe(200);
+    expect((await request(app).delete(`${COORDINATORS_URL}/${id}`).set(auth(wa.token))).status).toBe(200);
+    expect((await request(app).get(`${COORDINATORS_URL}/${id}`).set(auth(wa.token))).status).toBe(404);
+  });
+
+  it('a Website Admin can list, view, create, edit, switch and delete district offices', async () => {
+    const created = await request(app).post(OFFICES_URL).set(auth(wa.token)).send({ districtId: d.Gondia.id, collectorName: 'Collector Gondia' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.id as string;
+
+    expect((await request(app).get(OFFICES_URL).set(auth(wa.token))).body.data).toHaveLength(1);
+    expect((await request(app).get(`${OFFICES_URL}/${id}`).set(auth(wa.token))).status).toBe(200);
+    expect((await request(app).patch(`${OFFICES_URL}/${id}`).set(auth(wa.token)).send({ districtId: d.Bhandara.id })).body.data.district).toEqual(d.Bhandara);
+    expect((await request(app).patch(`${OFFICES_URL}/${id}/status`).set(auth(wa.token)).send({ isActive: false })).status).toBe(200);
+    expect((await request(app).delete(`${OFFICES_URL}/${id}`).set(auth(wa.token))).status).toBe(200);
+    expect((await request(app).get(`${OFFICES_URL}/${id}`).set(auth(wa.token))).status).toBe(404);
+  });
+
+  it('a view-only actor can read both sections but not write them (403)', async () => {
+    const c = (await request(app).post(COORDINATORS_URL).set(auth(admin.token)).send({ name: 'Read only', phone: '+91 98000 16002' }).expect(201)).body.data;
+    const o = (await request(app).post(OFFICES_URL).set(auth(admin.token)).send({ districtId: d.Gondia.id }).expect(201)).body.data;
+    const viewer = await actorWith(['cms-contact.view']);
+    const headers = auth(viewer.token);
+
+    for (const url of [COORDINATORS_URL, `${COORDINATORS_URL}/${c.id}`, OFFICES_URL, `${OFFICES_URL}/${o.id}`]) {
+      expect({ url, status: (await request(app).get(url).set(headers)).status }).toEqual({ url, status: 200 });
+    }
+    const writes = [
+      request(app).post(COORDINATORS_URL).send({ name: 'No', phone: '+91 98000 16003' }),
+      request(app).patch(`${COORDINATORS_URL}/${c.id}`).send({ name: 'No' }),
+      request(app).patch(`${COORDINATORS_URL}/${c.id}/status`).send({ isActive: false }),
+      request(app).delete(`${COORDINATORS_URL}/${c.id}`),
+      request(app).post(OFFICES_URL).send({ districtId: d.Bhandara.id }),
+      request(app).patch(`${OFFICES_URL}/${o.id}`).send({ collectorName: 'No' }),
+      request(app).patch(`${OFFICES_URL}/${o.id}/status`).send({ isActive: false }),
+      request(app).delete(`${OFFICES_URL}/${o.id}`),
+    ];
+    for (const write of writes) expect((await write.set(headers)).status).toBe(403);
+  });
+
+  it('an actor without the Contact codes cannot read them, and a session is required', async () => {
+    const outsider = await actorWith(['users.view']);
+    expect((await request(app).get(COORDINATORS_URL).set(auth(outsider.token))).status).toBe(403);
+    expect((await request(app).get(OFFICES_URL).set(auth(outsider.token))).status).toBe(403);
+    expect((await request(app).get(COORDINATORS_URL)).status).toBe(401);
+    expect((await request(app).post(OFFICES_URL).send({ districtId: d.Gondia.id })).status).toBe(401);
   });
 });
