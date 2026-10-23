@@ -4,7 +4,8 @@ import { AppBaseEntity } from '../../../database/base.entity';
 /*
  * One stored document file (spec DB-223 candidate_document). While a batch is under review it belongs to an
  * import row (staged under imports/<batch>/<sourceId>/); finalisation links it to the student and moves it to
- * students/<studentCode>/. Replacing a document soft-deletes the earlier record; files are never served directly.
+ * students/<studentCode>/. Finalising an import over an existing document soft-deletes the earlier record; replacing one
+ * on the edit form deletes it (record and file). Files are never served directly.
  */
 @Entity({ name: 'student_documents' })
 @Index('IDX_student_documents_student', ['studentId'])

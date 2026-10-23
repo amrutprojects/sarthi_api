@@ -134,5 +134,6 @@ Upload a ZIP with the data file (`POST /api/v1/imports`, field `documents`) or l
 - Files must be PDF, JPG or PNG **by content**, at most `DOCUMENT_MAX_FILE_MB` each. Path traversal, too many files and oversized archives are refused.
 - A row that names a path waits (DOC_MISSING "waiting for …") until that file is stored; a path missing from the ZIP is listed in the batch's documents report. A rejected file adds DOC_INVALID.
 - Under review, files are stored as `STORAGE_DIR/imports/<batch>/<source_record_id>/<TYPE>.<ext>`; the database (`student_documents`) records the type, original path in the ZIP, size, SHA-256 and storage key.
-- On finalise every student gets their own folder, `STORAGE_DIR/students/<STU-code>/<TYPE>.<ext>`; replaced versions are kept under `_replaced/`. Cancelling a batch deletes its staging folder.
+- On finalise every student gets their own folder, `STORAGE_DIR/students/<STU-code>/<TYPE>.<ext>`; versions replaced by a later import are kept under `_replaced/`. Cancelling a batch deletes its staging folder.
+- Replacing a document on the student edit form (`POST /student-registrations/:id/documents`) deletes the old one for good (record and file); the new file waits under `_staging/` until the database change commits, so a failed request leaves the old document in place.
 - Files are only served through the API (`GET /students/:id/documents/:documentId/file`, permission `imports.view`), as downloads, and every download is audited. Back up `STORAGE_DIR` together with the database.
