@@ -27,7 +27,8 @@ function row(over: Record<string, string> = {}): Record<string, string> {
     approved_at: '2026-01-10T06:30:00Z',
   };
   for (const c of IMPORT_COLUMNS.filter((c) => c.field.startsWith('doc_') && !c.field.endsWith('_barcode'))) v[c.field] = 'Yes';
-  v.doc_income_ews_barcode = 'BC-1';
+  v.doc_income_ews_barcode = '271234567890123456';
+  v.doc_domicile_barcode = '281234567890123456';
   return { ...v, ...over };
 }
 const codes = (r: Record<string, string>) => validateRow(r, masters).issues.map((i) => i.code);
@@ -68,6 +69,12 @@ describe('validateRow', () => {
     [{ approval_status: 'PENDING' }, 'EVIDENCE_MISSING'],
     [{ approved_at: '2999-01-01T00:00:00Z' }, 'EVIDENCE_MISSING'],
     [{ first_name: 'Asha2' }, 'NAME_INVALID'],
+    [{ father_name: 'Ramesh 2' }, 'NAME_INVALID'],
+    [{ mother_name: 'Sunita@' }, 'NAME_INVALID'],
+    [{ doc_income_ews_barcode: 'BC-1' }, 'BARCODE_INVALID'],
+    [{ doc_income_ews_barcode: '27123456789012345' }, 'BARCODE_INVALID'],
+    [{ doc_domicile_barcode: '2812 3456 7890 1234 56' }, 'BARCODE_INVALID'],
+    [{ doc_domicile_barcode: '' }, 'REQUIRED'],
     [{ doc_photo: 'No' }, 'DOC_MISSING'],
   ])('%j raises %s', (over, code) => {
     expect(codes(row(over as Record<string, string>))).toContain(code);

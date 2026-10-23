@@ -99,12 +99,19 @@ export const CENTRES: { code: string; name: string }[] = [
   ['SAN', 'Sangli'],
 ].map(([code, name]) => ({ code, name }));
 
+/*
+ * Certificate barcode numbers (Income / EWS, Domicile): exactly 18 digits, nothing else. Only the format is checked
+ * here; whether the certificate is genuine is verified separately on the issuing portal.
+ */
+export const BARCODE_RE = /^\d{18}$/;
+export const BARCODE_FORMAT_MESSAGE = 'must be exactly 18 digits (numbers only, no spaces, letters or symbols)';
+
 /* Documents: imported as metadata (presence flags), Table 81. */
 export const DOCUMENTS: { key: string; label: string; required: boolean; barcode?: 'required' | 'optional' }[] = [
   { key: 'PHOTO', label: 'Photo', required: true },
   { key: 'SIGNATURE', label: 'Signature', required: true },
   { key: 'INCOME_EWS', label: 'Income Certificate / EWS', required: true, barcode: 'required' },
-  { key: 'DOMICILE', label: 'Domicile Certificate', required: true, barcode: 'optional' },
+  { key: 'DOMICILE', label: 'Domicile Certificate', required: true, barcode: 'required' },
   { key: 'AADHAAR_CARD', label: 'Aadhaar Card', required: true },
   { key: 'PAN_CARD', label: 'PAN Card', required: false },
   { key: 'SCHOOL_LEAVING', label: 'School Leaving / Transfer Certificate', required: true },
@@ -199,6 +206,7 @@ export const ISSUE_CODES = {
   MOBILE_INVALID: { waivable: false, label: 'Mobile number invalid' },
   TEXT_TOO_LONG: { waivable: false, label: 'Value too long' },
   NAME_INVALID: { waivable: false, label: "Name may contain only letters, spaces and . ' -" },
+  BARCODE_INVALID: { waivable: false, label: 'Certificate barcode must be exactly 18 digits' },
   EVIDENCE_MISSING: { waivable: false, label: 'Approval evidence missing or not approved' },
   REF_UNKNOWN: { waivable: true, label: 'Value not in the reference list' },
   TRACK_NOT_OFFERED: { waivable: true, label: 'Technology option is not an approved track (track to be confirmed)' },

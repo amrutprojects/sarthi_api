@@ -79,7 +79,8 @@ function sampleRows(): SampleRow[] {
         values[col] = path;
         files.push({ path, data });
       } else values[col] = 'No';
-      if (d.barcode) values[`${col}_barcode`] = d.barcode === 'required' ? `BC-${d.key}-${p.n}` : '';
+      /* A valid-format sample barcode: 18 digits, distinct per document and row. */
+      if (d.barcode) values[`${col}_barcode`] = d.barcode === 'required' ? `${10 + DOCUMENTS.indexOf(d)}${String(p.n).padStart(16, '0')}` : '';
     }
     return { values, files };
   });
