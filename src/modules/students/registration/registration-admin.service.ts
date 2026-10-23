@@ -2,8 +2,10 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import { z } from 'zod';
 import type { Request } from 'express';
+import { In } from 'typeorm';
 import { MESSAGES } from '../../../constants/api-response.constants';
 import { AppDataSource } from '../../../config/database.config';
+import { logger } from '../../../observability/logger';
 import { AppError } from '../../../shared/errors/app-error';
 import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../../shared/utils/pagination';
 import { auditService } from '../../audit';
@@ -261,8 +263,11 @@ export const registrationAdminService = {
 
   /*
    * Replaces or adds a student's documents (edit form, step 3), and updates barcodes. Same file rules as a new
-   * registration. A replaced file is kept under students/<code>/_replaced/ with its record soft-deleted; the new file
-   * starts unverified. Mandatory types must still have a file and required barcodes stay required. Audited.
+   * registration. A replaced document is deleted for good (its record and its file) and the new file, which starts
+   * unverified, takes its place as students/<code>/<TYPE>.<ext>; other document types are untouched. Mandatory types
+   * must still have a file and required barcodes stay required. Audited with the deleted documents' details.
+   * New files are written under students/<code>/_staging/ first and only moved into place once the database change has
+   * committed, so a request that fails (validation, storage or database) leaves the old documents as they were.
    */
   async replaceDocuments(req: Request, id: string, rawData: unknown, files: Express.Multer.File[]) {
     const s = await AppDataSource.getRepository(Student).findOne({ where: { id, isDelete: false } });
@@ -295,51 +300,118 @@ export const registrationAdminService = {
       if (!masters.find('documentType', code)) errors.push({ field: `body.barcodes.${code}`, message: 'Unknown document type' });
     if (errors.length) throw AppError.validation(errors);
 
-    const replaced: string[] = [];
-    await AppDataSource.transaction(async (m) => {
-      const docs = m.getRepository(StudentDocument);
-      const documents = { ...s.documents } as Student['documents'];
-      for (const f of prepared) {
-        const old = current.find((d) => d.docType === f.code);
-        if (old) {
-          const archived = documentStorage.replacedKey(s.code, old.storageKey.split('/').pop()!);
-          await documentStorage.move(old.storageKey, archived);
-          await docs.update(old.id, { storageKey: archived, isDelete: true, isActive: false });
-          replaced.push(f.code);
+    const pending = prepared.map((f) => ({
+      file: f,
+      stagedKey: documentStorage.studentStagingKey(s.code, `${f.code}.${f.ext}`),
+      finalKey: documentStorage.studentKey(s.code, `${f.code}.${f.ext}`),
+      documentId: '',
+      oldKeys: [] as string[],
+    }));
+    const written: string[] = [];
+    /*
+     * One documents edit per student at a time, from its database change until its files are in place (a session
+     * advisory lock on a connection of its own, which also runs the transaction). Without it a second replacement of the
+     * same type could commit in between and have its new file deleted, or left stray, by the first one's file steps.
+     */
+    const runner = AppDataSource.createQueryRunner('master');
+    const lockKey = `student-documents:${id}`;
+    let lockHeld = false;
+    try {
+      try {
+        for (const p of pending) {
+          written.push(p.stagedKey); // before the write, so a partly written file is cleaned up too
+          await documentStorage.write(p.stagedKey, p.file.data);
         }
-        const storageKey = documentStorage.studentKey(s.code, `${f.code}.${f.ext}`);
-        await documentStorage.write(storageKey, f.data);
-        await docs.insert({
-          batchId: null,
-          importRowId: null,
-          studentId: id,
-          docType: f.code,
-          storageKey,
-          sourcePath: null,
-          originalName: f.originalName.slice(0, 255),
-          mimeType: f.mimeType,
-          sizeBytes: f.data.length,
-          sha256: f.sha256,
-          uploadedById: req.auth!.id,
+        await runner.query(`SELECT pg_advisory_lock(hashtext($1))`, [lockKey]);
+        lockHeld = true;
+        await runner.manager.transaction(async (m) => {
+          const docs = m.getRepository(StudentDocument);
+          /* Concurrent edits of one student wait for each other, so the documents deleted below are the current ones. */
+          const locked = await m.getRepository(Student).findOne({ where: { id, isDelete: false }, lock: { mode: 'pessimistic_write' } });
+          if (!locked) throw AppError.notFound(MESSAGES.notFound('Student'));
+          const documents = { ...locked.documents } as Student['documents'];
+          const old = pending.length
+            ? await docs.find({ where: { studentId: id, docType: In(pending.map((p) => p.file.code)), isDelete: false } })
+            : [];
+          if (old.length) await docs.delete(old.map((d) => d.id));
+          for (const p of pending) {
+            const f = p.file;
+            p.oldKeys = old.filter((d) => d.docType === f.code).map((d) => d.storageKey);
+            const inserted = await docs.insert({
+              batchId: null,
+              importRowId: null,
+              studentId: id,
+              docType: f.code,
+              storageKey: p.finalKey,
+              sourcePath: null,
+              originalName: f.originalName.slice(0, 255),
+              mimeType: f.mimeType,
+              sizeBytes: f.data.length,
+              sha256: f.sha256,
+              uploadedById: req.auth!.id,
+            });
+            p.documentId = inserted.identifiers[0]!.id as string;
+            documents[f.code] = { supplied: true, barcode: barcodeOf(f.code), documentTypeId: f.documentTypeId };
+          }
+          for (const code of Object.keys(barcodes)) {
+            const type = masters.find('documentType', code)!;
+            documents[type.code] = {
+              supplied: documents[type.code]?.supplied ?? hasFile(type.code),
+              barcode: barcodeOf(type.code),
+              documentTypeId: type.id,
+            };
+          }
+          await m.getRepository(Student).update({ id, isDelete: false }, { documents });
+          await auditService.recordInTx(m, req, {
+            action: 'student.documents.update',
+            resource: 'student',
+            resourceId: id,
+            details: {
+              code: s.code,
+              uploaded: prepared.map((p) => p.code),
+              /* The replaced documents were deleted for good (record and file), not archived. */
+              replaced: old.map((d) => ({ docType: d.docType, originalName: d.originalName, sizeBytes: d.sizeBytes, sha256: d.sha256 })),
+              deleted: old.length > 0,
+              barcodes: Object.keys(barcodes),
+            },
+          });
         });
-        documents[f.code] = { supplied: true, barcode: barcodeOf(f.code), documentTypeId: f.documentTypeId };
+      } catch (err) {
+        for (const key of written)
+          await documentStorage
+            .remove(key)
+            .catch((e) => logger.error({ err: e, studentId: id, key }, 'could not remove a staged document file'));
+        throw err;
       }
-      for (const code of Object.keys(barcodes)) {
-        const type = masters.find('documentType', code)!;
-        documents[type.code] = {
-          supplied: documents[type.code]?.supplied ?? hasFile(type.code),
-          barcode: barcodeOf(type.code),
-          documentTypeId: type.id,
-        };
+
+      /*
+       * Committed: delete the replaced files, then move each new file into place (the old key may be the new one when
+       * the extension is the same). The change cannot be undone here, so a failure is logged with the keys; a file that
+       * could not be moved stays at its staging key and its record is pointed there, so it can still be downloaded.
+       */
+      for (const p of pending) {
+        const ctx = { studentId: id, docType: p.file.code, documentId: p.documentId, stagedKey: p.stagedKey, finalKey: p.finalKey };
+        for (const key of p.oldKeys)
+          await documentStorage
+            .remove(key)
+            .catch((err) => logger.error({ err, ...ctx, oldKey: key }, 'could not delete a replaced document file'));
+        try {
+          await documentStorage.move(p.stagedKey, p.finalKey);
+        } catch (err) {
+          logger.error({ err, ...ctx }, 'could not move a new document file into place; it stays at its staging key');
+          await runner.manager
+            .getRepository(StudentDocument)
+            .update(p.documentId, { storageKey: p.stagedKey })
+            .catch((e) => logger.error({ err: e, ...ctx }, 'could not point the document record at its staging key'));
+        }
       }
-      await m.getRepository(Student).update({ id, isDelete: false }, { documents });
-      await auditService.recordInTx(m, req, {
-        action: 'student.documents.update',
-        resource: 'student',
-        resourceId: id,
-        details: { code: s.code, uploaded: prepared.map((p) => p.code), replaced, barcodes: Object.keys(barcodes) },
-      });
-    });
+    } finally {
+      if (lockHeld)
+        await runner
+          .query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey])
+          .catch((err) => logger.error({ err, studentId: id }, 'could not release the student documents lock'));
+      await runner.release();
+    }
     return this.get(id, { unmask: true, req });
   },
 
