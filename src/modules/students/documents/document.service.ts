@@ -35,6 +35,8 @@ export interface StudentDocumentDto {
   mimeType: string;
   sizeBytes: number;
   uploadedAt: Date;
+  /* When an officer verified the file; null until then (a replacement starts unverified). */
+  verifiedAt: Date | null;
 }
 const toDto = (d: StudentDocument): StudentDocumentDto => ({
   id: d.id,
@@ -45,6 +47,7 @@ const toDto = (d: StudentDocument): StudentDocumentDto => ({
   mimeType: d.mimeType,
   sizeBytes: d.sizeBytes,
   uploadedAt: d.createdAt,
+  verifiedAt: d.verifiedAt,
 });
 
 /* A file operation done during finalisation, undone if the database transaction rolls back. */

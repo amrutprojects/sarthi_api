@@ -19,8 +19,10 @@ export interface SeedSummary {
  *   isActive and soft-deleted rows are left alone (an admin's deactivation is respected).
  * - Roles: created by code if missing. Existing roles are not modified.
  * - Grants: a newly created role receives its default permissions. SUPER_ADMIN ('ALL') is re-synced
- *   on every run so it always holds every catalogue permission. Grants of existing non-system roles
- *   are not touched, so permissions customised through the API survive re-seeding.
+ *   on every run so it always holds every catalogue permission. An existing system role with a fixed
+ *   list (WEBSITE_ADMIN) receives only the defaults it has never held, so a new menu reaches it while a
+ *   default an administrator removed stays removed. Grants of existing non-system roles are not
+ *   touched, so permissions customised through the API survive re-seeding.
  */
 export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
   return ds.transaction(async (m: EntityManager) => {
@@ -89,7 +91,21 @@ export async function seedRbac(ds: DataSource): Promise<SeedSummary> {
         );
         summary.rolesCreated++;
       }
-      if (!created && def.permissions !== 'ALL') continue;
+      if (!created && def.permissions !== 'ALL') {
+        if (!def.isSystem) continue;
+        /*
+         * A system role with a fixed default list (WEBSITE_ADMIN) picks up the defaults it has never held, e.g.
+         * the codes of a menu added after the role was created. A default an administrator removed leaves a
+         * soft-deleted grant behind, so it counts as held and stays removed.
+         */
+        const everHeld = new Set((await grantRepo.find({ where: { roleId: role.id }, select: { permissionId: true } })).map((g) => g.permissionId));
+        const add = def.permissions.map((c) => byCode.get(c)).filter((p): p is Permission => !!p && !everHeld.has(p.id));
+        if (add.length) {
+          await grantRepo.insert(add.map((p) => ({ roleId: role!.id, permissionId: p.id })));
+          summary.grantsCreated += add.length;
+        }
+        continue;
+      }
 
       const except = new Set(def.exceptModules ?? []);
       const codes =

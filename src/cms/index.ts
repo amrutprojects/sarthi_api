@@ -3,7 +3,6 @@ import { authenticate } from '../middleware/authenticate.middleware';
 import { contactRouter } from './contact/contact.routes';
 import { footerRouter } from './footer/footer.routes';
 import { modulesRouter } from './modules/modules.routes';
-import { homeRouter } from './home/home.routes';
 import { highlightRouter } from './highlight/highlight.routes';
 import { programmeRouter } from './programme/programme.routes';
 import { faqRouter } from './faq/faq.routes';
@@ -11,6 +10,12 @@ import { eligibilityRouter } from './eligibility/eligibility.routes';
 import { applyRouter } from './apply/apply.routes';
 import { mastersRouter } from './masters';
 import { programmeMastersRouter } from '../masters';
+import { heroRouter } from './hero/hero.routes';
+import { boardRouter } from './board/board.routes';
+import { ecosystemRouter } from './ecosystem/ecosystem.routes';
+import { schemesRouter } from './schemes/schemes.routes';
+import { aboutRouter } from './about/about.routes';
+import { impactRouter } from './impact/impact.routes';
 
 export {
   ApplyPageItem,
@@ -37,6 +42,12 @@ export { publicProgrammeRouter } from './programme/programme.public.routes';
 export { publicFaqRouter } from './faq/faq.public.routes';
 export { publicEligibilityRouter } from './eligibility/eligibility.public.routes';
 export { publicApplyRouter } from './apply/apply.public.routes';
+export { publicHeroRouter } from './hero/hero.public.routes';
+export { publicBoardRouter } from './board/board.public.routes';
+export { publicEcosystemRouter } from './ecosystem/ecosystem.public.routes';
+export { publicSchemesRouter } from './schemes/schemes.public.routes';
+export { publicAboutRouter } from './about/about.public.routes';
+export { publicImpactRouter } from './impact/impact.public.routes';
 
 /*
  * /api/v1/cms — the whole CMS: the geography masters, the Masters sidebar group (src/masters) and the
@@ -52,12 +63,17 @@ cmsRouter.use(authenticate);
 cmsRouter.use('/contact', contactRouter);
 cmsRouter.use('/footer', footerRouter);
 cmsRouter.use('/modules', modulesRouter);
-cmsRouter.use('/home', homeRouter);
 cmsRouter.use('/highlight', highlightRouter);
 cmsRouter.use('/programme', programmeRouter);
 cmsRouter.use('/faqs', faqRouter);
 cmsRouter.use('/eligibility', eligibilityRouter);
 cmsRouter.use('/apply', applyRouter);
+cmsRouter.use('/hero', heroRouter);
+cmsRouter.use('/board-members', boardRouter);
+cmsRouter.use('/ecosystem', ecosystemRouter);
+cmsRouter.use('/schemes', schemesRouter);
+cmsRouter.use('/about', aboutRouter);
+cmsRouter.use('/impact', impactRouter);
 /* Mounted at the root: the masters router carries its own /states, /districts and /talukas paths. */
 cmsRouter.use('/', mastersRouter);
 /* The Masters sidebar group (src/masters): /departments, /colleges, /training-centres, /batches, /documents … */

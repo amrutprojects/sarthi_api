@@ -136,7 +136,8 @@ export interface UpdateModuleInput {
 
 /*
  * The write shape. `stats` is absent on purpose: the home page figures are written through
- * /cms/home, which is their only writer — two screens writing one field is how they drift.
+ * /cms/hero (Home Hero Section), which is their only writer — two screens writing one field is how
+ * they drift.
  */
 export interface UpdateModulesPageInput {
   pageTitle: Bilingual;

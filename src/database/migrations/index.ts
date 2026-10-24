@@ -38,6 +38,15 @@ import { LmsTrackVariants1792750000000 } from './1792750000000-LmsTrackVariants'
 import { ProgrammeFactSheet1793800000000 } from './1793800000000-ProgrammeFactSheet';
 import { ModulesLabelAndVisibility1793900000000 } from './1793900000000-ModulesLabelAndVisibility';
 import { LmsRoles1794000000000 } from './1794000000000-LmsRoles';
+import { CmsHomeHero1794000000000 } from './1794000000000-CmsHomeHero';
+import { CmsContactCoordinatorsOffices1794100000000 } from './1794100000000-CmsContactCoordinatorsOffices';
+import { CmsBoardMembers1794100000000 } from './1794100000000-CmsBoardMembers';
+import { ContactCoordinatorDistrictOrder1794200000000 } from './1794200000000-ContactCoordinatorDistrictOrder';
+import { CmsEcosystem1794200000000 } from './1794200000000-CmsEcosystem';
+import { CmsAmrutSchemes1794300000000 } from './1794300000000-CmsAmrutSchemes';
+import { CmsAboutAmrut1794400000000 } from './1794400000000-CmsAboutAmrut';
+import { CmsAmrutImpact1794500000000 } from './1794500000000-CmsAmrutImpact';
+import { AboutImplementationPartner1794600000000 } from './1794600000000-AboutImplementationPartner';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -88,4 +97,13 @@ export const MIGRATIONS = [
   ProgrammeFactSheet1793800000000,
   ModulesLabelAndVisibility1793900000000,
   LmsRoles1794000000000,
+  CmsHomeHero1794000000000,
+  CmsContactCoordinatorsOffices1794100000000,
+  CmsBoardMembers1794100000000,
+  ContactCoordinatorDistrictOrder1794200000000,
+  CmsEcosystem1794200000000,
+  CmsAmrutSchemes1794300000000,
+  CmsAboutAmrut1794400000000,
+  CmsAmrutImpact1794500000000,
+  AboutImplementationPartner1794600000000,
 ];

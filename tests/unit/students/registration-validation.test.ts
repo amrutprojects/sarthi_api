@@ -29,6 +29,10 @@ describe('registration request validation', () => {
     expect(registrationBody.safeParse(valid).success).toBe(true);
   });
 
+  it.each([['रमेश पाटील'], ["D'Souza"], ['R. K. Patil-Deshmukh']])('accepts the parent name %s', (name) => {
+    expect(registrationBody.safeParse({ ...valid, father_name: name, mother_name: name }).success).toBe(true);
+  });
+
   it('names every missing field', () => {
     const m = messages({});
     expect(m).toMatchObject({
@@ -45,6 +49,10 @@ describe('registration request validation', () => {
   it.each([
     [{ first_name: '   ' }, 'first_name', 'First name is required'],
     [{ first_name: 'Asha1' }, 'first_name', "First name may contain only letters, spaces and . ' -"],
+    [{ father_name: 'Ramesh 2' }, 'father_name', "Father name may contain only letters, spaces and . ' -"],
+    [{ father_name: 'Ramesh@Patil' }, 'father_name', "Father name may contain only letters, spaces and . ' -"],
+    [{ mother_name: 'Sunita#' }, 'mother_name', "Mother name may contain only letters, spaces and . ' -"],
+    [{ mother_name: '-Sunita' }, 'mother_name', "Mother name may contain only letters, spaces and . ' -"],
     [{ email: 'x@y' }, 'email', 'Email address is not valid'],
     [{ date_of_birth: '12/04/2003' }, 'date_of_birth', 'Date of birth must be in YYYY-MM-DD format'],
     [{ date_of_birth: '2003-02-30' }, 'date_of_birth', 'Date of birth is not a real date'],

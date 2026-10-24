@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { createReadStream } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
@@ -19,7 +20,8 @@ import { backendRoot, env } from '../../../config/env.config';
  * Layout (relative, forward-slash keys; the same for both drivers):
  *   imports/<batchCode>/<sourceRecordId>/<DOCTYPE>.<ext>   staged while a batch is being reviewed
  *   students/<studentCode>/<DOCTYPE>.<ext>                 one folder per student after finalisation
- *   students/<studentCode>/_replaced/<time>-<DOCTYPE>.<ext> earlier versions kept when a document is replaced
+ *   students/<studentCode>/_replaced/<time>-<DOCTYPE>.<ext> earlier versions kept when a finalised import replaces a document
+ *   students/<studentCode>/_staging/<time>-<rand>-<DOCTYPE>.<ext> an edit-form replacement until its database change commits
  * STORAGE_DRIVER=local keeps files under STORAGE_DIR (every key is resolved and checked to stay inside it);
  * STORAGE_DRIVER=s3 keeps them in the private bucket AWS_BUCKET_NAME, under AWS_KEY_PREFIX, encrypted at rest (SSE-S3).
  */
@@ -154,6 +156,11 @@ export const documentStorage = {
   studentKey: (studentCode: string, fileName: string) => ['students', safeSegment(studentCode), safeSegment(fileName)].join('/'),
   replacedKey: (studentCode: string, fileName: string) =>
     ['students', safeSegment(studentCode), '_replaced', `${Date.now()}-${safeSegment(fileName)}`].join('/'),
+  /* Unique per call, so concurrent uploads of the same document type never share a staging file. */
+  studentStagingKey: (studentCode: string, fileName: string) => {
+    const unique = `${Date.now()}-${randomBytes(4).toString('hex')}`;
+    return ['students', safeSegment(studentCode), '_staging', `${unique}-${safeSegment(fileName)}`].join('/');
+  },
 
   write: (key: string, data: Buffer) => active().write(key, data),
   copy: (fromKey: string, toKey: string) => active().copy(fromKey, toKey),

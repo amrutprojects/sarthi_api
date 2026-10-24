@@ -482,7 +482,18 @@ export class ImportService {
         }
         row.status = ROW_STATUS.RECONCILED;
       }
-      if (valid.length) await m.getRepository(ImportRow).save(valid);
+      /*
+       * Only status and studentId changed on the rows. One UPDATE per 1,000 rows: a repository save() of the whole
+       * batch reloads every row and diffs it against every other, which takes many minutes of CPU for 15,000 rows.
+       */
+      for (let i = 0; i < valid.length; i += 1000) {
+        const chunk = valid.slice(i, i + 1000);
+        await m.query(
+          `UPDATE "import_rows" r SET "status" = $1, "studentId" = v."studentId"
+             FROM unnest($2::uuid[], $3::uuid[]) AS v("id", "studentId") WHERE r."id" = v."id"`,
+          [ROW_STATUS.RECONCILED, chunk.map((r) => r.id), chunk.map((r) => r.studentId)],
+        );
+      }
       /* Staged documents move into each student's folder (copied now, undone if this transaction fails). */
       docs = await documentService.promote(m, batch, valid);
       batch.status = BATCH_STATUS.FINALISED;

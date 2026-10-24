@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { idParams, statusBody } from '../../shared/validation/common.validation';
+import { listQueryAscSchema } from '../../shared/utils/pagination';
 import { ORG_TYPES } from './contact.model';
 
 /*
@@ -87,6 +89,44 @@ const organization = z
     }
   });
 
+/*
+ * A coordinator's phone may keep digits masked with X ("+91 98XXX 41201"), as the public site has
+ * always shown them; an X counts as a digit for the length rule.
+ */
+const coordinatorPhone = z
+  .string()
+  .trim()
+  .max(32)
+  .regex(/^\+?[0-9Xx ()-]+$/, 'Use digits (or X for a masked digit), spaces, brackets and hyphens only, optionally starting with +')
+  .refine((v) => {
+    const digits = v.replace(/[^0-9Xx]/g, '').length;
+    return digits >= 6 && digits <= 20;
+  }, 'Must contain between 6 and 20 digits');
+
+const coordinator = z
+  .object({
+    name: z.string().trim().min(1, 'Coordinator name is required').max(120, 'Coordinator name must be at most 120 characters'),
+    phone: coordinatorPhone,
+    email: contactEmail.nullish(),
+    districtIds: z.array(z.string().uuid('Invalid district')).max(100).default([]),
+    displayOrder: z.coerce.number().int().min(0).max(999).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict();
+
+/* Every Collectorate field is optional: the website shows "to be supplied" for what is missing. */
+const districtOffice = z
+  .object({
+    districtId: z.string().uuid('Invalid district'),
+    collectorName: z.string().trim().max(150, 'Collector name must be at most 150 characters').nullish(),
+    address: optionalBilingual(500, 'Office address'),
+    phone: contactPhone.nullish(),
+    email: contactEmail.nullish(),
+    officeHours: optionalBilingual(120, 'Office hours'),
+    isActive: z.boolean().optional(),
+  })
+  .strict();
+
 export const updateContactPageSchema = {
   body: z
     .object({
@@ -95,6 +135,8 @@ export const updateContactPageSchema = {
       isPublished: z.boolean().optional(),
       /* Both cards are expected; the cap leaves room for the extra cards the brief anticipates. */
       organizations: z.array(organization).min(1, 'At least one organisation is required').max(ORG_TYPES.length),
+      coordinators: z.array(coordinator).max(100).optional(),
+      districtOffices: z.array(districtOffice).max(500).optional(),
     })
     .strict(),
 };
@@ -104,5 +146,37 @@ export const contactStatusSchema = {
   body: z.object({ isPublished: z.boolean() }).strict(),
 };
 
+/*
+ * The coordinator and district office sections, one entry at a time. Each entry takes exactly the
+ * fields of a list entry of the PUT; an update carries any subset of them.
+ */
+const atLeastOneField = (b: object) => Object.keys(b).length > 0;
+
+export const contactItemIdSchema = { params: idParams };
+export const contactItemStatusSchema = { params: idParams, body: statusBody };
+
+/* Display order first: the admin list reads in the order the website shows the cards. */
+export const listCoordinatorsSchema = { query: listQueryAscSchema(['displayOrder', 'name', 'createdAt', 'updatedAt'] as const) };
+export const createCoordinatorSchema = { body: coordinator };
+/* districtIds, when sent, replaces the coordinator's districts in the order given. */
+export const updateCoordinatorSchema = {
+  params: idParams,
+  body: coordinator.partial().refine(atLeastOneField, 'Provide at least one field to update'),
+};
+
+/* District name first: the order the website lists the offices in. */
+export const listDistrictOfficesSchema = { query: listQueryAscSchema(['district', 'collectorName', 'createdAt', 'updatedAt'] as const) };
+export const createDistrictOfficeSchema = { body: districtOffice };
+export const updateDistrictOfficeSchema = {
+  params: idParams,
+  body: districtOffice.partial().refine(atLeastOneField, 'Provide at least one field to update'),
+};
+
 export type UpdateContactPageBody = z.infer<typeof updateContactPageSchema.body>;
 export type ContactStatusBody = z.infer<typeof contactStatusSchema.body>;
+export type ListCoordinatorsQuery = z.infer<typeof listCoordinatorsSchema.query>;
+export type CreateCoordinatorBody = z.infer<typeof createCoordinatorSchema.body>;
+export type UpdateCoordinatorBody = z.infer<typeof updateCoordinatorSchema.body>;
+export type ListDistrictOfficesQuery = z.infer<typeof listDistrictOfficesSchema.query>;
+export type CreateDistrictOfficeBody = z.infer<typeof createDistrictOfficeSchema.body>;
+export type UpdateDistrictOfficeBody = z.infer<typeof updateDistrictOfficeSchema.body>;

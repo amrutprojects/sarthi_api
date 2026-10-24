@@ -46,8 +46,8 @@ export const registrationBody = z
   .object({
     first_name: personName('First name', 100),
     last_name: personName('Last name', 100),
-    father_name: text('Father name', 150),
-    mother_name: text('Mother name', 150),
+    father_name: personName('Father name', 150),
+    mother_name: personName('Mother name', 150),
     email: text('Email', 254).email('Email address is not valid'),
     date_of_birth: text('Date of birth', 10).superRefine(validDob).describe('YYYY-MM-DD'),
     current_address: text('Current address', 500),

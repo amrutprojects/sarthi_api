@@ -13,7 +13,7 @@ import {
   restoreRowSchema,
   uploadForm,
 } from './import/import.validation';
-import { listStudentsSchema, studentDocumentSchema, studentIdSchema } from './register/student.validation';
+import { listStudentsSchema, studentDocumentSchema, studentIdSchema, studentSummarySchema } from './register/student.validation';
 import { BATCH_STATUS, ROW_STATUS } from './student.constants';
 import { registrationBody } from './registration/registration.validation';
 import {
@@ -147,6 +147,49 @@ const StudentDto = registry.register(
         .optional(),
     })
     .passthrough(),
+);
+/* GET /students rows: the student plus its live batch (register list only). */
+const StudentListItemDto = registry.register(
+  'StudentListItem',
+  StudentDto.extend({
+    enrolled: z.boolean().describe('Eligible (RECEIVED, active) and holding a live batch assignment'),
+    batch: z
+      .object({ id: z.string().uuid(), code: z.string(), name: z.string() })
+      .nullable()
+      .describe('Batch of the live (active, non-deleted) assignment'),
+    unmasked: z
+      .object({ email: z.string().nullable(), mobile: z.string().nullable(), aadhaar: z.string().nullable() })
+      .optional()
+      .describe('Full email, mobile and Aadhaar, only for callers holding registrations.update (audited)'),
+  }),
+);
+const Buckets = { applications: z.number().int(), eligible: z.number().int(), enrolled: z.number().int() };
+const MasterCount = z.object({
+  id: z.string().uuid().nullable().describe('null = not recorded'),
+  name: z.string(),
+  count: z.number().int(),
+});
+const StudentSummaryDto = registry.register(
+  'StudentSummary',
+  z.object({
+    asOf: z.string().datetime(),
+    totals: z.object({
+      ...Buckets,
+      pending: z.number().int().describe('status REGISTRATION_PENDING'),
+      awaitingBatch: z.number().int().describe('eligible − enrolled'),
+      inactive: z.number().int(),
+    }),
+    bySource: z.array(z.object({ source: z.string(), count: z.number().int() })),
+    byCentre: z
+      .array(z.object({ code: z.string(), name: z.string(), ...Buckets }))
+      .describe('Every active region (district), zeros included, ordered by name'),
+    byTrack: z.array(z.object({ code: z.string().nullable().describe('T01–T12; null = to be confirmed'), name: z.string(), ...Buckets })),
+    byCaste: z.array(MasterCount).describe('Applications per caste, highest first'),
+    byEducation: z.array(MasterCount).describe('Applications per education, highest first'),
+    byMonth: z
+      .array(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/), applications: z.number().int(), enrolled: z.number().int() }))
+      .describe('Last 12 months (APP_TIMEZONE): applications by approval date (else creation date), enrolled by assignment date'),
+  }),
 );
 const Reference = z.object({
   columns: z.array(z.object({ field: z.string(), label: z.string(), required: z.boolean() })),
@@ -286,19 +329,34 @@ documentEndpoint({
 const reg = 'Student register';
 documentEndpoint({
   method: 'get',
+  path: '/students/summary',
+  tag: reg,
+  summary: 'Register counts for the dashboard (aggregates only, no personal data)',
+  description: [
+    'applications = every non-deleted student (any status, active or not); pending = REGISTRATION_PENDING;',
+    'eligible = RECEIVED, active and not deleted; enrolled = eligible with a live batch assignment (active, not deleted);',
+    'awaitingBatch = eligible − enrolled. `centre` narrows every figure to one district.',
+  ].join(' '),
+  permission: ['dashboard.view', 'candidates.view', 'imports.view'],
+  request: { query: studentSummarySchema.query },
+  response: envelope(StudentSummaryDto),
+});
+documentEndpoint({
+  method: 'get',
   path: '/students',
   tag: reg,
   summary: 'List students (masked)',
-  permission: 'imports.view',
+  description: 'Each row carries `enrolled` and its live `batch`. `bucket` uses the same definitions as /students/summary.',
+  permission: ['imports.view', 'candidates.view'],
   request: { query: listStudentsSchema.query },
-  response: pagedEnvelope(StudentDto),
+  response: pagedEnvelope(StudentListItemDto),
 });
 documentEndpoint({
   method: 'get',
   path: '/students/:id',
   tag: reg,
   summary: 'Student detail (masked)',
-  permission: 'imports.view',
+  permission: ['imports.view', 'candidates.view'],
   request: { params: studentIdSchema.params },
   response: envelope(StudentDto),
   errors: [404],
@@ -342,7 +400,7 @@ documentEndpoint({
   path: '/students/:id/documents',
   tag: docs,
   summary: "A student's documents (stored in the student's own folder)",
-  permission: 'imports.view',
+  permission: ['imports.view', 'candidates.view'],
   request: { params: studentIdSchema.params },
   response: envelope(z.array(StudentDocumentDto)),
   errors: [404],
@@ -560,7 +618,7 @@ documentEndpoint({
   summary: "Replace or add a student's documents and barcodes (edit form)",
   description: [
     'multipart/form-data: optional field `data` = JSON `{ barcodes: { CODE: "…" } }`; one file per document type code.',
-    'Same file rules as registration. A replaced file is archived and its record soft-deleted; the new file is unverified.',
+    'Same file rules as registration. A replaced document is deleted (record and file); the new file takes its place, unverified.',
     'Mandatory types must still have a file; required barcodes stay required. Audited.',
   ].join(' '),
   permission: 'registrations.update',

@@ -16,6 +16,9 @@ const MeDto = UserDto.extend({
   roles: z.array(RoleRefDto),
   permissions: z.array(z.string()),
   hiddenMenus: z.array(z.string()),
+  portal: z
+    .enum(['admin', 'website'])
+    .describe('website: the account holds the Website Admin role and works in the CMS menu only; admin: the full panel'),
   csrfToken: z.string(),
 });
 
@@ -45,7 +48,7 @@ documentEndpoint({
   method: 'get',
   path: '/auth/me',
   tag,
-  summary: 'Current user, effective permissions, hidden menus and CSRF token',
+  summary: 'Current user, effective permissions, hidden menus, workspace and CSRF token',
   permission: null,
   response: envelope(MeDto),
 });

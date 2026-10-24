@@ -1,5 +1,6 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
 import { AppBaseEntity } from '../../database/base.entity';
+import type { District } from '../masters/district/district.model';
 
 /* The two cards the Contact page shows today. New card types are added here and to the CHECK constraint. */
 export const ORG_TYPES = ['AMRUT', 'IMPLEMENTATION_PARTNER'] as const;
@@ -91,4 +92,92 @@ export class ContactOrganization extends AppBaseEntity {
   @ManyToOne('ContactPageSettings', (s: ContactPageSettings) => s.organizations, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'settingsId' })
   settings!: ContactPageSettings;
+}
+
+/*
+ * A district / cluster coordinator card. People's names are shown as-is in both languages, so the
+ * name is a single column. The districts it covers live in contact_coordinator_districts.
+ */
+@Entity({ name: 'contact_coordinators' })
+@Index('IDX_contact_coordinators_settingsId', ['settingsId'])
+export class ContactCoordinator extends AppBaseEntity {
+  @Column({ type: 'uuid', name: 'settingsId' })
+  settingsId!: string;
+
+  @Column({ type: 'varchar', length: 120 })
+  name!: string;
+
+  @Column({ type: 'varchar', length: 32 })
+  phone!: string;
+
+  /* Always stored lower-cased (CHK_contact_coordinators_email). */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  email!: string | null;
+
+  @Column({ type: 'integer', name: 'displayOrder', default: 0 })
+  displayOrder!: number;
+
+  @OneToMany('ContactCoordinatorDistrict', (d: ContactCoordinatorDistrict) => d.coordinator)
+  districts!: ContactCoordinatorDistrict[];
+}
+
+/* One district covered by a coordinator. A district belongs to at most one coordinator. */
+@Entity({ name: 'contact_coordinator_districts' })
+export class ContactCoordinatorDistrict {
+  @PrimaryColumn({ type: 'uuid', name: 'coordinatorId' })
+  coordinatorId!: string;
+
+  @PrimaryColumn({ type: 'uuid', name: 'districtId' })
+  districtId!: string;
+
+  /* Position on the coordinator's card: the saved order, lead district first. */
+  @Column({ type: 'integer', name: 'displayOrder', default: 0 })
+  displayOrder!: number;
+
+  @ManyToOne('ContactCoordinator', (c: ContactCoordinator) => c.districts, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'coordinatorId' })
+  coordinator!: ContactCoordinator;
+
+  @ManyToOne('District', { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'districtId' })
+  district!: District;
+}
+
+/*
+ * Collectorate / District Office details for one district. Every field is optional: whatever is not
+ * yet supplied is shown on the website as "to be supplied from official records".
+ */
+@Entity({ name: 'contact_district_offices' })
+@Index('UQ_contact_district_offices_district_active', ['districtId'], { unique: true, where: '"isDelete" = false' })
+export class ContactDistrictOffice extends AppBaseEntity {
+  @Column({ type: 'uuid', name: 'settingsId' })
+  settingsId!: string;
+
+  @Column({ type: 'uuid', name: 'districtId' })
+  districtId!: string;
+
+  @Column({ type: 'varchar', length: 150, name: 'collectorName', nullable: true })
+  collectorName!: string | null;
+
+  @Column({ type: 'varchar', length: 500, name: 'addressMr', nullable: true })
+  addressMr!: string | null;
+
+  @Column({ type: 'varchar', length: 500, name: 'addressEn', nullable: true })
+  addressEn!: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  phone!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  email!: string | null;
+
+  @Column({ type: 'varchar', length: 120, name: 'officeHoursMr', nullable: true })
+  officeHoursMr!: string | null;
+
+  @Column({ type: 'varchar', length: 120, name: 'officeHoursEn', nullable: true })
+  officeHoursEn!: string | null;
+
+  @ManyToOne('District', { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'districtId' })
+  district!: District;
 }
