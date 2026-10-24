@@ -105,8 +105,10 @@ export const contactController = {
    * it is a 200 with no data rather than a 404: the website treats it as "show the bundled copy",
    * which is not an error condition.
    */
+  
   public: asyncHandler(async (_req: Request, res: Response) => {
     const data = await contactService.getPublic();
     ApiResponse.ok(res, data, data ? 'Contact page retrieved successfully' : 'Contact page is not published');
   }),
 };
+
