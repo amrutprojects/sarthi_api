@@ -8,9 +8,14 @@ import { buildMeta } from '../../../shared/utils/pagination';
 import { documentService } from '../documents/document.service';
 import { sendFile } from '../documents/send-file';
 import { studentService } from './student.service';
-import type { ListStudentsQuery } from './student.validation';
+import type { ListStudentsQuery, StudentSummaryQuery } from './student.validation';
 
 export const studentController = {
+  /* Aggregate counts only (no personal data). */
+  summary: asyncHandler(async (req: Request, res: Response) => {
+    ApiResponse.ok(res, await studentService.summary(query<StudentSummaryQuery>(req)), MESSAGES.retrieved('Student summary'));
+  }),
+
   list: asyncHandler(async (req: Request, res: Response) => {
     const q = query<ListStudentsQuery>(req);
     /* Reviewers (registrations.update) see full email, mobile and Aadhaar; each such list is audited (codes only). */

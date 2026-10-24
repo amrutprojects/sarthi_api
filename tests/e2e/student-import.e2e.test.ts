@@ -234,14 +234,11 @@ describe('student import', () => {
 
   it('requires import permissions', async () => {
     const viewer = await createUser({ roleCodes: ['VIEWER'] });
-    const res = await uploadAs(await login(viewer.email), csv([record()]));
+    const token = await login(viewer.email);
+    const res = await uploadAs(token, csv([record()]));
     expect(res.status).toBe(403);
-    expect(
-      (
-        await request(app)
-          .get(`${API}/students`)
-          .set(auth(await login(viewer.email)))
-      ).status,
-    ).toBe(403);
+    expect((await request(app).get(`${API}/imports`).set(auth(token))).status).toBe(403);
+    /* The Viewer holds candidates.view, which opens the masked register list (any of imports.view, candidates.view). */
+    expect((await request(app).get(`${API}/students`).set(auth(token))).status).toBe(200);
   });
 });
