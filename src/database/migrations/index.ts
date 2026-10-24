@@ -47,6 +47,11 @@ import { CmsAmrutSchemes1794300000000 } from './1794300000000-CmsAmrutSchemes';
 import { CmsAboutAmrut1794400000000 } from './1794400000000-CmsAboutAmrut';
 import { CmsAmrutImpact1794500000000 } from './1794500000000-CmsAmrutImpact';
 import { AboutImplementationPartner1794600000000 } from './1794600000000-AboutImplementationPartner';
+import { CmsAnnouncements1794700000000 } from './1794700000000-CmsAnnouncements';
+import { RemoveBoardPlaceholderNotes1794800000000 } from './1794800000000-RemoveBoardPlaceholderNotes';
+import { CmsTopBar1794900000000 } from './1794900000000-CmsTopBar';
+import { EligibilityNoteSwitch1795000000000 } from './1795000000000-EligibilityNoteSwitch';
+import { ApplyCtaHintOptional1795100000000 } from './1795100000000-ApplyCtaHintOptional';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -106,4 +111,9 @@ export const MIGRATIONS = [
   CmsAboutAmrut1794400000000,
   CmsAmrutImpact1794500000000,
   AboutImplementationPartner1794600000000,
+  CmsAnnouncements1794700000000,
+  RemoveBoardPlaceholderNotes1794800000000,
+  CmsTopBar1794900000000,
+  EligibilityNoteSwitch1795000000000,
+  ApplyCtaHintOptional1795100000000,
 ];

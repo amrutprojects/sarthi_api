@@ -46,7 +46,8 @@ const SEEDED_TEXT = {
   },
   ctaLabel: { mr: 'Apply Now', en: 'Apply Now' },
   ctaUrl: 'https://app.mahaamrut.org.in/amrut-new/signup',
-  ctaHint: { mr: 'ही लिंक नवीन टॅबमध्ये उघडेल — app.mahaamrut.org.in', en: 'Opens in a new tab — app.mahaamrut.org.in' },
+  /* The seeded hint line is blanked by the ApplyCtaHintOptional migration: nothing is printed under the button. */
+  ctaHint: { mr: '', en: '' },
 };
 
 /* kalash.applySteps, verbatim: n → title, d → description. */
@@ -266,6 +267,17 @@ describe('Apply page text', () => {
     } finally {
       await request(app).put(SETTINGS).set(auth(admin.token)).send(SEEDED_TEXT);
     }
+  });
+
+  it('takes the button hint as optional: both languages filled, or both blank to show nothing', async () => {
+    const filled = { mr: 'नवीन टॅबमध्ये उघडेल', en: 'Opens in a new tab' };
+    const on = await request(app).put(SETTINGS).set(auth(admin.token)).send({ ...SEEDED_TEXT, ctaHint: filled });
+    expect(on.status).toBe(200);
+    expect((await publicPage()).ctaHint).toEqual(filled);
+
+    const off = await request(app).put(SETTINGS).set(auth(admin.token)).send({ ...SEEDED_TEXT, ctaHint: { mr: '  ', en: '' } });
+    expect(off.status).toBe(200);
+    expect((await publicPage()).ctaHint).toEqual({ mr: '', en: '' });
   });
 
   it('rejects a missing half, a missing pair, overlong text and unknown fields (422)', async () => {
@@ -637,8 +649,9 @@ describe('Apply page database constraints', () => {
     ]) {
       await expect(setUrl(ctaUrl)).rejects.toThrow(/CHK_apply_page_settings_cta_url/);
     }
-    await expect(AppDataSource.query(`UPDATE "apply_page_settings" SET "ctaHintEn" = '  ' WHERE "isDelete" = false`)).rejects.toThrow(
-      /CHK_apply_page_settings_cta_hint_en/,
+    /* The hint may be blank in both languages, never in one. */
+    await expect(AppDataSource.query(`UPDATE "apply_page_settings" SET "ctaHintMr" = 'फक्त मराठी' WHERE "isDelete" = false`)).rejects.toThrow(
+      /CHK_apply_page_settings_cta_hint_pair/,
     );
     expect(await publicPage()).toMatchObject(SEEDED_TEXT);
   });

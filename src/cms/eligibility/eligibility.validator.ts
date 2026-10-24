@@ -41,6 +41,7 @@ export const updateEligibilitySettingsSchema = {
       documentsHeading: bilingual(200, 'Documents heading'),
       noteTitle: bilingual(200, 'Note title'),
       noteBody: bilingual(2000, 'Note text'),
+      showNote: z.boolean({ required_error: 'showNote is required', invalid_type_error: 'showNote must be true or false' }),
     })
     .strict(),
 };

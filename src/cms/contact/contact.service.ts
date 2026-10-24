@@ -27,6 +27,7 @@ import type {
   CreateDistrictOfficeInput,
   DistrictOfficeListQuery,
   DistrictRef,
+  MoveDistrictsOption,
   PatchCoordinatorInput,
   PatchDistrictOfficeInput,
   PublicContactPage,
@@ -430,12 +431,13 @@ export class ContactService {
     section: 'coordinators' | 'district-offices',
     op: 'create' | 'update' | 'status' | 'delete',
     id: string,
+    movedDistricts: string[] = [],
   ): Promise<void> {
     return auditService.recordInTx(m, req, {
       action: AUDIT_ACTIONS.CONTACT_PAGE_UPDATE,
       resource: 'contact-page',
       resourceId: settingsId,
-      details: { section, op, id },
+      details: { section, op, id, ...(movedDistricts.length ? { movedDistricts } : {}) },
     });
   }
 
@@ -464,29 +466,41 @@ export class ContactService {
    * The districts a coordinator is given: live districts only (400 otherwise), and none already covered
    * by another live coordinator (409 naming the district and its coordinator) — the website must have
    * one answer to "who is the coordinator for this district?".
+   *
+   * With move = true (the administrator confirmed it) a district another coordinator covers is not refused:
+   * it is taken from that coordinator, in the same transaction, so it still has exactly one coordinator.
+   * Returns the names of the districts that were moved, for the audit trail.
    */
-  private async assertCoordinatorDistricts(m: EntityManager, districtIds: string[], coordinatorId?: string): Promise<void> {
-    if (districtIds.length === 0) return;
+  private async assertCoordinatorDistricts(
+    m: EntityManager,
+    districtIds: string[],
+    coordinatorId?: string,
+    move = false,
+  ): Promise<string[]> {
+    if (districtIds.length === 0) return [];
     await this.assertDistrictsExist(m, districtIds, 'districtIds');
     const covered = await contactRepository.findCoveredDistricts(districtIds, { excludeId: coordinatorId, manager: m });
-    if (covered.length) {
-      const details = covered.map((cd) => ({
-        field: 'districtIds',
-        message: `${cd.district.name} is already covered by ${cd.coordinator.name}`,
-      }));
-      throw conflict(
-        details.length === 1 ? details[0].message : 'Some of the selected districts are already covered by other coordinators',
-        details,
-      );
+    if (covered.length === 0) return [];
+    if (move) {
+      await m.getRepository(ContactCoordinatorDistrict).delete({ districtId: In(covered.map((cd) => cd.districtId)) });
+      return covered.map((cd) => `${cd.district.name} (from ${cd.coordinator.name})`);
     }
+    const details = covered.map((cd) => ({
+      field: 'districtIds',
+      message: `${cd.district.name} is already covered by ${cd.coordinator.name}`,
+    }));
+    throw conflict(
+      details.length === 1 ? details[0].message : 'Some of the selected districts are already covered by other coordinators',
+      details,
+    );
   }
 
   /* A new card goes after every live card unless an order is given. */
-  async createCoordinator(input: CreateCoordinatorInput, req?: Request): Promise<AdminCoordinator> {
+  async createCoordinator(input: CreateCoordinatorInput & MoveDistrictsOption, req?: Request): Promise<AdminCoordinator> {
     const id = await AppDataSource.transaction(async (m) => {
       const settings = await this.requireSettings(m);
       const districtIds = [...new Set(input.districtIds)];
-      await this.assertCoordinatorDistricts(m, districtIds);
+      const moved = await this.assertCoordinatorDistricts(m, districtIds, undefined, input.moveDistricts);
       const repo = contactRepository.coordinators(m);
       const saved = await repo.save(
         repo.create({
@@ -499,19 +513,19 @@ export class ContactService {
         }),
       );
       await this.linkDistricts(m, saved.id, districtIds);
-      await this.recordSectionChange(m, req, settings.id, 'coordinators', 'create', saved.id);
+      await this.recordSectionChange(m, req, settings.id, 'coordinators', 'create', saved.id, moved);
       return saved.id;
     });
     return this.getCoordinator(id);
   }
 
   /* Any subset of the fields. districtIds, when sent, replaces the card's districts in the order given. */
-  async updateCoordinator(id: string, input: PatchCoordinatorInput, req?: Request): Promise<AdminCoordinator> {
+  async updateCoordinator(id: string, input: PatchCoordinatorInput & MoveDistrictsOption, req?: Request): Promise<AdminCoordinator> {
     await AppDataSource.transaction(async (m) => {
       const settings = await this.requireSettings(m);
       await this.requireCoordinator(m, settings.id, id);
       const districtIds = input.districtIds && [...new Set(input.districtIds)];
-      if (districtIds) await this.assertCoordinatorDistricts(m, districtIds, id);
+      const moved = districtIds ? await this.assertCoordinatorDistricts(m, districtIds, id, input.moveDistricts) : [];
       /* Written even when only the districts change, so updatedAt still records the edit. */
       await contactRepository.coordinators(m).update(id, {
         ...(input.name === undefined ? {} : { name: input.name }),
@@ -524,7 +538,7 @@ export class ContactService {
         await m.getRepository(ContactCoordinatorDistrict).delete({ coordinatorId: id });
         await this.linkDistricts(m, id, districtIds);
       }
-      await this.recordSectionChange(m, req, settings.id, 'coordinators', 'update', id);
+      await this.recordSectionChange(m, req, settings.id, 'coordinators', 'update', id, moved);
     });
     return this.getCoordinator(id);
   }

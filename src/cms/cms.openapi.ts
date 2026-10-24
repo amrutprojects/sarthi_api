@@ -461,3 +461,62 @@ documentEndpoint({
   permission: 'public',
   response: envelope(Impact.nullable()),
 });
+
+const Announcements = z.object({
+  /* The pill on the left of the ticker, e.g. "सूचना" / "Announcements". */
+  label: Bilingual,
+  /* Active announcements only, already in display order. Empty when the ticker is switched off: the website then shows no strip. */
+  items: z.array(
+    z.object({
+      /* Printed in bold. */
+      title: Bilingual,
+      /* Printed after the title; absent when the announcement has none. */
+      detail: Bilingual.optional(),
+      /* A page of this site ("/apply") or an http(s) address; absent when the announcement is plain text. */
+      link: z.string().optional(),
+    }),
+  ),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/announcements',
+  tag,
+  summary: 'Announcements (सूचना) ticker',
+  description:
+    'The ticker that scrolls across the top of every website page: its label and the active announcements in display order, ' +
+    'in Marathi and English. Managed in the admin panel under CMS → Home Page Management → Announcements. `data` is null when ' +
+    'the ticker has not been configured (the website then shows its own bundled notice).',
+  permission: 'public',
+  response: envelope(Announcements.nullable()),
+});
+
+const TopBar = z.object({
+  /* The bold text on the left of the strip, e.g. "महाराष्ट्र शासन" / "Government of Maharashtra". Null when it is blank: the website then shows none. */
+  governmentName: Bilingual.nullable(),
+  /* Whether the Marathi / English switch on the right of the strip is shown. */
+  showLanguageToggle: z.boolean(),
+  /* Active links only, already in display order. */
+  links: z.array(
+    z.object({
+      /* The text of the link. */
+      label: Bilingual,
+      /* A page of this site ("/verify") or an https:// address; an address typed as "www." is already stored with https://. */
+      link: z.string(),
+    }),
+  ),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/top-bar',
+  tag,
+  summary: 'Top Bar (strip at the top of every page)',
+  description:
+    'The strip at the very top of every website page: the government name, the links beside it (e.g. Verify Certificate, Check ' +
+    'Application Status) in display order, and whether the language switch is shown, in Marathi and English. Managed in the admin ' +
+    'panel under CMS → Home Page Management → Top Bar. `data` is null when the Top Bar has not been configured (the website then ' +
+    'shows its own bundled strip).',
+  permission: 'public',
+  response: envelope(TopBar.nullable()),
+});

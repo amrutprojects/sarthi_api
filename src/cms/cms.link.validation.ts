@@ -8,14 +8,19 @@ import { z } from 'zod';
  */
 const SITE_PATH = /^\/[A-Za-z0-9._~/?=&%#-]*$/;
 
-export function destinationProblem(v: string): string | null {
+/* "www.example.gov.in" is how people type an address: it is stored as "https://www.example.gov.in". */
+export const normalizeDestination = (v: string): string => (/^www\./i.test(v) ? `https://${v}` : v);
+
+export function destinationProblem(raw: string): string | null {
+  const v = normalizeDestination(raw);
   if (v.length > 500) return 'Destination must be at most 500 characters';
   if (v.startsWith('/')) {
     return SITE_PATH.test(v) && !v.startsWith('//')
       ? null
       : 'A page on this site must start with a single / and use only letters, digits and - _ . ~ / ? = & % #';
   }
-  if (!/^https?:\/\//.test(v)) return 'Destination must be a page on this site starting with /, or an address starting with https://';
+  if (!/^https?:\/\//.test(v))
+    return 'Destination must be a page on this site starting with /, or a web address starting with https:// or www.';
   if (/[\s<>"]/.test(v)) return 'The address contains characters that are not allowed';
   let url: URL;
   try {
@@ -31,8 +36,20 @@ export function destinationProblem(v: string): string | null {
 /* null (or blank) is a card without a link. */
 export const link = z
   .custom<string | null>((v) => v === null || typeof v === 'string', { message: 'Destination must be text or null' })
-  .transform((v) => (v === null ? null : v.trim() || null))
+  .transform((v) => (v === null ? null : v.trim() ? normalizeDestination(v.trim()) : null))
   .superRefine((v, ctx) => {
     const problem = v === null ? null : destinationProblem(v);
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+  });
+
+/*
+ * A destination that must be given (a Top Bar link without one is meaningless): the same rule and the
+ * same "www." normalisation as `link`, but never null and never blank.
+ */
+export const requiredLink = z
+  .string({ required_error: 'Destination is required', invalid_type_error: 'Destination must be text' })
+  .transform((v) => normalizeDestination(v.trim()))
+  .superRefine((v, ctx) => {
+    const problem = v === '' ? 'Destination is required' : destinationProblem(v);
     if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
   });

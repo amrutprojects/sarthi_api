@@ -930,6 +930,32 @@ describe('Contact coordinators, one card at a time', () => {
     ]);
   });
 
+  it('moves a district from its coordinator when moveDistricts is sent, on create and on update', async () => {
+    const asha = await make({ name: 'Asha Patil', phone: '+91 98000 81001', districtIds: [d.Satara.id, d.Sangli.id] });
+    const bhushan = await make({ name: 'Bhushan Rao', phone: '+91 98000 81002', districtIds: [d.Kolhapur.id] });
+
+    /* Update: Bhushan takes Satara; Asha keeps Sangli, and Satara has exactly one coordinator. */
+    const moved = await patch(bhushan.id, { districtIds: [d.Kolhapur.id, d.Satara.id], moveDistricts: true });
+    expect(moved.status).toBe(200);
+    expect(moved.body.data.districts).toEqual([d.Kolhapur, d.Satara]);
+    expect((await get(asha.id)).body.data.districts).toEqual([d.Sangli]);
+
+    /* Create: a new card takes Sangli from Asha, who is left with none. */
+    const created = await post({ name: 'Chitra Joshi', phone: '+91 98000 81003', districtIds: [d.Sangli.id], moveDistricts: true });
+    expect(created.status).toBe(201);
+    expect(created.body.data.districts).toEqual([d.Sangli]);
+    expect((await get(asha.id)).body.data.districts).toEqual([]);
+
+    /* The website lists each district once. */
+    const onSite = (await publicView()).coordinators.flatMap((c: { districts: { code: string }[] }) => c.districts.map((x) => x.code));
+    expect(new Set(onSite).size).toBe(onSite.length);
+
+    /* The flag is opt-in and only for the one-card endpoints: without it the 409 stands. */
+    const refused = await patch(asha.id, { districtIds: [d.Satara.id] });
+    expect(refused.status).toBe(409);
+    expect((await patch(asha.id, { districtIds: [d.Satara.id], moveDistricts: 'yes' })).status).toBe(422);
+  });
+
   it('rejects an unknown or deleted district (400)', async () => {
     const c = await make({ name: 'Asha Patil', phone: '+91 98000 90001' });
     const unknown = await post({ name: 'Bhushan Rao', phone: '+91 98000 90002', districtIds: [MISSING_ID] });

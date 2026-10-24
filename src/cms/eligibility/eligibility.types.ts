@@ -23,6 +23,8 @@ export interface EligibilityPageText {
   documentsHeading: Bilingual;
   noteTitle: Bilingual;
   noteBody: Bilingual;
+  /* False: the website leaves the note box out. */
+  showNote: boolean;
 }
 
 /* ---------------- admin shapes ---------------- */

@@ -3,6 +3,7 @@ import { Permission, RolePermission } from '../../../src/database/entities';
 import { seedAboutAmrut } from '../../../src/database/seeds/seed-about-amrut';
 import { seedAmrutImpact } from '../../../src/database/seeds/seed-amrut-impact';
 import { seedAmrutSchemes } from '../../../src/database/seeds/seed-amrut-schemes';
+import { seedAnnouncements } from '../../../src/database/seeds/seed-announcements';
 import { seedBoardMembers } from '../../../src/database/seeds/seed-board-members';
 import { seedContactPage } from '../../../src/database/seeds/seed-contact-page';
 import { seedEcosystem } from '../../../src/database/seeds/seed-ecosystem';
@@ -12,6 +13,7 @@ import { seedModulesPage } from '../../../src/database/seeds/seed-modules-page';
 import { seedProgrammeHighlight } from '../../../src/database/seeds/seed-programme-highlight';
 import { seedProgrammePage } from '../../../src/database/seeds/seed-programme-page';
 import { seedRbac } from '../../../src/database/seeds/seed-rbac';
+import { seedTopBar } from '../../../src/database/seeds/seed-top-bar';
 import { ROLE_CODES, WEBSITE_MENUS, rbacService } from '../../../src/modules/roles-permissions';
 import {
   API,
@@ -49,6 +51,8 @@ beforeAll(async () => {
     seedAmrutSchemes,
     seedAmrutImpact,
     seedAboutAmrut,
+    seedAnnouncements,
+    seedTopBar,
     seedProgrammePage,
   ]) {
     await seed(AppDataSource);
@@ -62,6 +66,8 @@ const LISTS = [
   'cms-faqs',
   'cms-eligibility',
   'cms-apply',
+  'cms-announcements',
+  'cms-topbar',
   'cms-board',
   'cms-ecosystem',
   'cms-schemes',
@@ -200,6 +206,10 @@ describe('CMS operations as a Website Admin', () => {
       '/cms/eligibility/settings',
       '/cms/apply/settings',
       '/cms/apply/items',
+      '/cms/announcements',
+      '/cms/announcements/settings',
+      '/cms/top-bar',
+      '/cms/top-bar/settings',
       '/cms/states',
       '/cms/districts',
       '/cms/talukas',
@@ -224,6 +234,49 @@ describe('CMS operations as a Website Admin', () => {
     expect(updated.status).toBe(200);
     expect(updated.body.data.answer.en).toBe('New answer.');
     expect((await request(app).delete(`${API}/cms/faqs/${id}`).set(auth(wa.token))).status).toBe(200);
+  });
+
+  it('adds, edits, hides and deletes an announcement, and edits the ticker settings', async () => {
+    const created = await request(app)
+      .post(`${API}/cms/announcements`)
+      .set(auth(wa.token))
+      .send({ title: { mr: 'वेबसाइट सूचना', en: 'Website notice' }, link: '/apply' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.id as string;
+    const updated = await request(app)
+      .patch(`${API}/cms/announcements/${id}`)
+      .set(auth(wa.token))
+      .send({ detail: { mr: 'तपशील', en: 'Details' } });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.detail.en).toBe('Details');
+    const hidden = await request(app).patch(`${API}/cms/announcements/${id}/status`).set(auth(wa.token)).send({ isActive: false });
+    expect(hidden.status).toBe(200);
+    const settings = await request(app)
+      .put(`${API}/cms/announcements/settings`)
+      .set(auth(wa.token))
+      .send({ label: { mr: 'सूचना', en: 'Announcements' }, showSection: true });
+    expect(settings.status).toBe(200);
+    expect((await request(app).delete(`${API}/cms/announcements/${id}`).set(auth(wa.token))).status).toBe(200);
+  });
+
+  it('adds, edits, hides and deletes a Top Bar link, and edits the Top Bar settings', async () => {
+    const created = await request(app)
+      .post(`${API}/cms/top-bar`)
+      .set(auth(wa.token))
+      .send({ label: { mr: 'वेबसाइट दुवा', en: 'Website link' }, link: '/apply' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.id as string;
+    const updated = await request(app).patch(`${API}/cms/top-bar/${id}`).set(auth(wa.token)).send({ link: 'www.example.gov.in' });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.link).toBe('https://www.example.gov.in');
+    const hidden = await request(app).patch(`${API}/cms/top-bar/${id}/status`).set(auth(wa.token)).send({ isActive: false });
+    expect(hidden.status).toBe(200);
+    const settings = await request(app)
+      .put(`${API}/cms/top-bar/settings`)
+      .set(auth(wa.token))
+      .send({ governmentName: { mr: 'महाराष्ट्र शासन', en: 'Government of Maharashtra' }, showLanguageToggle: true });
+    expect(settings.status).toBe(200);
+    expect((await request(app).delete(`${API}/cms/top-bar/${id}`).set(auth(wa.token))).status).toBe(200);
   });
 
   it('edits the singleton pages', async () => {

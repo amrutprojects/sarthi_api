@@ -11,32 +11,31 @@ export interface BoardSeedSummary {
  *
  * Taken VERBATIM from the website's former bundled copy — public-site/content/leadership.ts for the
  * cards, its TIER_LABEL map for the badges, and home/sections/Leadership.tsx for the heading,
- * subtitle and notice — so seeding changes nothing a visitor sees; it only moves the source of truth
- * into the database.
+ * subtitle — so seeding changes nothing a visitor sees; it only moves the source of truth into the
+ * database.
  *
- * The officeholders' names are deliberately NULL where the site left them blank: the offices are
- * public record, but current names must come from official AMRUT records, not be guessed. No photos
- * are seeded for the same reason; every card starts with the person icon.
+ * The officeholders' names are NULL: the offices are public record, but current names must come from
+ * official AMRUT records, not be guessed. No photos are seeded for the same reason; every card starts
+ * with the person icon. The cards carry no "name to be filled" note and the notice box under them is
+ * switched off, so the site prints no placeholder text; an administrator can still write a notice and
+ * turn it on.
  */
 const SECTION = {
   headingMr: 'मान्यवर व संचालक मंडळ',
   headingEn: 'Leadership & Governing Board',
   subtitleMr: 'अमृत संस्थेचे नियामक मंडळ व कार्यक्रमाचे नेतृत्व.',
   subtitleEn: 'The AMRUT Governing Board and programme leadership.',
-  noticeTitleMr: 'नावे व छायाचित्रे भरावयाची आहेत',
-  noticeTitleEn: 'Names and photographs to be supplied',
-  noticeBodyMr:
-    'वरील पदनामे सार्वजनिक नोंदीनुसार आहेत. विद्यमान पदाधिकाऱ्यांची नावे व छायाचित्रे अमृतच्या अधिकृत नोंदीनुसार भरावीत — प्रात्यक्षिक आवृत्तीत ती जाणीवपूर्वक रिक्त ठेवली आहेत.',
-  noticeBodyEn:
-    'The offices listed above are from public record. Names and photographs of the current officeholders should be supplied from official AMRUT records — they are deliberately left blank in this demo rather than guessed.',
-  showNotice: true,
+  noticeTitleMr: '',
+  noticeTitleEn: '',
+  noticeBodyMr: '',
+  noticeBodyEn: '',
+  showNotice: false,
 };
 
 const STATE = { categoryMr: 'राज्य शासन', categoryEn: 'State Government' };
 const DEPT = { categoryMr: 'विभाग', categoryEn: 'Department' };
 const BOARD = { categoryMr: 'नियामक मंडळ', categoryEn: 'Governing Board' };
 const PARTNER = { categoryMr: 'अंमलबजावणी भागीदार', categoryEn: 'Implementation Partner' };
-const TO_FILL = { descriptionMr: 'नाव अमृत नोंदीनुसार भरावे', descriptionEn: 'Name to be filled from AMRUT records' };
 
 const MEMBERS = [
   {
@@ -44,21 +43,18 @@ const MEMBERS = [
     designationMr: 'मा. मुख्यमंत्री, महाराष्ट्र राज्य',
     designationEn: "Hon'ble Chief Minister, Maharashtra",
     name: null,
-    ...TO_FILL,
   },
   {
     ...STATE,
     designationMr: 'मा. उपमुख्यमंत्री, महाराष्ट्र राज्य',
     designationEn: "Hon'ble Deputy Chief Minister, Maharashtra",
     name: null,
-    ...TO_FILL,
   },
   {
     ...DEPT,
     designationMr: 'मा. मंत्री, इतर मागास बहुजन कल्याण विभाग',
     designationEn: "Hon'ble Minister, Other Backward Bahujan Welfare Department",
     name: null,
-    ...TO_FILL,
   },
   {
     ...BOARD,

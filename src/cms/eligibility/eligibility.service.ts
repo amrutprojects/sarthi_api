@@ -32,6 +32,7 @@ const toPageText = (s: EligibilityPageSettings): EligibilityPageText => ({
   documentsHeading: { mr: s.documentsHeadingMr, en: s.documentsHeadingEn },
   noteTitle: { mr: s.noteTitleMr, en: s.noteTitleEn },
   noteBody: { mr: s.noteBodyMr, en: s.noteBodyEn },
+  showNote: s.showNote,
 });
 
 const toAdminSettings = (s: EligibilityPageSettings): AdminEligibilitySettings => ({
@@ -133,6 +134,7 @@ export class EligibilityService {
           noteTitleEn: input.noteTitle.en,
           noteBodyMr: input.noteBody.mr,
           noteBodyEn: input.noteBody.en,
+          showNote: input.showNote,
         },
         m,
       );

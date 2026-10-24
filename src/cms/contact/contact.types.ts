@@ -167,6 +167,10 @@ export interface UpdateDistrictOfficeInput {
  */
 export type CreateCoordinatorInput = UpdateCoordinatorInput;
 export type PatchCoordinatorInput = Partial<UpdateCoordinatorInput>;
+/* Sent with a one-card create / update once the administrator confirmed taking districts from their current coordinator. */
+export interface MoveDistrictsOption {
+  moveDistricts?: boolean;
+}
 export type CreateDistrictOfficeInput = UpdateDistrictOfficeInput;
 export type PatchDistrictOfficeInput = Partial<UpdateDistrictOfficeInput>;
 

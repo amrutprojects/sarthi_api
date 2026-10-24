@@ -30,6 +30,8 @@ import {
   publicSchemesRouter,
   publicAboutRouter,
   publicImpactRouter,
+  publicAnnouncementsRouter,
+  publicTopBarRouter,
 } from './cms';
 import { lmsRouter } from './lms';
 
@@ -78,3 +80,5 @@ apiRouter.use('/public/ecosystem', publicEcosystemRouter);
 apiRouter.use('/public/schemes', publicSchemesRouter);
 apiRouter.use('/public/about', publicAboutRouter);
 apiRouter.use('/public/impact', publicImpactRouter);
+apiRouter.use('/public/announcements', publicAnnouncementsRouter);
+apiRouter.use('/public/top-bar', publicTopBarRouter);

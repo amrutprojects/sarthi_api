@@ -25,6 +25,8 @@ const SEEDED_TEXT = {
     mr: 'वरील निकष प्रसिद्ध योजना रचनेवर आधारित असून प्रात्यक्षिक आवृत्तीत ते बदलण्यायोग्य प्रणाली-मापदंड म्हणून ठेवले आहेत. अंतिम निकष अमृतच्या मान्यतेनुसार लागू होतील.',
     en: 'These criteria follow the published scheme structure and are held as configurable system parameters in this demo. Final criteria apply as approved by AMRUT.',
   },
+  /* The seeded note is switched off by the EligibilityNoteSwitch migration: the website no longer shows it. */
+  showNote: false,
 };
 
 beforeAll(async () => {
@@ -151,6 +153,12 @@ describe('Eligibility page text', () => {
     expect(put.body.data).toMatchObject({ ...changed, id: res.body.data.id });
     expect(await publicPage()).toMatchObject(changed);
 
+    /* The note can be switched on and off; its text is kept either way. */
+    const on = await request(app).put(SETTINGS).set(auth(admin.token)).send({ ...SEEDED_TEXT, showNote: true });
+    expect(on.status).toBe(200);
+    expect((await publicPage()).showNote).toBe(true);
+    expect((await publicPage()).noteBody).toEqual(SEEDED_TEXT.noteBody);
+
     /* Put the seeded text back for the rest of the run. */
     expect((await request(app).put(SETTINGS).set(auth(admin.token)).send(SEEDED_TEXT)).status).toBe(200);
     expect(await publicPage()).toMatchObject(SEEDED_TEXT);
@@ -161,6 +169,8 @@ describe('Eligibility page text', () => {
       { ...SEEDED_TEXT, noteBody: { mr: 'फक्त मराठी', en: '' } },
       { ...SEEDED_TEXT, pageTitle: { en: 'English only' } },
       { ...SEEDED_TEXT, noteTitle: undefined },
+      { ...SEEDED_TEXT, showNote: undefined },
+      { ...SEEDED_TEXT, showNote: 'yes' },
       { ...SEEDED_TEXT, pageSubtitle: { mr: 'उपशीर्षक', en: 'x'.repeat(501) } },
       { ...SEEDED_TEXT, extra: true },
     ];

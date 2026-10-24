@@ -68,6 +68,10 @@ export class EligibilityPageSettings extends AppBaseEntity {
 
   @Column({ type: 'varchar', length: 2000, name: 'noteBodyEn' })
   noteBodyEn!: string;
+
+  /* Whether the website prints the note box under the lists. The note text is kept either way. */
+  @Column({ type: 'boolean', name: 'showNote', default: true })
+  showNote!: boolean;
 }
 
 /*

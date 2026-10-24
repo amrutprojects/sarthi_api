@@ -157,11 +157,17 @@ export const contactItemStatusSchema = { params: idParams, body: statusBody };
 
 /* Display order first: the admin list reads in the order the website shows the cards. */
 export const listCoordinatorsSchema = { query: listQueryAscSchema(['displayOrder', 'name', 'createdAt', 'updatedAt'] as const) };
-export const createCoordinatorSchema = { body: coordinator };
+/*
+ * moveDistricts is for the one-card endpoints only: the administrator has confirmed that a district
+ * another coordinator covers should be taken from that coordinator and given to this one. Without it such
+ * a district is refused with a 409, as before.
+ */
+const coordinatorWrite = coordinator.extend({ moveDistricts: z.boolean().optional() }).strict();
+export const createCoordinatorSchema = { body: coordinatorWrite };
 /* districtIds, when sent, replaces the coordinator's districts in the order given. */
 export const updateCoordinatorSchema = {
   params: idParams,
-  body: coordinator.partial().refine(atLeastOneField, 'Provide at least one field to update'),
+  body: coordinatorWrite.partial().refine(atLeastOneField, 'Provide at least one field to update'),
 };
 
 /* District name first: the order the website lists the offices in. */

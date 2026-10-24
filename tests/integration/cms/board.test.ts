@@ -53,20 +53,19 @@ const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(
 const GIF = Buffer.from('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64');
 
 /* The cards the website showed before the section was managed (content/leadership.ts), in order. */
-const TO_FILL = pair('नाव अमृत नोंदीनुसार भरावे', 'Name to be filled from AMRUT records');
 const SEEDED = [
-  { name: null, category: pair('राज्य शासन', 'State Government'), designation: pair('मा. मुख्यमंत्री, महाराष्ट्र राज्य', "Hon'ble Chief Minister, Maharashtra"), description: TO_FILL },
+  { name: null, category: pair('राज्य शासन', 'State Government'), designation: pair('मा. मुख्यमंत्री, महाराष्ट्र राज्य', "Hon'ble Chief Minister, Maharashtra"), description: BLANK },
   {
     name: null,
     category: pair('राज्य शासन', 'State Government'),
     designation: pair('मा. उपमुख्यमंत्री, महाराष्ट्र राज्य', "Hon'ble Deputy Chief Minister, Maharashtra"),
-    description: TO_FILL,
+    description: BLANK,
   },
   {
     name: null,
     category: pair('विभाग', 'Department'),
     designation: pair('मा. मंत्री, इतर मागास बहुजन कल्याण विभाग', "Hon'ble Minister, Other Backward Bahujan Welfare Department"),
-    description: TO_FILL,
+    description: BLANK,
   },
   {
     name: null,
@@ -153,10 +152,9 @@ describe('Board members seed', () => {
     const pub = (await request(app).get(PUBLIC_URL).expect(200)).body.data;
     expect(pub.heading).toEqual(pair('मान्यवर व संचालक मंडळ', 'Leadership & Governing Board'));
     expect(pub.subtitle).toEqual(pair('अमृत संस्थेचे नियामक मंडळ व कार्यक्रमाचे नेतृत्व.', 'The AMRUT Governing Board and programme leadership.'));
-    expect(pub.notice.title).toEqual(pair('नावे व छायाचित्रे भरावयाची आहेत', 'Names and photographs to be supplied'));
-    expect(pub.notice.body.mr).toMatch(/^वरील पदनामे सार्वजनिक नोंदीनुसार आहेत\./);
+    expect(pub.notice).toBeNull();
     expect(pub.members.map(({ id: _id, photoUrl, subtitle, ...rest }: Record<string, unknown>) => ({ ...rest, photoUrl, subtitle }))).toEqual(
-      SEEDED.map((s) => ({ ...s, photoUrl: null, subtitle: null })),
+      SEEDED.map((s) => ({ ...s, description: null, photoUrl: null, subtitle: null })),
     );
   });
 

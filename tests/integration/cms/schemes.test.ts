@@ -334,11 +334,11 @@ describe('Validation', () => {
   });
 
   it.each([
-    ['javascript:alert(1)', 'Destination must be a page on this site starting with /, or an address starting with https://'],
-    ['data:text/html,hi', 'Destination must be a page on this site starting with /, or an address starting with https://'],
+    ['javascript:alert(1)', 'Destination must be a page on this site starting with /, or a web address starting with https:// or www.'],
+    ['data:text/html,hi', 'Destination must be a page on this site starting with /, or a web address starting with https:// or www.'],
     ['//evil.example.com', 'A page on this site must start with a single / and use only letters, digits and - _ . ~ / ? = & % #'],
     ['/apply"><script>', 'A page on this site must start with a single / and use only letters, digits and - _ . ~ / ? = & % #'],
-    ['programme', 'Destination must be a page on this site starting with /, or an address starting with https://'],
+    ['programme', 'Destination must be a page on this site starting with /, or a web address starting with https:// or www.'],
     ['https://user:pw@example.gov.in', 'The address must not contain a user name or password'],
     ['https://localhost/x', 'Enter a full address, e.g. https://example.gov.in'],
   ])('refuses the destination %j', async (link, message) => {

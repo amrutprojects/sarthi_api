@@ -212,6 +212,18 @@ export const AUDIT_ACTIONS = {
   IMPACT_STAT_DELETE: 'cms.amrut-impact-stat.delete',
   IMPACT_STATS_REORDER: 'cms.amrut-impact-stats.reorder',
   IMPACT_SECTION_UPDATE: 'cms.amrut-impact-section.update',
+  ANNOUNCEMENT_CREATE: 'cms.announcement.create',
+  ANNOUNCEMENT_UPDATE: 'cms.announcement.update',
+  ANNOUNCEMENT_STATUS: 'cms.announcement.status',
+  ANNOUNCEMENT_DELETE: 'cms.announcement.delete',
+  ANNOUNCEMENTS_REORDER: 'cms.announcements.reorder',
+  ANNOUNCEMENT_SETTINGS_UPDATE: 'cms.announcement-settings.update',
+  TOPBAR_LINK_CREATE: 'cms.top-bar-link.create',
+  TOPBAR_LINK_UPDATE: 'cms.top-bar-link.update',
+  TOPBAR_LINK_STATUS: 'cms.top-bar-link.status',
+  TOPBAR_LINK_DELETE: 'cms.top-bar-link.delete',
+  TOPBAR_LINKS_REORDER: 'cms.top-bar-links.reorder',
+  TOPBAR_SETTINGS_UPDATE: 'cms.top-bar-settings.update',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

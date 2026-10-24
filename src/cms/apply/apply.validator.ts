@@ -21,6 +21,22 @@ const bilingual = (max: number, label: string) =>
     .strict();
 
 /*
+ * An optional Marathi/English pair, for text that may be left out: both halves blank, or both filled. A
+ * half-filled pair is still a broken line, so the blank half is reported against its own path.
+ */
+const optionalBilingual = (max: number, label: string) =>
+  z
+    .object({
+      mr: z.string().trim().max(max, `${label} (Marathi) must be at most ${max} characters`),
+      en: z.string().trim().max(max, `${label} (English) must be at most ${max} characters`),
+    })
+    .strict()
+    .superRefine((p, ctx) => {
+      if (p.en && !p.mr) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['mr'], message: `${label} (Marathi) is required when the English text is given` });
+      if (p.mr && !p.en) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['en'], message: `${label} (English) is required when the Marathi text is given` });
+    });
+
+/*
  * A URL that parses (the check z.string().url() makes) and starts with a lower-case https://. Inner
  * whitespace is refused as well: the URL parser silently drops tabs and line breaks, so without this
  * "https://\nhost" would pass here and only fail the CHECK constraint, as an unnamed 400.
@@ -72,7 +88,8 @@ export const updateApplySettingsSchema = {
       ctaText: bilingual(1000, 'Call to action text'),
       ctaLabel: bilingual(100, 'Button label'),
       ctaUrl,
-      ctaHint: bilingual(300, 'Button hint'),
+      /* The small line under the Apply button: optional, both languages blank to show nothing. */
+      ctaHint: optionalBilingual(300, 'Button hint'),
     })
     .strict(),
 };

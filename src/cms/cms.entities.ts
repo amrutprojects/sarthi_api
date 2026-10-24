@@ -13,6 +13,8 @@ import { ECOSYSTEM_ENTITIES } from './ecosystem/ecosystem.entities';
 import { SCHEMES_ENTITIES } from './schemes/schemes.entities';
 import { ABOUT_ENTITIES } from './about/about.entities';
 import { IMPACT_ENTITIES } from './impact/impact.entities';
+import { ANNOUNCEMENT_ENTITIES } from './announcements/announcements.entities';
+import { TOPBAR_ENTITIES } from './topbar/topbar.entities';
 
 export { ContactOrganization, ContactPageSettings } from './contact/contact.entities';
 export { District, State, Taluka } from './masters/masters.entities';
@@ -29,6 +31,8 @@ export { EcosystemProgramme, EcosystemSection } from './ecosystem/ecosystem.enti
 export { AmrutScheme, AmrutSchemesSection } from './schemes/schemes.entities';
 export { AboutCard, AboutFact, AboutSection } from './about/about.entities';
 export { ImpactSection, ImpactStat } from './impact/impact.entities';
+export { Announcement, AnnouncementSettings } from './announcements/announcements.entities';
+export { TopBarLink, TopBarSettings } from './topbar/topbar.entities';
 
 /*
  * Every model the CMS contributes to the DataSource, picked up by src/entities/index.ts.
@@ -54,4 +58,6 @@ export const CMS_ENTITIES = [
   ...SCHEMES_ENTITIES,
   ...ABOUT_ENTITIES,
   ...IMPACT_ENTITIES,
+  ...ANNOUNCEMENT_ENTITIES,
+  ...TOPBAR_ENTITIES,
 ];

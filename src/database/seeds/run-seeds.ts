@@ -14,6 +14,8 @@ import { seedEcosystem } from './seed-ecosystem';
 import { seedAmrutSchemes } from './seed-amrut-schemes';
 import { seedAboutAmrut } from './seed-about-amrut';
 import { seedAmrutImpact } from './seed-amrut-impact';
+import { seedAnnouncements } from './seed-announcements';
+import { seedTopBar } from './seed-top-bar';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
 async function main() {
@@ -50,6 +52,10 @@ async function main() {
     console.log('About AMRUT seed complete:', await seedAboutAmrut(AppDataSource));
     // eslint-disable-next-line no-console
     console.log("AMRUT's Impact seed complete:", await seedAmrutImpact(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Announcements seed complete:', await seedAnnouncements(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('Top Bar seed complete:', await seedTopBar(AppDataSource));
   } finally {
     await AppDataSource.destroy();
   }
