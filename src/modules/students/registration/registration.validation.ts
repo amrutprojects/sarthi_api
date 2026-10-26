@@ -15,11 +15,11 @@ const required = (label: string) => ({
 });
 
 /* Trimmed, non-empty text up to `max` characters. */
-const text = (label: string, max: number) =>
+export const text = (label: string, max: number) =>
   z.string(required(label)).trim().min(1, `${label} is required`).max(max, `${label} must be at most ${max} characters`);
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u;
-const personName = (label: string, max: number) =>
+export const personName = (label: string, max: number) =>
   text(label, max).refine((v) => !v || NAME_RE.test(v), `${label} may contain only letters, spaces and . ' -`);
 
 const masterId = (label: string) =>

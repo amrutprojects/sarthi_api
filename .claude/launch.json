@@ -20,6 +20,13 @@
       "runtimeArgs": ["--prefix", "../amrut-kalash-admin", "run", "dev"],
       "env": { "VITE_API_BASE_URL": "/api/v1" },
       "port": 5174
+    },
+    {
+      "name": "edp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../amrut-kalash-edp", "run", "dev"],
+      "env": { "VITE_API_PROXY_TARGET": "http://localhost:5001" },
+      "port": 5175
     }
   ]
 }

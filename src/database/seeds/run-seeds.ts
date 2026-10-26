@@ -14,6 +14,7 @@ import { seedEcosystem } from './seed-ecosystem';
 import { seedAmrutSchemes } from './seed-amrut-schemes';
 import { seedAboutAmrut } from './seed-about-amrut';
 import { seedAmrutImpact } from './seed-amrut-impact';
+import { seedEdpAdmin } from './seed-edp';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
 async function main() {
@@ -50,6 +51,8 @@ async function main() {
     console.log('About AMRUT seed complete:', await seedAboutAmrut(AppDataSource));
     // eslint-disable-next-line no-console
     console.log("AMRUT's Impact seed complete:", await seedAmrutImpact(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('EDP tracking panel admin seed complete:', await seedEdpAdmin(AppDataSource));
   } finally {
     await AppDataSource.destroy();
   }

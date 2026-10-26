@@ -17,6 +17,7 @@ import { Caste, DocumentType, Education, Region } from '../modules/masters/maste
 import { CMS_ENTITIES, ContactOrganization, ContactPageSettings, District, State, Taluka } from '../cms/cms.entities';
 import { MASTER_ENTITIES } from '../masters/masters.entities';
 import { LMS_ENTITIES } from '../lms/lms.entities';
+import { EDP_ENTITIES } from '../modules/students/edp/edp.entities';
 
 export { AppBaseEntity } from './base.entity';
 export { Caste, DocumentType, Education, Region };
@@ -61,4 +62,6 @@ export const ENTITIES = [
   ...CMS_ENTITIES,
   ...MASTER_ENTITIES,
   ...LMS_ENTITIES,
+  /* EDP portal (edp.sumago.ai): accounts, drafts, draft files, tracking-panel sign-ins. */
+  ...EDP_ENTITIES,
 ];

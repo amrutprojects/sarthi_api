@@ -47,6 +47,10 @@ import { CmsAmrutSchemes1794300000000 } from './1794300000000-CmsAmrutSchemes';
 import { CmsAboutAmrut1794400000000 } from './1794400000000-CmsAboutAmrut';
 import { CmsAmrutImpact1794500000000 } from './1794500000000-CmsAmrutImpact';
 import { AboutImplementationPartner1794600000000 } from './1794600000000-AboutImplementationPartner';
+import { EdpPortal1794700000000 } from './1794700000000-EdpPortal';
+import { EdpFollowUps1794800000000 } from './1794800000000-EdpFollowUps';
+import { EdpSingleSubmission1794900000000 } from './1794900000000-EdpSingleSubmission';
+import { EdpPasswordReset1795000000000 } from './1795000000000-EdpPasswordReset';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -106,4 +110,8 @@ export const MIGRATIONS = [
   CmsAboutAmrut1794400000000,
   CmsAmrutImpact1794500000000,
   AboutImplementationPartner1794600000000,
+  EdpPortal1794700000000,
+  EdpFollowUps1794800000000,
+  EdpSingleSubmission1794900000000,
+  EdpPasswordReset1795000000000,
 ];

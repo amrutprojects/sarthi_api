@@ -7,6 +7,7 @@ import './modules/users/user.openapi';
 import './modules/roles-permissions/roles-permissions.openapi';
 import './modules/audit/audit.openapi';
 import './modules/students/students.openapi';
+import './modules/students/edp/edp.openapi';
 import './modules/masters/masters.openapi';
 import './modules/lms-access/lms-access.openapi';
 import './cms/cms.openapi';
