@@ -97,3 +97,70 @@ export interface CentreRefOption extends GeoOption {
 export interface TrackRefOption extends GeoOption {
   code: string;
 }
+
+/*
+ * API-122 GET /integration/v1/reference (AMRUT_KALASH_03 §16.3.10): the reference lists pulled by the LMS server
+ * (lms-api), which keeps its own read-only copy (centre_ref / track_ref / district_ref). Field names are the wire
+ * names of the integration contract. Soft-deleted and inactive rows are both sent as INACTIVE, so the copy can
+ * deactivate them; nothing is ever sent as deleted.
+ */
+export type ReferencePullStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface ReferencePullQuery {
+  /* Only rows the Admin Panel changed at or after this time; the full lists when absent. */
+  updatedSince?: Date;
+  page: number;
+  pageSize: number;
+}
+
+export interface ReferencePullDistrict {
+  district_id: string;
+  district_code: string;
+  name_en: string;
+  /* The Admin Panel records no Marathi name. */
+  name_mr: null;
+  status: ReferencePullStatus;
+  updated_at: Date;
+}
+
+export interface ReferencePullCentre {
+  centre_id: string;
+  centre_code: string;
+  district_code: string;
+  district_name: string;
+  name: string;
+  centre_type: string | null;
+  taluka: string | null;
+  /* Not recorded by the Admin Panel (CNF-LMS-027). */
+  readiness_status: null;
+  /* From the centre's capacity & infrastructure record; null when none exists. */
+  max_seating_capacity: number | null;
+  computer_systems: number | null;
+  /* Not recorded by the Admin Panel (CNF-LMS-027). */
+  tracks_offered: null;
+  status: ReferencePullStatus;
+  /* The later of the centre's own update and its capacity & infrastructure record's update. */
+  updated_at: Date;
+}
+
+export interface ReferencePullTrack {
+  track_id: string;
+  track_code: string;
+  name: string;
+  /* The Admin Panel records no Marathi name. */
+  name_mr: null;
+  sort_order: number;
+  status: ReferencePullStatus;
+  updated_at: Date;
+}
+
+/* One page of the pull: every list is paged by the same page; has_more is true while any list has more rows. */
+export interface ReferencePull {
+  districts: ReferencePullDistrict[];
+  centres: ReferencePullCentre[];
+  tracks: ReferencePullTrack[];
+  as_of: Date;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+}

@@ -14,6 +14,7 @@ import { userRouter } from './modules/users/user.routes';
 import { MASTERS } from './modules/masters';
 import { masterRouter } from './modules/masters/master.routes';
 import { lmsAccessRouter, lmsIntegrationRouter } from './modules/lms-access/lms-access.routes';
+import { lmsReferenceRouter } from './modules/lms-access/lms-reference.routes';
 import {
   cmsRouter,
   publicContactRouter,
@@ -75,6 +76,7 @@ apiRouter.use('/public/apply', publicApplyRouter);
  */
 export const integrationRouter = Router();
 integrationRouter.use('/lms', lmsIntegrationRouter);
+integrationRouter.use('/reference', lmsReferenceRouter);
 apiRouter.use('/public/hero', publicHeroRouter);
 apiRouter.use('/public/board-members', publicBoardRouter);
 apiRouter.use('/public/ecosystem', publicEcosystemRouter);
