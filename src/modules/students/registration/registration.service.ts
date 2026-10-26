@@ -43,6 +43,8 @@ export interface PreparedDocument {
 export interface AdminRegistrationContext {
   actorUserId: string;
   files: PreparedDocument[];
+  /* Recorded in the audit log; default ADMIN. EDP = submitted through the EDP portal (edp.sumago.ai). */
+  channel?: 'ADMIN' | 'EDP';
 }
 
 const isUniqueViolation = (err: unknown) =>
@@ -186,7 +188,7 @@ export const registrationService = {
         code: student.code,
         registrationNumber: student.registrationNumber,
         possibleDuplicateOf,
-        channel: admin ? 'ADMIN' : 'PUBLIC',
+        channel: admin ? (admin.channel ?? 'ADMIN') : 'PUBLIC',
         files: admin?.files.length ?? 0,
       },
     });

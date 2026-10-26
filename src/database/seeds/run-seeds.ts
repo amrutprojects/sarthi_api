@@ -16,6 +16,7 @@ import { seedAboutAmrut } from './seed-about-amrut';
 import { seedAmrutImpact } from './seed-amrut-impact';
 import { seedAnnouncements } from './seed-announcements';
 import { seedTopBar } from './seed-top-bar';
+import { seedEdpAdmin } from './seed-edp';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
 async function main() {
@@ -56,6 +57,8 @@ async function main() {
     console.log('Announcements seed complete:', await seedAnnouncements(AppDataSource));
     // eslint-disable-next-line no-console
     console.log('Top Bar seed complete:', await seedTopBar(AppDataSource));
+    // eslint-disable-next-line no-console
+    console.log('EDP tracking panel admin seed complete:', await seedEdpAdmin(AppDataSource));
   } finally {
     await AppDataSource.destroy();
   }

@@ -20,6 +20,9 @@ const bool = z
   .default('false')
   .transform((v) => v === 'true');
 
+/* An empty value (e.g. `SMTP_HOST=` in .env) counts as not set. */
+const blankAsUnset = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => (v === '' ? undefined : v), s);
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
@@ -128,6 +131,50 @@ const schema = z.object({
    * Admin Panel users. The LMS holds the same value.
    */
   LMS_INTEGRATION_SECRET: z.string().min(32, 'LMS_INTEGRATION_SECRET must be at least 32 characters').optional(),
+
+  /*
+   * EDP portal (edp.sumago.ai). EDP_JWT_SECRET signs the portal's and its tracking panel's tokens; unset = a key derived
+   * from JWT_SECRET. Either way it differs from JWT_SECRET, so portal tokens are never accepted by the admin API.
+   */
+  EDP_JWT_SECRET: blankAsUnset(z.string().min(32, 'EDP_JWT_SECRET must be at least 32 characters').optional()),
+  EDP_SESSION_HOURS: z.coerce.number().positive().default(12),
+  /* Lifetime of an emailed one-time code (default 5 minutes). */
+  EDP_OTP_TTL_SECONDS: z.coerce.number().int().min(10).max(1800).default(300),
+  /*
+   * Wait before a new code can be requested (it replaces the previous one). Unset = the code's lifetime, so a new code is
+   * offered only once the current one has expired; never longer than the lifetime.
+   */
+  EDP_OTP_RESEND_SECONDS: blankAsUnset(z.coerce.number().int().min(10).max(1800).optional()),
+  /* Portal sign-up, code and sign-in requests per IP per rate-limit window. */
+  EDP_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+  /* SMTP for the one-time codes (e.g. smtp.gmail.com, 465, SMTP_SECURE=true, an app password). Unset host = no email. */
+  SMTP_HOST: blankAsUnset(z.string().optional()),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: bool,
+  SMTP_USER: blankAsUnset(z.string().optional()),
+  SMTP_PASS: blankAsUnset(z.string().optional()),
+  /* Sender, e.g. "EDP – Sumago Infotech <no-reply@sumago.ai>". Defaults to SMTP_USER. */
+  SMTP_FROM: blankAsUnset(z.string().optional()),
+  /* The tracking panel's sign-in, created by `npm run seed` when both are set (never overwritten afterwards). */
+  EDP_ADMIN_EMAIL: blankAsUnset(z.string().email('EDP_ADMIN_EMAIL must be an email address').optional()),
+  EDP_ADMIN_PASSWORD: blankAsUnset(z.string().min(10, 'EDP_ADMIN_PASSWORD must be at least 10 characters').optional()),
+  /*
+   * Contact shown to a student after submitting, for queries about the registration. Read when the API starts: change
+   * them and restart the API. Unset = "contact the programme office" without details.
+   */
+  /*
+   * The portal's address, for the links in its emails (password reset). Never taken from a request's Host header.
+   * Unset = https://edp.sumago.ai in production, http://localhost:5175 otherwise.
+   */
+  EDP_PORTAL_URL: blankAsUnset(z.string().trim().url('EDP_PORTAL_URL must be a URL, e.g. https://edp.sumago.ai').optional()),
+  EDP_SUPPORT_EMAIL: blankAsUnset(z.string().trim().email('EDP_SUPPORT_EMAIL must be an email address').optional()),
+  EDP_SUPPORT_MOBILE: blankAsUnset(
+    z
+      .string()
+      .trim()
+      .regex(/^\+?\d[\d ()-]{5,18}\d$/, 'EDP_SUPPORT_MOBILE must be a phone number, e.g. +91 80103 85237')
+      .optional(),
+  ),
 });
 
 /*

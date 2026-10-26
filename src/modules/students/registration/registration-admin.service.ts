@@ -26,7 +26,7 @@ import { adminRegistrationData, barcodeMap } from './registration-admin.validati
  * Checks uploaded document files (field name = document type code; type from the content; extension agrees) and
  * reads them for storage. Problems are appended to `errors` as field errors (files.<CODE>).
  */
-async function prepareFiles(
+export async function prepareFiles(
   files: Express.Multer.File[],
   masters: MasterLookup,
   barcodes: Record<string, string>,

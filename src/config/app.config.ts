@@ -29,6 +29,23 @@ export const appConfig = {
   },
   bodyLimit: '100kb',
   apiDocsEnabled: env.API_DOCS_ENABLED ? env.API_DOCS_ENABLED === 'true' : !env.isProduction,
+  edp: {
+    sessionHours: env.EDP_SESSION_HOURS,
+    otpTtlSeconds: env.EDP_OTP_TTL_SECONDS,
+    /* A new code only once the current one has expired, unless a shorter wait is set. */
+    otpResendSeconds: Math.min(env.EDP_OTP_RESEND_SECONDS ?? env.EDP_OTP_TTL_SECONDS, env.EDP_OTP_TTL_SECONDS),
+    rateLimitMax: env.EDP_RATE_LIMIT_MAX,
+    support: { email: env.EDP_SUPPORT_EMAIL ?? null, mobile: env.EDP_SUPPORT_MOBILE ?? null },
+    portalUrl: (env.EDP_PORTAL_URL ?? (env.isProduction ? 'https://edp.sumago.ai' : 'http://localhost:5175')).replace(/\/+$/, ''),
+    smtp: {
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_SECURE,
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+      from: env.SMTP_FROM ?? env.SMTP_USER,
+    },
+  },
   lmsIntegration: {
     secret: env.LMS_INTEGRATION_SECRET ?? '',
     /* Accepted clock difference between the LMS and this API, in seconds. */

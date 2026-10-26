@@ -154,6 +154,8 @@ export const documentStorage = {
   stagingKey: (batchCode: string, sourceRecordId: string, fileName: string) =>
     ['imports', safeSegment(batchCode), safeSegment(sourceRecordId), safeSegment(fileName)].join('/'),
   studentKey: (studentCode: string, fileName: string) => ['students', safeSegment(studentCode), safeSegment(fileName)].join('/'),
+  /* EDP portal uploads held until the application is submitted. */
+  edpKey: (applicationId: string, fileName: string) => ['edp', safeSegment(applicationId), safeSegment(fileName)].join('/'),
   replacedKey: (studentCode: string, fileName: string) =>
     ['students', safeSegment(studentCode), '_replaced', `${Date.now()}-${safeSegment(fileName)}`].join('/'),
   /* Unique per call, so concurrent uploads of the same document type never share a staging file. */

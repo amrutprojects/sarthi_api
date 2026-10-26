@@ -52,6 +52,10 @@ import { RemoveBoardPlaceholderNotes1794800000000 } from './1794800000000-Remove
 import { CmsTopBar1794900000000 } from './1794900000000-CmsTopBar';
 import { EligibilityNoteSwitch1795000000000 } from './1795000000000-EligibilityNoteSwitch';
 import { ApplyCtaHintOptional1795100000000 } from './1795100000000-ApplyCtaHintOptional';
+import { EdpPortal1794700000000 } from './1794700000000-EdpPortal';
+import { EdpFollowUps1794800000000 } from './1794800000000-EdpFollowUps';
+import { EdpSingleSubmission1794900000000 } from './1794900000000-EdpSingleSubmission';
+import { EdpPasswordReset1795000000000 } from './1795000000000-EdpPasswordReset';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -116,4 +120,8 @@ export const MIGRATIONS = [
   CmsTopBar1794900000000,
   EligibilityNoteSwitch1795000000000,
   ApplyCtaHintOptional1795100000000,
+  EdpPortal1794700000000,
+  EdpFollowUps1794800000000,
+  EdpSingleSubmission1794900000000,
+  EdpPasswordReset1795000000000,
 ];

@@ -7,6 +7,7 @@ import { permissionRouter } from './modules/roles-permissions/permissions/permis
 import { importRouter } from './modules/students/import/import.routes';
 import { studentRouter } from './modules/students/register/student.routes';
 import { registrationRouter } from './modules/students/registration/registration.routes';
+import { edpRouter } from './modules/students/edp/edp.routes';
 import { menuVisibilityRouter } from './modules/roles-permissions/menu-visibility/menu-visibility.routes';
 import { roleRouter } from './modules/roles-permissions/roles/role.routes';
 import { userRouter } from './modules/users/user.routes';
@@ -82,3 +83,6 @@ apiRouter.use('/public/about', publicAboutRouter);
 apiRouter.use('/public/impact', publicImpactRouter);
 apiRouter.use('/public/announcements', publicAnnouncementsRouter);
 apiRouter.use('/public/top-bar', publicTopBarRouter);
+
+/* ENTREPRENEURSHIP DEVELOPMENT PROGRAM portal (edp.sumago.ai) and its tracking panel; own tokens, see the route file. */
+apiRouter.use('/edp', edpRouter);
