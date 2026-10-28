@@ -35,8 +35,7 @@ const normaliseMobile = (v: string) =>
     .replace(/^0(?=\d{10}$)/, '');
 
 /* 45 → "45 seconds", 287 → "4 min 47 s", 300 → "5 min". */
-const duration = (s: number) =>
-  s < 60 ? `${s} second${s === 1 ? '' : 's'}` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ''}`;
+const duration = (s: number) => (s < 60 ? `${s} second${s === 1 ? '' : 's'}` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ''}`);
 
 const otpError = (status: HttpStatus, code: keyof typeof EDP_ERROR_CODES, message: string) =>
   new AppError(status, message, EDP_ERROR_CODES[code]);

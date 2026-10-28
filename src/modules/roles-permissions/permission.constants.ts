@@ -73,6 +73,7 @@ export const MENUS = {
   'cms-talukas': 'Taluka Master',
   'cms-departments': 'Department Master',
   'cms-colleges': 'College Master',
+  'cms-centres': 'Center Master',
   'cms-documents': 'Document Master',
   'cms-batches': 'Batch Master',
   'cms-batch-assignments': 'Assign Batch',
@@ -228,6 +229,10 @@ export const PERMISSIONS = {
   CMS_COLLEGES_CREATE: def('cms-colleges.create', 'Add College Master', 'Add in the College Master menu'),
   CMS_COLLEGES_UPDATE: def('cms-colleges.update', 'Update College Master', 'Update in the College Master menu'),
   CMS_COLLEGES_DELETE: def('cms-colleges.delete', 'Delete College Master', 'Delete in the College Master menu'),
+  CMS_CENTRES_VIEW: def('cms-centres.view', 'View Center Master', 'View in the Center Master menu'),
+  CMS_CENTRES_CREATE: def('cms-centres.create', 'Add Center Master', 'Add in the Center Master menu'),
+  CMS_CENTRES_UPDATE: def('cms-centres.update', 'Update Center Master', 'Update in the Center Master menu'),
+  CMS_CENTRES_DELETE: def('cms-centres.delete', 'Delete Center Master', 'Delete in the Center Master menu'),
   CMS_DOCUMENTS_VIEW: def('cms-documents.view', 'View Document Master', 'View in the Document Master menu'),
   CMS_DOCUMENTS_CREATE: def('cms-documents.create', 'Add Document Master', 'Add in the Document Master menu'),
   CMS_DOCUMENTS_UPDATE: def('cms-documents.update', 'Update Document Master', 'Update in the Document Master menu'),
@@ -309,7 +314,7 @@ export const PERMISSIONS = {
 export const CMS_MENUS = [
   'cms-contact', 'cms-footer', 'cms-modules', 'cms-programme', 'cms-faqs', 'cms-eligibility', 'cms-apply',
   'cms-states', 'cms-districts', 'cms-talukas',
-  'cms-departments', 'cms-colleges', 'cms-documents', 'cms-batches', 'cms-batch-assignments', 'cms-centre-types', 'cms-training-centres', 'cms-centre-locations', 'cms-centre-infrastructure',
+  'cms-departments', 'cms-colleges', 'cms-centres', 'cms-documents', 'cms-batches', 'cms-batch-assignments', 'cms-centre-types', 'cms-training-centres', 'cms-centre-locations', 'cms-centre-infrastructure',
 ] as const satisfies readonly MenuKey[];
 
 /* The LMS Admin sidebar keys, in menu order. */

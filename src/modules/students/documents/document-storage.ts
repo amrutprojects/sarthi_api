@@ -156,6 +156,9 @@ export const documentStorage = {
   studentKey: (studentCode: string, fileName: string) => ['students', safeSegment(studentCode), safeSegment(fileName)].join('/'),
   /* EDP portal uploads held until the application is submitted. */
   edpKey: (applicationId: string, fileName: string) => ['edp', safeSegment(applicationId), safeSegment(fileName)].join('/'),
+  /* A submitted EDP candidate's documents: one folder per candidate, named with the registration ID and name. */
+  edpCandidateKey: (folder: string, fileName: string) =>
+    ['edp', 'candidates', safeSegment(folder), safeSegment(fileName)].join('/'),
   replacedKey: (studentCode: string, fileName: string) =>
     ['students', safeSegment(studentCode), '_replaced', `${Date.now()}-${safeSegment(fileName)}`].join('/'),
   /* Unique per call, so concurrent uploads of the same document type never share a staging file. */

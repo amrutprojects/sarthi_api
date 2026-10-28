@@ -27,6 +27,13 @@
       "runtimeArgs": ["--prefix", "../amrut-kalash-edp", "run", "dev"],
       "env": { "VITE_API_PROXY_TARGET": "http://localhost:5001" },
       "port": 5175
+    },
+    {
+      "name": "edp-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../../Amrut EDP/EDP-Candidates-Registration", "run", "dev"],
+      "env": { "VITE_API_PROXY_TARGET": "http://localhost:5001" },
+      "port": 5175
     }
   ]
 }

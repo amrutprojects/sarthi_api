@@ -5,6 +5,7 @@ import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import { District } from './district.model';
 import { districtRepository } from './district.repository';
 import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate } from '../../../masters/shared/master-refs';
+import { Centre } from '../../../masters/centre/centre.model';
 import { College } from '../../../masters/college/college.model';
 import { MasterDocument } from '../../../masters/document/document.model';
 import { TrainingCentre } from '../../../masters/training-centre/training-centre.model';
@@ -169,6 +170,7 @@ export class DistrictService {
       assertNoRefs('district', [
         { count: await countRefs(m, College, 'districtId', id), one: 'college' },
         { count: await countRefs(m, TrainingCentre, 'districtId', id), one: 'training centre' },
+        { count: await countRefs(m, Centre, 'districtId', id), one: 'center' },
         { count: await countRefs(m, MasterDocument, 'districtId', id), one: 'document' },
       ]);
       await districtRepository.softDelete(id, m);

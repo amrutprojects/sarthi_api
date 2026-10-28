@@ -8,7 +8,18 @@ import { auditService } from '../../audit';
 import { EDP_FOLLOW_UP_STATUS, EDP_STAGES, type EdpFollowUpStatus, type EdpStage } from './edp.constants';
 import { EdpAccount, EdpAdmin, EdpFollowUp } from './edp.entities';
 import { signEdpToken } from './edp.security';
-import type { FollowUpBody, ManageListQuery } from './edp.validation';
+import type { FollowUpBody, ManageListQuery, NewUserBody } from './edp.validation';
+import { appConfig } from '../../../config/app.config';
+
+const userDto = (u: EdpAdmin) => ({
+  id: u.id,
+  name: u.name,
+  email: u.email,
+  role: u.role,
+  is_active: u.isActive,
+  last_login_at: u.lastLoginAt,
+  created_at: u.createdAt,
+});
 
 const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 4);
 
@@ -76,7 +87,54 @@ export const edpManageService = {
     if (!admin || !ok || !admin.isActive) throw AppError.unauthorized('Incorrect email or password');
     await AppDataSource.getRepository(EdpAdmin).update(admin.id, { lastLoginAt: new Date() });
     const { token, expiresAt } = signEdpToken('edp-admin', admin.id);
-    return { token, expires_at: expiresAt, admin: { id: admin.id, name: admin.name, email: admin.email } };
+    return { token, expires_at: expiresAt, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } };
+  },
+
+  /* Tracking panel users (ADMIN / VIEWER), newest first. */
+  async users() {
+    const rows = await AppDataSource.getRepository(EdpAdmin).find({ where: { isDelete: false }, order: { createdAt: 'DESC', id: 'DESC' } });
+    return rows.map(userDto);
+  },
+
+  /* Adds a tracking panel user (an ADMIN's action); the email is unique among users. */
+  async addUser(req: Request, by: EdpAdmin, body: NewUserBody) {
+    const repo = AppDataSource.getRepository(EdpAdmin);
+    if (await repo.exists({ where: { email: body.email, isDelete: false } }))
+      throw AppError.conflict('A user with this email already exists');
+    const passwordHash = await bcrypt.hash(body.password, appConfig.bcryptRounds);
+    let saved: EdpAdmin;
+    try {
+      saved = await repo.save(repo.create({ name: body.name, email: body.email, passwordHash, role: body.role }));
+    } catch (err) {
+      if ((err as { driverError?: { code?: string } }).driverError?.code === '23505')
+        throw AppError.conflict('A user with this email already exists');
+      throw err;
+    }
+    await auditService.record(req, {
+      action: 'edp.user.create',
+      resource: 'edp_admin',
+      resourceId: saved.id,
+      actorUserId: null,
+      details: { role: saved.role, byEdpAdminId: by.id },
+    });
+    return userDto(saved);
+  },
+
+  /* Activates or deactivates a user (an ADMIN's action); an admin cannot deactivate their own account. */
+  async setUserStatus(req: Request, by: EdpAdmin, id: string, isActive: boolean) {
+    const repo = AppDataSource.getRepository(EdpAdmin);
+    const user = await repo.findOne({ where: { id, isDelete: false } });
+    if (!user) throw AppError.notFound('User not found');
+    if (user.id === by.id && !isActive) throw AppError.conflict('You cannot deactivate your own account');
+    await repo.update(id, { isActive });
+    await auditService.record(req, {
+      action: 'edp.user.status',
+      resource: 'edp_admin',
+      resourceId: id,
+      actorUserId: null,
+      details: { isActive, byEdpAdminId: by.id },
+    });
+    return userDto({ ...user, isActive });
   },
 
   /* Students per stage, plus the total, and per current follow-up status (NONE = not followed up yet). */
@@ -142,7 +200,7 @@ export const edpManageService = {
       params.push(likePattern(q.search.trim()));
       where += ` AND ((a."firstName" || ' ' || coalesce(a."middleName" || ' ', '') || a."lastName") ILIKE $${params.length}
         OR (a."firstName" || ' ' || a."lastName") ILIKE $${params.length} OR a."email" ILIKE $${params.length}
-        OR a."mobile" LIKE $${params.length} OR s."code" ILIKE $${params.length})`;
+        OR a."mobile" LIKE $${params.length} OR p."registrationCode" ILIKE $${params.length} OR s."code" ILIKE $${params.length})`;
     }
     if (q.stage) {
       params.push(q.stage);
@@ -158,7 +216,8 @@ export const edpManageService = {
     const rows: Row[] = await AppDataSource.query(
       `SELECT a."id", a."firstName", a."middleName", a."lastName", a."email", a."mobile", ${STAGE_SQL} AS "stage",
               a."createdAt", a."emailVerifiedAt", a."lastLoginAt", p."basicCompletedAt", p."mainCompletedAt",
-              p."submittedAt", s."code", s."registrationNumber",
+              p."submittedAt", coalesce(p."registrationCode", s."code") AS "code",
+              coalesce(p."registrationNumber", s."registrationNumber") AS "registrationNumber",
               fu."status" AS "fuStatus", fu."note" AS "fuNote", fu."createdAt" AS "fuAt", fu."byName" AS "fuBy",
               GREATEST(a."updatedAt", coalesce(p."updatedAt", a."updatedAt")) AS "lastActivityAt"
        ${FROM}${where}

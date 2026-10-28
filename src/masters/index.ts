@@ -4,6 +4,7 @@ import { batchAssignmentRouter } from './batch-assignment/batch-assignment.route
 import { centreInfrastructureRouter } from './centre-infrastructure/centre-infrastructure.routes';
 import { centreLocationRouter } from './centre-location/centre-location.routes';
 import { centreTypeRouter } from './centre-type/centre-type.routes';
+import { centreRouter } from './centre/centre.routes';
 import { collegeRouter } from './college/college.routes';
 import { departmentRouter } from './department/department.routes';
 import { documentRouter } from './document/document.routes';
@@ -23,6 +24,7 @@ export const programmeMastersRouter = Router();
 
 programmeMastersRouter.use('/departments', departmentRouter);
 programmeMastersRouter.use('/colleges', collegeRouter);
+programmeMastersRouter.use('/centres', centreRouter);
 programmeMastersRouter.use('/centre-types', centreTypeRouter);
 programmeMastersRouter.use('/training-centres', trainingCentreRouter);
 programmeMastersRouter.use('/centre-locations', centreLocationRouter);

@@ -7,6 +7,7 @@ import { AppError } from '../../../shared/errors/app-error';
 import type { Paginated } from '../../../shared/utils/pagination';
 import { districtRepository } from '../district/district.repository';
 import { districtService } from '../district/district.service';
+import { Centre } from '../../../masters/centre/centre.model';
 import { College } from '../../../masters/college/college.model';
 import { assertNoRefs, countRefs, lockForUpdate, plural } from '../../../masters/shared/master-refs';
 import { TrainingCentre } from '../../../masters/training-centre/training-centre.model';
@@ -135,10 +136,17 @@ export class TalukaService {
       if (moved) {
         const colleges = await countRefs(m, College, 'talukaId', id);
         const centres = await countRefs(m, TrainingCentre, 'talukaId', id);
-        if (colleges + centres > 0) {
-          const held = [colleges ? plural(colleges, 'college') : '', centres ? plural(centres, 'training centre') : ''].filter(Boolean).join(' and ');
+        const edpCentres = await countRefs(m, Centre, 'talukaId', id);
+        if (colleges + centres + edpCentres > 0) {
+          const held = [
+            colleges ? plural(colleges, 'college') : '',
+            centres ? plural(centres, 'training centre') : '',
+            edpCentres ? plural(edpCentres, 'center') : '',
+          ]
+            .filter(Boolean)
+            .join(' and ');
           throw AppError.conflict(
-            `This taluka cannot move to another district while ${held} ${colleges + centres === 1 ? 'references' : 'reference'} it. Re-point those records first.`,
+            `This taluka cannot move to another district while ${held} ${colleges + centres + edpCentres === 1 ? 'references' : 'reference'} it. Re-point those records first.`,
           );
         }
       }
@@ -192,6 +200,7 @@ export class TalukaService {
       assertNoRefs('taluka', [
         { count: await countRefs(m, College, 'talukaId', id), one: 'college' },
         { count: await countRefs(m, TrainingCentre, 'talukaId', id), one: 'training centre' },
+        { count: await countRefs(m, Centre, 'talukaId', id), one: 'center' },
       ]);
       await talukaRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {

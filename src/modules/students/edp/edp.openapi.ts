@@ -1,13 +1,23 @@
 import { z } from 'zod';
 import { documentEndpoint, envelope, pagedEnvelope } from '../../../shared/openapi/registry';
 import { EDP_FOLLOW_UP_STATUS, EDP_STAGES } from './edp.constants';
+import { parentIdParams } from '../../../shared/validation/common.validation';
+import {
+  centreIdSchema,
+  centreStatusSchema,
+  createCentreSchema,
+  listCentresSchema,
+  updateCentreSchema,
+} from '../../../masters/centre/centre.validator';
 import {
   applicantParams,
   docTypeParams,
+  fileDownloadQuery,
   emailBody,
   followUpBody,
   loginBody,
   manageListQuery,
+  newUserBody,
   otpBody,
   resetPasswordBody,
   resetTokenBody,
@@ -15,6 +25,8 @@ import {
   signupBody,
   stepParams,
   submitBody,
+  supportBody,
+  userStatusBody,
 } from './edp.validation';
 
 /*
@@ -43,11 +55,25 @@ const Options = z.object({
   regions: z.array(Ref),
   castes: z.array(Ref),
   educations: z.array(Ref),
-  document_types: z.array(Ref.extend({ is_mandatory: z.boolean(), barcode: z.enum(['required', 'optional']).nullable() })),
+  document_types: z.array(
+    Ref.extend({
+      is_mandatory: z.boolean(),
+      barcode: z.enum(['required', 'optional']).nullable().describe('Always null: the portal asks for no certificate barcodes'),
+      formats: z.array(z.string()).describe('Accepted file formats, e.g. ["PDF","JPG","JPEG","PNG"] or ["MP4"]'),
+      max_mb: z.number().int().describe('Largest accepted file, in MB'),
+    }),
+  ),
+  genders: z.array(z.string()),
+  marital_statuses: z.array(z.string()),
+  districts: z.array(Ref),
+  centres: z.array(Ref.extend({ district_name: z.string() })),
+  grading_types: z.array(z.object({ code: z.string(), name: z.string() })),
+  cgpa_scales: z.array(z.number()),
+  qualification_classes: z.array(z.string()),
   religions: z.array(z.string()),
   tracks: z.array(z.object({ code: z.string(), name: z.string() })),
   support: z
-    .object({ email: z.string().nullable(), mobile: z.string().nullable() })
+    .object({ message: z.string(), email: z.string().nullable(), mobile: z.string().nullable() })
     .describe('Contact for queries, shown after submitting (EDP_SUPPORT_EMAIL / EDP_SUPPORT_MOBILE); null = not set'),
 });
 const FileDto = z.object({
@@ -360,4 +386,249 @@ documentEndpoint({
   request: { params: applicantParams, body: followUpBody },
   response: envelope(z.array(FollowUp)),
   errors: [404],
+});
+
+/* Dependent dropdowns of the form, and the Center Master of the tracking panel (same centres as /cms/centres). */
+const Option = z.object({ id: z.string().uuid(), name: z.string(), code: z.string().nullable() });
+const TechnologyOption = z.object({ code: z.string().describe('Track code, T01–T12'), name: z.string() });
+const Centre = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  code: z.string(),
+  stateId: z.string().uuid(),
+  stateName: z.string(),
+  districtId: z.string().uuid(),
+  districtName: z.string(),
+  talukaId: z.string().uuid().nullable(),
+  talukaName: z.string().nullable(),
+  address: z.string().nullable(),
+  pinCode: z.string().nullable(),
+  contactPerson: z.string().nullable(),
+  contactNumber: z.string().nullable(),
+  email: z.string().nullable(),
+  technologies: z.array(TechnologyOption.extend({ usable: z.boolean() })),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/districts/:districtId/talukas',
+  tag,
+  summary: 'Active talukas of a district (Basic Details: Taluka dropdown)',
+  permission: 'public',
+  request: { params: parentIdParams('districtId') },
+  response: envelope(z.array(Option)),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/centres/:centreId/technologies',
+  tag,
+  summary: 'Technologies (3rd module selections) currently allocated to an active centre (Main Form: Technology dropdown)',
+  description: 'Empty list when the centre has no usable allocation; 404 when the centre is unknown or inactive.',
+  permission: 'public',
+  request: { params: parentIdParams('centreId') },
+  response: envelope(z.array(TechnologyOption)),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/centres',
+  tag: manageTag,
+  summary: 'Center Master: centres with their district and allocated technologies',
+  description: adminAuth,
+  permission: null,
+  request: { query: listCentresSchema.query },
+  response: pagedEnvelope(Centre),
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/technology-options',
+  tag: manageTag,
+  summary: 'Technologies (T01–T12) a centre may be allocated: active tracks',
+  description: adminAuth,
+  permission: null,
+  response: envelope(z.array(TechnologyOption)),
+});
+documentEndpoint({
+  method: 'post',
+  path: '/edp/manage/centres',
+  tag: manageTag,
+  summary: 'Create a centre (with its technologies)',
+  description: adminAuth,
+  permission: null,
+  request: { body: createCentreSchema.body },
+  response: envelope(Centre),
+  status: 201,
+  errors: [400, 409],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/centres/:id',
+  tag: manageTag,
+  summary: 'A centre',
+  description: adminAuth,
+  permission: null,
+  request: { params: centreIdSchema.params },
+  response: envelope(Centre),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'patch',
+  path: '/edp/manage/centres/:id',
+  tag: manageTag,
+  summary: 'Update a centre; technologyCodes, when sent, replaces its technologies',
+  description: adminAuth,
+  permission: null,
+  request: { params: updateCentreSchema.params, body: updateCentreSchema.body },
+  response: envelope(Centre),
+  errors: [400, 404, 409],
+});
+documentEndpoint({
+  method: 'patch',
+  path: '/edp/manage/centres/:id/status',
+  tag: manageTag,
+  summary: 'Activate or deactivate a centre',
+  description: adminAuth,
+  permission: null,
+  request: { params: centreStatusSchema.params, body: centreStatusSchema.body },
+  response: envelope(Centre),
+  errors: [404],
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/applicants/:id',
+  tag: manageTag,
+  summary: 'One candidate in full (View): account, steps, every form value with names, Aadhaar masked, documents',
+  description: adminAuth,
+  permission: null,
+  request: { params: applicantParams },
+  response: envelope(
+    z.object({
+      account: z.object({
+        id: z.string().uuid(),
+        name: z.string(),
+        email: z.string(),
+        mobile_number: z.string(),
+        created_at: z.string(),
+        email_verified_at: z.string().nullable(),
+        last_login_at: z.string().nullable(),
+      }),
+      status: z.enum(['DRAFT', 'SUBMITTED']),
+      steps: z.object({
+        basic_completed_at: z.string().nullable(),
+        main_completed_at: z.string().nullable(),
+        submitted_at: z.string().nullable(),
+      }),
+      registration: z.object({ registration_id: z.string().nullable(), registration_number: z.string().nullable() }).nullable(),
+      aadhaar_masked: z.string().nullable(),
+      form: z.record(z.string()).describe('Every form field (aadhaar_number is always empty here)'),
+      display: z.record(z.string().nullable()).describe('Names of the referenced values (caste, centre, district, technology, …)'),
+      documents: z.array(
+        z.object({
+          code: z.string(),
+          name: z.string(),
+          required: z.boolean(),
+          file: FileDto.nullable(),
+        }),
+      ),
+    }),
+  ),
+  errors: [404],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/applicants/:id/documents/:docType/file',
+  tag: manageTag,
+  summary: "A candidate's uploaded document (inline; ?download=1 saves it as <registration ID>_<name>_<document>.<ext>)",
+  description: adminAuth,
+  permission: null,
+  request: { params: applicantParams.merge(docTypeParams), query: fileDownloadQuery },
+  response: { file: 'application/octet-stream' },
+  errors: [404],
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/applicants/:id/documents.zip',
+  tag: manageTag,
+  summary: "All of a candidate's documents as one ZIP holding one folder (<registration ID>_<name>/01_Photo.pdf, …)",
+  description: adminAuth,
+  permission: null,
+  request: { params: applicantParams },
+  response: { file: 'application/zip' },
+  errors: [404],
+});
+
+const EdpUser = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  email: z.string(),
+  role: z.enum(['ADMIN', 'VIEWER']),
+  is_active: z.boolean(),
+  last_login_at: z.string().nullable(),
+  created_at: z.string(),
+});
+const adminOnly = `${adminAuth} ADMIN role only (a VIEWER gets 403).`;
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/users',
+  tag: manageTag,
+  summary: 'Tracking panel users (ADMIN / VIEWER), newest first',
+  description: adminOnly,
+  permission: null,
+  response: envelope(z.array(EdpUser)),
+  errors: [403],
+});
+documentEndpoint({
+  method: 'post',
+  path: '/edp/manage/users',
+  tag: manageTag,
+  summary: 'Add a tracking panel user: ADMIN (full access) or VIEWER (view and download only)',
+  description: adminOnly,
+  permission: null,
+  request: { body: newUserBody },
+  response: envelope(EdpUser),
+  status: 201,
+  errors: [403, 409],
+});
+documentEndpoint({
+  method: 'patch',
+  path: '/edp/manage/users/:id/status',
+  tag: manageTag,
+  summary: 'Activate or deactivate a tracking panel user (not your own account)',
+  description: adminOnly,
+  permission: null,
+  request: { params: applicantParams, body: userStatusBody },
+  response: envelope(EdpUser),
+  errors: [403, 404, 409],
+});
+
+const Support = z.object({
+  message: z.string().describe('May use {email} and {mobile}'),
+  email: z.string().nullable(),
+  mobile: z.string().nullable(),
+  updated_at: z.string().nullable(),
+  updated_by: z.string().nullable(),
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/settings/support',
+  tag: manageTag,
+  summary: 'The support contact line shown to students (message, email, mobile)',
+  description: adminAuth,
+  permission: null,
+  response: envelope(Support),
+});
+documentEndpoint({
+  method: 'put',
+  path: '/edp/manage/settings/support',
+  tag: manageTag,
+  summary: 'Save the support contact line shown to students and in the portal emails',
+  description: `${adminAuth} ADMIN role only (a VIEWER gets 403).`,
+  permission: null,
+  request: { body: supportBody },
+  response: envelope(Support),
+  errors: [403],
 });

@@ -56,6 +56,13 @@ import { EdpPortal1794700000000 } from './1794700000000-EdpPortal';
 import { EdpFollowUps1794800000000 } from './1794800000000-EdpFollowUps';
 import { EdpSingleSubmission1794900000000 } from './1794900000000-EdpSingleSubmission';
 import { EdpPasswordReset1795000000000 } from './1795000000000-EdpPasswordReset';
+import { CentreMaster1795200000000 } from './1795200000000-CentreMaster';
+import { StudentEdpProfile1795300000000 } from './1795300000000-StudentEdpProfile';
+import { CentreTechnologies1795400000000 } from './1795400000000-CentreTechnologies';
+import { EdpApplicantVideo1795500000000 } from './1795500000000-EdpApplicantVideo';
+import { EdpOwnSubmissions1795600000000 } from './1795600000000-EdpOwnSubmissions';
+import { EdpAdminRoles1795700000000 } from './1795700000000-EdpAdminRoles';
+import { EdpSettings1795800000000 } from './1795800000000-EdpSettings';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -124,4 +131,11 @@ export const MIGRATIONS = [
   EdpFollowUps1794800000000,
   EdpSingleSubmission1794900000000,
   EdpPasswordReset1795000000000,
+  CentreMaster1795200000000,
+  StudentEdpProfile1795300000000,
+  CentreTechnologies1795400000000,
+  EdpApplicantVideo1795500000000,
+  EdpOwnSubmissions1795600000000,
+  EdpAdminRoles1795700000000,
+  EdpSettings1795800000000,
 ];

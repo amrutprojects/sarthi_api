@@ -8,7 +8,7 @@ import { AppError } from '../../../shared/errors/app-error';
 import { auditService } from '../../audit';
 import { mastersService, type MasterKey, type MasterLookup, type MasterRef } from '../../masters';
 import { rowChecksum, validateCandidate } from '../import/row-validator';
-import { Student } from '../register/student.entity';
+import { Student, type StudentProfile } from '../register/student.entity';
 import { documentStorage } from '../documents/document-storage';
 import { allocateRegistrationNumber } from './registration-number';
 import { StudentDocument } from '../documents/student-document.entity';
@@ -45,6 +45,8 @@ export interface AdminRegistrationContext {
   files: PreparedDocument[];
   /* Recorded in the audit log; default ADMIN. EDP = submitted through the EDP portal (edp.sumago.ai). */
   channel?: 'ADMIN' | 'EDP';
+  /* The EDP portal's additional details (centre, course type, qualification, …), stored with the record. */
+  profile?: StudentProfile;
 }
 
 const isUniqueViolation = (err: unknown) =>
@@ -149,6 +151,7 @@ export const registrationService = {
             status: STUDENT_STATUS.REGISTRATION_PENDING,
             source: STUDENT_SOURCE.PUBLIC_REGISTRATION,
             importBatchId: null,
+            ...(admin?.profile ?? {}),
           }),
         );
         /* Files are written inside the transaction: if one fails, the registration is not created. */

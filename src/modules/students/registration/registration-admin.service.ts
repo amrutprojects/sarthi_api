@@ -11,16 +11,79 @@ import { buildMeta, likePattern, toSkipTake, type Paginated } from '../../../sha
 import { auditService } from '../../audit';
 import { mastersService, type MasterLookup } from '../../masters';
 import { documentStorage } from '../documents/document-storage';
-import { detectFileType, extensionMatches } from '../documents/file-type';
+import { detectFileType, detectVideoType, documentFileRule, extensionMatches, isVideoDocumentType } from '../documents/file-type';
 import { StudentDocument } from '../documents/student-document.entity';
 import { Student } from '../register/student.entity';
 import { publicStudent, unmaskedContact } from '../register/student.service';
-import { decryptAadhaar } from '../aadhaar';
+import { decryptAadhaar, maskEmail, maskMobile } from '../aadhaar';
 import { DOCUMENTS, REGISTRATION_MASTER_FIELDS } from '../student.constants';
 import type { EditRegistrationBody, ListRegistrationsQuery } from './registration-admin.validation';
 import { registrationService, resolveMasters, type PreparedDocument } from './registration.service';
 import { validateCandidate } from '../import/row-validator';
 import { adminRegistrationData, barcodeMap } from './registration-admin.validation';
+
+/*
+ * The detail page lists documents from DOCUMENTS (the import's list). Document types added to the master since (e.g.
+ * Applicant Photograph with Aadhaar, Disability Certificate) and any uploaded file of another type are appended, so
+ * every uploaded file can be viewed and verified.
+ */
+type DocumentRow = { key: string; label: string; required: boolean; supplied: boolean; barcode: string | null };
+async function withMasterDocuments(listed: DocumentRow[], s: Student, files: StudentDocument[]): Promise<DocumentRow[]> {
+  const masters = await mastersService.loadLookup();
+  const known = new Set(listed.map((d) => d.key));
+  const out = [...listed];
+  for (const t of masters.list('documentType')) {
+    if (known.has(t.code)) continue;
+    known.add(t.code);
+    out.push({ key: t.code, label: t.name, required: !!t.isMandatory, ...(s.documents[t.code] ?? { supplied: false, barcode: null }) });
+  }
+  for (const f of files) {
+    if (known.has(f.docType)) continue;
+    known.add(f.docType);
+    out.push({ key: f.docType, label: f.docType, required: false, supplied: true, barcode: s.documents[f.docType]?.barcode ?? null });
+  }
+  return out;
+}
+
+/*
+ * The EDP portal's details of a registration (null values for imported and admin-entered records), with names for its
+ * references. Protected values (alternate contacts) are masked here; the full ones are in `unmasked`, audited.
+ */
+async function edpProfile(s: Student) {
+  const [names]: { centreName: string | null; centreCode: string | null; districtName: string | null; talukaName: string | null }[] =
+    await AppDataSource.query(
+      `SELECT c."name" AS "centreName", c."code" AS "centreCode",
+              d."name" AS "districtName", t."name" AS "talukaName"
+       FROM (SELECT 1) x
+       LEFT JOIN "edp_centres" c ON c."id" = $1
+       LEFT JOIN "districts" d ON d."id" = $2 LEFT JOIN "talukas" t ON t."id" = $3`,
+      [s.centreId, s.districtId, s.talukaId],
+    );
+  return {
+    gender: s.gender,
+    maritalStatus: s.maritalStatus,
+    permanentAddress: s.permanentAddress ? 'On file' : null,
+    landmark: s.landmark,
+    districtName: names.districtName,
+    talukaName: names.talukaName,
+    pinCode: s.pinCode,
+    alternateMobile: s.alternateMobile ? maskMobile(s.alternateMobile) : null,
+    alternateEmail: s.alternateEmail ? maskEmail(s.alternateEmail) : null,
+    disabilityStatus: s.disabilityStatus,
+    disabilityType: s.disabilityType,
+    disabilityCertificateNumber: s.disabilityCertificateNumber ? `••••${s.disabilityCertificateNumber.slice(-4)}` : null,
+    centreName: names.centreName,
+    centreCode: names.centreCode,
+    qualificationName: s.qualificationName,
+    qualificationStream: s.qualificationStream,
+    qualificationBoard: s.qualificationBoard,
+    qualificationCompletedOn: s.qualificationCompletedOn,
+    gradingType: s.gradingType,
+    cgpaScale: s.cgpaScale,
+    score: s.score === null ? null : Number(s.score),
+    qualificationClass: s.qualificationClass,
+  };
+}
 
 /*
  * Checks uploaded document files (field name = document type code; type from the content; extension agrees) and
@@ -46,10 +109,20 @@ export async function prepareFiles(
       continue;
     }
     seen.add(type.code);
+    /* Each type's own limit: 5 MB for documents, 50 MB for a video (the multipart limit is the larger one). */
+    const rule = documentFileRule(type.code);
+    if (f.size > rule.maxMb * 1024 * 1024) {
+      errors.push({ field, message: `${type.name}: file is larger than ${rule.maxMb} MB` });
+      continue;
+    }
     const buf = await fs.readFile(f.path);
-    const kind = detectFileType(buf);
+    const video = isVideoDocumentType(type.code);
+    const kind = video ? detectVideoType(buf) : detectFileType(buf);
     if (!kind || !extensionMatches(f.originalname, kind)) {
-      errors.push({ field, message: `${type.name}: only PDF, JPG, JPEG or PNG files are accepted` });
+      errors.push({
+        field,
+        message: video ? `${type.name}: only MP4 videos are accepted` : `${type.name}: only PDF, JPG, JPEG or PNG files are accepted`,
+      });
       continue;
     }
     prepared.push({
@@ -133,7 +206,18 @@ export const registrationAdminService = {
           )
         : [],
     );
-    let unmasked: { email: string | null; mobile: string | null; currentAddress: string; aadhaar: string | null } | undefined;
+    let unmasked:
+      | {
+          email: string | null;
+          mobile: string | null;
+          currentAddress: string;
+          aadhaar: string | null;
+          permanentAddress: string | null;
+          alternateMobile: string | null;
+          alternateEmail: string | null;
+          disabilityCertificateNumber: string | null;
+        }
+      | undefined;
     if (opts.unmask) {
       const digits = s.aadhaarEnc ? decryptAadhaar(s.aadhaarEnc) : null;
       unmasked = {
@@ -141,16 +225,25 @@ export const registrationAdminService = {
         mobile: s.mobile,
         currentAddress: s.currentAddress,
         aadhaar: digits ? digits.replace(/(\d{4})(?=\d)/g, '$1 ') : null,
+        permanentAddress: s.permanentAddress,
+        alternateMobile: s.alternateMobile,
+        alternateEmail: s.alternateEmail,
+        disabilityCertificateNumber: s.disabilityCertificateNumber,
       };
       await auditService.record(opts.req, {
         action: 'student.registration.unmasked_view',
         resource: 'student',
         resourceId: s.id,
-        details: { code: s.code, fields: ['email', 'mobile', 'aadhaar', 'currentAddress'] },
+        details: {
+          code: s.code,
+          fields: ['email', 'mobile', 'aadhaar', 'currentAddress', 'permanentAddress', 'alternateMobile', 'alternateEmail', 'disabilityCertificateNumber'],
+        },
       });
     }
+    const base = publicStudent(s, true) as ReturnType<typeof publicStudent> & { documents: DocumentRow[] };
     return {
-      ...publicStudent(s, true),
+      ...base,
+      documents: await withMasterDocuments(base.documents, s, files),
       source: s.source,
       isActive: s.isActive,
       registrationNumber: s.registrationNumber,
@@ -158,6 +251,7 @@ export const registrationAdminService = {
       casteId: s.casteId,
       educationId: s.educationId,
       ...(unmasked ? { unmasked } : {}),
+      profile: await edpProfile(s),
       files: files.map((f) => ({
         id: f.id,
         docType: f.docType,

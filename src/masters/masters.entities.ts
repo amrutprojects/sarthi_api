@@ -3,6 +3,7 @@ import { BatchAssignment } from './batch-assignment/batch-assignment.model';
 import { CentreInfrastructure } from './centre-infrastructure/centre-infrastructure.model';
 import { CentreLocation } from './centre-location/centre-location.model';
 import { CentreType } from './centre-type/centre-type.model';
+import { Centre, CentreTechnology } from './centre/centre.model';
 import { College } from './college/college.model';
 import { Department } from './department/department.model';
 import { MasterDocument } from './document/document.model';
@@ -10,7 +11,7 @@ import { TechnologyTrack } from './technology-track/technology-track.model';
 import { TrainingCentre } from './training-centre/training-centre.model';
 
 export {
-  Batch, BatchAssignment, CentreInfrastructure, CentreLocation, CentreType, College, Department, MasterDocument, TechnologyTrack,
+  Batch, BatchAssignment, Centre, CentreInfrastructure, CentreTechnology, CentreLocation, CentreType, College, Department, MasterDocument, TechnologyTrack,
   TrainingCentre,
 };
 
@@ -24,5 +25,5 @@ export {
  * config -> entities) and MASTER_ENTITIES would still be undefined when ENTITIES is evaluated.
  */
 export const MASTER_ENTITIES = [
-  Department, College, CentreType, TrainingCentre, CentreLocation, CentreInfrastructure, Batch, BatchAssignment, MasterDocument, TechnologyTrack,
+  Department, College, Centre, CentreTechnology, CentreType, TrainingCentre, CentreLocation, CentreInfrastructure, Batch, BatchAssignment, MasterDocument, TechnologyTrack,
 ];

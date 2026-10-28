@@ -174,6 +174,11 @@ describe('admin registration entry with documents', () => {
       mobile: `+91${body.mobile_number}`,
       currentAddress: body.current_address,
       aadhaar: digits.replace(/(\d{4})(?=\d)/g, '$1 '),
+      /* EDP portal details: none on an admin-entered registration. */
+      permanentAddress: null,
+      alternateMobile: null,
+      alternateEmail: null,
+      disabilityCertificateNumber: null,
     });
     const audits = await AppDataSource.query(
       `SELECT 1 FROM "audit_logs" WHERE "action" = 'student.registration.unmasked_view' AND "resourceId" = $1`,

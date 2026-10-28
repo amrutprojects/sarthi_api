@@ -58,4 +58,60 @@ export class Student extends AppBaseEntity {
   @Column({ type: 'uuid', name: 'educationId', nullable: true }) educationId!: string | null;
   /* MMDDHHmmssSSSfff, allocated by the backend for registrations and at import finalisation (registration-number.ts). */
   @Column({ type: 'varchar', length: 16, name: 'registrationNumber', nullable: true }) registrationNumber!: string | null;
+  /*
+   * EDP portal details (migration 1795300000000). Null for imported and admin-entered records. Basic Details first,
+   * then the Main Form's centre and qualification (the technology is trackCode).
+   */
+  @Column({ type: 'varchar', length: 20, nullable: true }) gender!: string | null;
+  @Column({ type: 'varchar', length: 20, name: 'maritalStatus', nullable: true }) maritalStatus!: string | null;
+  @Column({ type: 'varchar', length: 500, name: 'permanentAddress', nullable: true }) permanentAddress!: string | null;
+  @Column({ type: 'varchar', length: 150, nullable: true }) landmark!: string | null;
+  @Column({ type: 'uuid', name: 'districtId', nullable: true }) districtId!: string | null;
+  @Column({ type: 'uuid', name: 'talukaId', nullable: true }) talukaId!: string | null;
+  @Column({ type: 'char', length: 6, name: 'pinCode', nullable: true }) pinCode!: string | null;
+  @Column({ type: 'varchar', length: 16, name: 'alternateMobile', nullable: true }) alternateMobile!: string | null;
+  @Column({ type: 'varchar', length: 254, name: 'alternateEmail', nullable: true }) alternateEmail!: string | null;
+  @Column({ type: 'boolean', name: 'disabilityStatus', nullable: true }) disabilityStatus!: boolean | null;
+  @Column({ type: 'varchar', length: 100, name: 'disabilityType', nullable: true }) disabilityType!: string | null;
+  @Column({ type: 'varchar', length: 50, name: 'disabilityCertificateNumber', nullable: true }) disabilityCertificateNumber!: string | null;
+  @Column({ type: 'boolean', name: 'nameChanged', nullable: true }) nameChanged!: boolean | null;
+  @Column({ type: 'uuid', name: 'centreId', nullable: true }) centreId!: string | null;
+  @Column({ type: 'varchar', length: 150, name: 'qualificationName', nullable: true }) qualificationName!: string | null;
+  @Column({ type: 'varchar', length: 150, name: 'qualificationStream', nullable: true }) qualificationStream!: string | null;
+  @Column({ type: 'varchar', length: 200, name: 'qualificationBoard', nullable: true }) qualificationBoard!: string | null;
+  @Column({ type: 'date', name: 'qualificationCompletedOn', nullable: true }) qualificationCompletedOn!: string | null;
+  @Column({ type: 'varchar', length: 12, name: 'gradingType', nullable: true }) gradingType!: string | null;
+  @Column({ type: 'smallint', name: 'cgpaScale', nullable: true }) cgpaScale!: number | null;
+  /* numeric(5,2): returned by the driver as a string, e.g. "78.50". */
+  @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true }) score!: string | null;
+  @Column({ type: 'varchar', length: 40, name: 'qualificationClass', nullable: true }) qualificationClass!: string | null;
 }
+
+/* The EDP portal's details as registrationService.register stores them (every key optional; absent = null). */
+export type StudentProfile = Partial<
+  Pick<
+    Student,
+    | 'gender'
+    | 'maritalStatus'
+    | 'permanentAddress'
+    | 'landmark'
+    | 'districtId'
+    | 'talukaId'
+    | 'pinCode'
+    | 'alternateMobile'
+    | 'alternateEmail'
+    | 'disabilityStatus'
+    | 'disabilityType'
+    | 'disabilityCertificateNumber'
+    | 'nameChanged'
+    | 'centreId'
+    | 'qualificationName'
+    | 'qualificationStream'
+    | 'qualificationBoard'
+    | 'qualificationCompletedOn'
+    | 'gradingType'
+    | 'cgpaScale'
+    | 'score'
+    | 'qualificationClass'
+  >
+>;

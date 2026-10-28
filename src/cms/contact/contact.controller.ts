@@ -51,6 +51,7 @@ export const contactController = {
       'Coordinator created successfully',
     );
   }),
+  
 
   updateCoordinator: asyncHandler(async (req: Request, res: Response) => {
     const data = await contactService.updateCoordinator(params<IdParams>(req).id, body<UpdateCoordinatorBody>(req), req);
@@ -70,7 +71,7 @@ export const contactController = {
 
   /* ---- District offices ---- */
 
-  listDistrictOffices: asyncHandler(async (req: Request, res: Response) => {
+  listDistrictOffices: asyncHandler(async (req: Request, res: Response) => {  
     const page = await contactService.listDistrictOffices(query<ListDistrictOfficesQuery>(req));
     ApiResponse.ok(res, page.items, 'District offices retrieved successfully', page.meta);
   }),

@@ -5,7 +5,7 @@ import { appConfig } from '../../../config/app.config';
 import { env } from '../../../config/env.config';
 import { AppDataSource } from '../../../config/database.config';
 import { AppError } from '../../../shared/errors/app-error';
-import { EDP_MESSAGES } from './edp.constants';
+import { EDP_MESSAGES, EDP_VIEW_ONLY_MESSAGE } from './edp.constants';
 import { EdpAccount, EdpAdmin } from './edp.entities';
 
 /*
@@ -101,6 +101,14 @@ export const requireEdpAdmin: RequestHandler = (req, res, next) => {
       next();
     })
     .catch(next);
+};
+
+/* A signed-in tracking-panel ADMIN: a VIEWER (view and download only) gets 403. Use after requireEdpAdmin. */
+export const requireEdpEditor: RequestHandler = (_req, res, next) => {
+  const admin = res.locals.edpAdmin as EdpAdmin | undefined;
+  if (!admin) return next(AppError.unauthorized('Please log in to continue.'));
+  if (admin.role !== 'ADMIN') return next(AppError.forbidden(EDP_VIEW_ONLY_MESSAGE));
+  next();
 };
 
 export const edpAccountOf = (res: Response) => res.locals.edpAccount as EdpAccount;

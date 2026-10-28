@@ -1,43 +1,76 @@
-import crypto from 'crypto';
 import path from 'path';
 import type { Readable } from 'stream';
-import bcrypt from 'bcrypt';
 import type { Request } from 'express';
-import { appConfig } from '../../../config/app.config';
 import { AppDataSource } from '../../../config/database.config';
 import { logger } from '../../../observability/logger';
 import { AppError } from '../../../shared/errors/app-error';
 import { auditService } from '../../audit';
 import { mastersService, type MasterLookup } from '../../masters';
 import { aadhaarBlindIndex, decryptAadhaar, encryptAadhaar, maskAadhaar } from '../aadhaar';
-import { documentStorage } from '../documents/document-storage';
+import { documentStorage, safeSegment } from '../documents/document-storage';
+import { documentFileRule } from '../documents/file-type';
 import { StudentDocument } from '../documents/student-document.entity';
 import { Student } from '../register/student.entity';
 import { prepareFiles } from '../registration/registration-admin.service';
-import { registrationService, type PreparedDocument } from '../registration/registration.service';
+import { REGISTRATION_MESSAGES } from '../registration/registration.service';
+import { REGISTRATION_NUMBER_LOCK, REGISTRATION_NUMBER_RE, registrationNumberSql } from '../registration/registration-number';
+import { env } from '../../../config/env.config';
 import { CENTRES, DOCUMENTS, RELIGIONS, TRACKS } from '../student.constants';
 import {
   EDP_APPLICATION_STATUS as STATUS,
-  EDP_BASIC_FIELDS,
+  EDP_CGPA_SCALES,
+  EDP_DOCUMENTS,
   EDP_ERROR_CODES,
   EDP_FORM_FIELDS,
-  EDP_MAIN_FIELDS,
+  EDP_GENDERS,
+  EDP_GRADING_TYPES,
+  EDP_MARITAL_STATUSES,
   EDP_MESSAGES,
-  EDP_SYSTEM_USER,
+  EDP_QUALIFICATION_CLASSES,
+  EDP_STEP1_FIELDS,
+  EDP_STEP2_FIELDS,
+  edpDocument,
   edpUsesDocumentType,
   type EdpFormField,
 } from './edp.constants';
-import { EdpApplication, EdpApplicationFile, type EdpAccount } from './edp.entities';
+import { EdpAccount as EdpAccountEntity, EdpApplication, EdpApplicationFile, type EdpAccount } from './edp.entities';
 import { ensureApplication } from './edp-account.service';
 import { basicStep, fullForm, mainStep, type SaveStepBody, type SubmitBody } from './edp.validation';
 import { barcodeMap } from '../registration/registration-admin.validation';
+import { centreService } from '../../../masters/centre/centre.service';
+import { edpSettingsService } from './edp-settings.service';
 
 type Form = Record<EdpFormField, string>;
 type FieldError = { field: string; message: string };
 
+/* The district must be active, and the taluka an active one of that district. */
+async function checkGeography(districtId: string, talukaId: string): Promise<FieldError[]> {
+  const [row]: { district: boolean; taluka: boolean }[] = await AppDataSource.query(
+    `SELECT
+       EXISTS (SELECT 1 FROM "districts" WHERE "id" = $1 AND "isActive" AND NOT "isDelete") AS "district",
+       EXISTS (SELECT 1 FROM "talukas" WHERE "id" = $2 AND "districtId" = $1 AND "isActive" AND NOT "isDelete") AS "taluka"`,
+    [districtId, talukaId],
+  );
+  if (!row.district) return [{ field: 'body.district_id', message: 'District not found or inactive' }];
+  if (!row.taluka) return [{ field: 'body.taluka_id', message: 'Select a taluka of the selected district' }];
+  return [];
+}
+
+/* Values that do not apply are not kept: no disability details without a disability, no CGPA scale for a percentage. */
+function dropInapplicable<T extends Partial<Form>>(v: T): T {
+  const out = { ...v };
+  if (out.disability_status === 'No') {
+    out.disability_type = '';
+    out.disability_certificate_number = '';
+  }
+  if (out.grading_type === 'PERCENTAGE') out.cgpa_scale = '';
+  return out;
+}
+
+const yesNo = (b: boolean | null) => (b === null ? '' : b ? 'Yes' : 'No');
+
 const apps = () => AppDataSource.getRepository(EdpApplication);
 const appFiles = () => AppDataSource.getRepository(EdpApplicationFile);
-const BARCODE = new Map(DOCUMENTS.map((d) => [d.key, d.barcode ?? null]));
 const DOC_LABEL = new Map(DOCUMENTS.map((d) => [d.key, d.label]));
 
 async function loadApplication(accountId: string): Promise<EdpApplication> {
@@ -80,36 +113,100 @@ function studentForm(s: Student): Form {
     region_id: s.regionId ?? '',
     technology: s.trackCode ?? '',
     education_id: s.educationId ?? '',
+    gender: s.gender ?? '',
+    marital_status: s.maritalStatus ?? '',
+    permanent_address: s.permanentAddress ?? '',
+    landmark: s.landmark ?? '',
+    district_id: s.districtId ?? '',
+    taluka_id: s.talukaId ?? '',
+    pin_code: s.pinCode ?? '',
+    alternate_mobile_number: s.alternateMobile ?? '',
+    alternate_email: s.alternateEmail ?? '',
+    disability_status: yesNo(s.disabilityStatus),
+    disability_type: s.disabilityType ?? '',
+    disability_certificate_number: s.disabilityCertificateNumber ?? '',
+    centre_id: s.centreId ?? '',
+    qualification_name: s.qualificationName ?? '',
+    qualification_stream: s.qualificationStream ?? '',
+    qualification_board: s.qualificationBoard ?? '',
+    qualification_completed_on: s.qualificationCompletedOn ?? '',
+    grading_type: s.gradingType ?? '',
+    cgpa_scale: s.cgpaScale === null ? '' : String(s.cgpaScale),
+    score: s.score === null ? '' : String(Number(s.score)),
+    qualification_class: s.qualificationClass ?? '',
   };
 }
 
-async function readAll(key: string): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const c of (await documentStorage.read(key)) as AsyncIterable<Buffer | string>) chunks.push(Buffer.from(c));
-  return Buffer.concat(chunks);
+/* Names of the student's EDP references as they are now (also for a record since deactivated). */
+
+/* EDP registrations (submitted applications, and those submitted earlier into the student register) holding this Aadhaar. */
+async function aadhaarTaken(m: { query: (sql: string, params: unknown[]) => Promise<unknown[]> }, bidx: string, applicationId: string) {
+  const rows = await m.query(
+    `SELECT 1 FROM "edp_applications" a
+     WHERE a."isDelete" = false AND a."status" = 'SUBMITTED' AND a."id" <> $2
+       AND (a."aadhaarBidx" = $1 OR EXISTS (SELECT 1 FROM "students" s WHERE s."id" = a."studentId" AND s."isDelete" = false AND s."aadhaarBidx" = $1))
+     LIMIT 1`,
+    [bidx, applicationId],
+  );
+  return rows.length > 0;
 }
 
 /*
- * The Amrut admin panel user recorded as uploader of the portal's documents (student_documents.uploadedById must name a
- * user). Created on first use, inactive with an unusable password: it can never sign in.
+ * The EDP registration number: MMDDHHmmssSSSfff from the database clock, as the student register's (registration-number.ts),
+ * unique across both (the same advisory lock serialises the two). Must run inside the submitting transaction.
  */
-async function systemUserId(): Promise<string> {
-  const find = async () =>
-    (
-      (await AppDataSource.query(`SELECT "id" FROM "users" WHERE "email" = $1 AND "isDelete" = false`, [EDP_SYSTEM_USER.email])) as {
-        id: string;
-      }[]
-    )[0]?.id;
-  const existing = await find();
-  if (existing) return existing;
-  const unusable = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), appConfig.bcryptRounds);
-  await AppDataSource.query(
-    `INSERT INTO "users" ("name", "email", "passwordHash", "isActive") VALUES ($1, $2, $3, false)
-     ON CONFLICT ("email") WHERE "isDelete" = false DO NOTHING`,
-    [EDP_SYSTEM_USER.name, EDP_SYSTEM_USER.email, unusable],
-  );
-  return (await find())!;
+async function allocateEdpNumber(m: { query: (sql: string, params?: unknown[]) => Promise<{ [k: string]: unknown }[]> }) {
+  await m.query(`SELECT pg_advisory_xact_lock($1)`, [REGISTRATION_NUMBER_LOCK]);
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const [row] = await m.query(registrationNumberSql, [env.APP_TIMEZONE]);
+    const num = String(row?.num ?? '');
+    if (!REGISTRATION_NUMBER_RE.test(num)) throw new Error(`Registration number has an unexpected format: "${num}"`);
+    const taken = await m.query(
+      `SELECT 1 FROM "students" WHERE "registrationNumber" = $1 UNION ALL SELECT 1 FROM "edp_applications" WHERE "registrationNumber" = $1`,
+      [num],
+    );
+    if (!taken.length) return num;
+  }
+  throw AppError.conflict('Could not allocate a registration number right now; please try again');
 }
+
+/* The candidate's documents folder: registration ID and name, e.g. EDP-000001_Kavya_Jadhav (letters, digits, _ and - only). */
+const candidateFolder = (code: string, firstName: string, lastName: string) =>
+  safeSegment(`${code}_${firstName}_${lastName}`.replace(/\s+/g, '_')).replace(/_+/g, '_').replace(/_$/, '');
+
+/* A document's label for a file name: letters and digits joined with _, e.g. Applicant_Video_with_Aadhaar. */
+const fileLabel = (code: string) => (edpDocument(code)?.label ?? code).replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+const extFor = (mime: string) =>
+  ({ 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png', 'video/mp4': '.mp4' })[mime] ?? '';
+
+/* Names of the form's references, as they are now (also for a record since deactivated). */
+async function referenceNames(form: Partial<Form>) {
+  const id = (v?: string) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null);
+  const [row]: Record<string, string | null>[] = await AppDataSource.query(
+    `SELECT (SELECT "name" FROM "castes" WHERE "id" = $1) AS "caste",
+            (SELECT "name" FROM "regions" WHERE "id" = $2) AS "region",
+            (SELECT "name" FROM "educations" WHERE "id" = $3) AS "education",
+            (SELECT "name" FROM "edp_centres" WHERE "id" = $4) AS "centre",
+            (SELECT "name" FROM "districts" WHERE "id" = $5) AS "district",
+            (SELECT "name" FROM "talukas" WHERE "id" = $6) AS "taluka"`,
+    [id(form.caste_id), id(form.region_id), id(form.education_id), id(form.centre_id), id(form.district_id), id(form.taluka_id)],
+  );
+  return {
+    caste: row.caste,
+    course_centre: row.region,
+    education: row.education,
+    centre: row.centre,
+    district: row.district,
+    taluka: row.taluka,
+    religion: form.religion || null,
+    technology: TRACKS.find((t) => t.code === form.technology)?.name ?? (form.technology || null),
+    gender: form.gender || null,
+    marital_status: form.marital_status || null,
+  };
+}
+
+/* An application submitted before migration 1795600000000 was copied into the student register; it is read from there. */
+const legacySubmission = (p: EdpApplication) => p.status === STATUS.SUBMITTED && !!p.studentId && !p.registrationCode;
 
 /*
  * One submission at a time per application: a session advisory lock on a connection of its own (released if the process
@@ -133,17 +230,27 @@ async function withApplicationLock<T>(applicationId: string, fn: () => Promise<T
   }
 }
 
-/* The active document types the portal uses (master order), i.e. without EDP_EXCLUDED_DOCUMENT_TYPES. */
-const portalDocumentTypes = (masters: MasterLookup) => masters.list('documentType').filter((t) => edpUsesDocumentType(t.code));
+/*
+ * The document types the portal lists (EDP_DOCUMENTS order), with its labels and required rule. A type that is
+ * missing, deleted or inactive in the Document Types master is not offered.
+ */
+const portalDocumentTypes = (masters: MasterLookup) =>
+  EDP_DOCUMENTS.flatMap((d) => {
+    const t = masters.find('documentType', d.code);
+    return t && t.code === d.code ? [{ id: t.id, code: t.code, name: d.label, isMandatory: d.required }] : [];
+  });
 
-/* Those types with the barcode rule of each (Income / EWS and Domicile: required). */
+/* Those types for the form. The portal asks for no certificate barcodes (barcode is always null). */
 function documentTypes(masters: MasterLookup) {
   return portalDocumentTypes(masters).map((t) => ({
     id: t.id,
     code: t.code,
     name: t.name,
-    is_mandatory: !!t.isMandatory,
-    barcode: BARCODE.get(t.code) ?? null,
+    is_mandatory: t.isMandatory,
+    barcode: null,
+    /* Accepted file formats and size: PDF / JPG / JPEG / PNG up to 5 MB; the Applicant Video an MP4 up to 50 MB. */
+    formats: documentFileRule(t.code).formats,
+    max_mb: documentFileRule(t.code).maxMb,
   }));
 }
 
@@ -156,70 +263,37 @@ function cleanBarcodes(data: Record<string, string>): Record<string, string> {
   );
 }
 
-/* Document checks at submission: mandatory types need a file, a required barcode is needed with its file. */
-function checkDocuments(
-  masters: MasterLookup,
-  hasFile: (code: string) => boolean,
-  barcodeOf: (code: string) => string | null,
-  errors: FieldError[],
-) {
+/* Document checks at submission: every required type needs a file (no certificate barcodes are asked for). */
+function checkDocuments(masters: MasterLookup, hasFile: (code: string) => boolean, errors: FieldError[]) {
   for (const t of portalDocumentTypes(masters)) {
     if (t.isMandatory && !hasFile(t.code)) errors.push({ field: `files.${t.code}`, message: `${t.name} is required` });
-    if (hasFile(t.code) && BARCODE.get(t.code) === 'required' && !barcodeOf(t.code))
-      errors.push({ field: `body.barcodes.${t.code}`, message: `${t.name} barcode is required` });
   }
 }
 
-async function preparedFromDraft(
-  files: EdpApplicationFile[],
-  masters: MasterLookup,
-  barcodes: Record<string, string>,
-  errors: FieldError[],
-) {
-  const prepared: PreparedDocument[] = [];
+/* A stored file of a type the master no longer offers (deactivated after it was uploaded) must be removed before submitting. */
+function checkStoredTypes(files: EdpApplicationFile[], masters: MasterLookup, errors: FieldError[]) {
   for (const f of files) {
-    /* A file of a type the portal no longer uses (uploaded before it was dropped) is not sent with the form. */
     if (!edpUsesDocumentType(f.docType)) continue;
     const type = masters.find('documentType', f.docType);
-    if (!type || type.code !== f.docType) {
+    if (!type || type.code !== f.docType)
       errors.push({
         field: `files.${f.docType}`,
-        message: `${DOC_LABEL.get(f.docType) ?? f.docType} is no longer accepted. Please remove it.`,
+        message: `${edpDocument(f.docType)?.label ?? DOC_LABEL.get(f.docType) ?? f.docType} is no longer accepted. Please remove it.`,
       });
-      continue;
-    }
-    prepared.push({
-      code: type.code,
-      documentTypeId: type.id,
-      data: await readAll(f.storageKey),
-      ext: path.extname(f.storageKey).slice(1),
-      mimeType: f.mimeType,
-      originalName: f.originalName,
-      sha256: f.sha256,
-      barcode: barcodes[type.code]?.trim() || null,
-    });
   }
-  return prepared;
-}
-
-async function clearDraftFiles(applicationId: string) {
-  const files = await appFiles().find({ where: { applicationId } });
-  if (!files.length) return;
-  await appFiles().delete(files.map((f) => f.id));
-  for (const f of files)
-    await documentStorage
-      .remove(f.storageKey)
-      .catch((err) => logger.error({ err, key: f.storageKey }, 'could not delete an EDP draft file'));
 }
 
 export const edpApplicationService = {
   /*
    * Dropdown values: active, non-deleted master records only (as the admin form), plus the constant lists, and the contact
-   * shown after submitting (EDP_SUPPORT_EMAIL / EDP_SUPPORT_MOBILE; null when not set).
+   * shown after submitting (edited in the tracking panel; EDP_SUPPORT_EMAIL / EDP_SUPPORT_MOBILE until then).
    */
   async options() {
     const masters = await mastersService.loadLookup();
     const ref = (key: 'region' | 'caste' | 'education') => masters.list(key).map((r) => ({ id: r.id, code: r.code, name: r.name }));
+    const districts: { id: string; name: string; code: string }[] = await AppDataSource.query(
+      `SELECT "id", "name", "code" FROM "districts" WHERE "isActive" AND NOT "isDelete" ORDER BY "name" ASC, "id" ASC`,
+    );
     return {
       regions: ref('region'),
       castes: ref('caste'),
@@ -227,93 +301,119 @@ export const edpApplicationService = {
       document_types: documentTypes(masters),
       religions: RELIGIONS,
       tracks: TRACKS.map((t) => ({ code: t.code, name: t.name })),
-      support: appConfig.edp.support,
+      support: await edpSettingsService.support(),
+      genders: EDP_GENDERS,
+      marital_statuses: EDP_MARITAL_STATUSES,
+      districts,
+      centres: await centreService.portalOptions(),
+      grading_types: EDP_GRADING_TYPES,
+      cgpa_scales: EDP_CGPA_SCALES,
+      qualification_classes: EDP_QUALIFICATION_CLASSES,
     };
   },
 
+  /* Step 2's Technology / 3rd module selection dropdown: the technologies currently allocated to an active centre. */
+  async centreTechnologies(centreId: string) {
+    const technologies = await centreService.studentTechnologies(centreId);
+    if (!technologies) throw AppError.notFound('Center not found or inactive');
+    return technologies;
+  },
+
   /*
-   * The application as the student sees it. Until it is submitted, `form` is the draft; once submitted (final) it is read
-   * from the student register, so a change made in the Amrut admin panel shows here.
+   * The application as the student sees it: the draft until it is submitted; afterwards (final) the submitted record —
+   * the application itself, or for one submitted before migration 1795600000000 its copy in the student register.
    */
   async get(account: EdpAccount) {
     const p = await loadApplication(account.id);
     const masters = await mastersService.loadLookup();
-    const student = p.studentId
-      ? await AppDataSource.getRepository(Student).findOne({ where: { id: p.studentId, isDelete: false } })
-      : null;
-    /* Only the document types the portal uses are shown (a record may hold others, e.g. entered in the admin panel). */
-    const stored = (
-      student
-        ? await AppDataSource.getRepository(StudentDocument).find({
-            where: { studentId: student.id, isDelete: false },
-            order: { docType: 'ASC' },
-          })
-        : []
-    ).filter((f) => edpUsesDocumentType(f.docType));
-    const draftFiles = (editable(p) ? await appFiles().find({ where: { applicationId: p.id }, order: { docType: 'ASC' } }) : []).filter(
-      (f) => edpUsesDocumentType(f.docType),
-    );
-
-    let form: Form;
-    if (editable(p)) {
-      /* A new form starts with the account's own details; its email is always the account's (it cannot be changed). */
-      form = draftForm(p);
-      form.first_name ||= account.firstName;
-      form.last_name ||= account.lastName;
-      form.mobile_number ||= account.mobile;
-      form.email = account.email;
-    } else form = student ? studentForm(student) : (Object.fromEntries(EDP_FORM_FIELDS.map((f) => [f, ''])) as Form);
-    const studentBarcodes = Object.fromEntries(
-      Object.entries(student?.documents ?? {})
-        .filter(([code, d]) => d.barcode && edpUsesDocumentType(code))
-        .map(([code, d]) => [code, d.barcode as string]),
-    );
-    const docName = (code: string) => masters.find('documentType', code)?.name ?? DOC_LABEL.get(code) ?? code;
-
-    return {
+    const docName = (code: string) => edpDocument(code)?.label ?? masters.find('documentType', code)?.name ?? DOC_LABEL.get(code) ?? code;
+    const own = await appFiles().find({ where: { applicationId: p.id }, order: { docType: 'ASC' } });
+    const fileDto = (f: { docType: string; originalName: string; mimeType: string; sizeBytes: number }, uploadedAt: Date) => ({
+      doc_type: f.docType,
+      name: docName(f.docType),
+      original_name: f.originalName,
+      mime_type: f.mimeType,
+      size_bytes: f.sizeBytes,
+      uploaded_at: uploadedAt,
+    });
+    const base = {
       status: p.status,
       current_step: p.currentStep,
       steps: { basic_completed: !!p.basicCompletedAt, main_completed: !!p.mainCompletedAt },
       editable: editable(p),
       submitted_at: p.submittedAt,
+      barcodes: {},
+    };
+
+    if (editable(p)) {
+      /* A new form starts with the account's own details; its email is always the account's (it cannot be changed). */
+      const form = draftForm(p);
+      form.first_name ||= account.firstName;
+      form.last_name ||= account.lastName;
+      form.mobile_number ||= account.mobile;
+      form.email = account.email;
+      return {
+        ...base,
+        form,
+        draft_files: own.filter((f) => edpUsesDocumentType(f.docType)).map((f) => fileDto(f, f.updatedAt)),
+        submitted_files: [],
+        registration: null,
+      };
+    }
+
+    if (legacySubmission(p)) {
+      const student = await AppDataSource.getRepository(Student).findOne({ where: { id: p.studentId!, isDelete: false } });
+      const stored = student
+        ? (
+            await AppDataSource.getRepository(StudentDocument).find({
+              where: { studentId: student.id, isDelete: false },
+              order: { docType: 'ASC' },
+            })
+          ).filter((f) => edpUsesDocumentType(f.docType))
+        : [];
+      const form = student ? studentForm(student) : (Object.fromEntries(EDP_FORM_FIELDS.map((k) => [k, ''])) as Form);
+      return {
+        ...base,
+        form,
+        draft_files: [],
+        submitted_files: stored.map((f) => ({ ...fileDto(f, f.createdAt), verified: !!f.verifiedAt })),
+        registration: student
+          ? {
+              registration_id: student.code,
+              registration_number: student.registrationNumber,
+              status: student.status,
+              aadhaar_masked: maskAadhaar(student.aadhaarLast4),
+              display: {
+                ...(await referenceNames(form)),
+                caste: student.caste,
+                education: student.educationQualification,
+                course_centre:
+                  masters.byId('region', student.regionId ?? '')?.name ??
+                  CENTRES.find((c) => c.code === student.centreCode)?.name ??
+                  student.centreCode,
+                technology: TRACKS.find((t) => t.code === student.trackCode)?.name ?? student.trackSourceValue,
+              },
+            }
+          : null,
+      };
+    }
+
+    /* Submitted in the EDP system: the application is the record; the Aadhaar is never shown in full again. */
+    const form = draftForm(p);
+    form.aadhaar_number = '';
+    form.email = account.email;
+    return {
+      ...base,
       form,
-      barcodes: editable(p) ? p.barcodes : studentBarcodes,
-      draft_files: draftFiles.map((f) => ({
-        doc_type: f.docType,
-        name: docName(f.docType),
-        original_name: f.originalName,
-        mime_type: f.mimeType,
-        size_bytes: f.sizeBytes,
-        uploaded_at: f.updatedAt,
-      })),
-      submitted_files: stored.map((f) => ({
-        doc_type: f.docType,
-        name: docName(f.docType),
-        original_name: f.originalName,
-        mime_type: f.mimeType,
-        size_bytes: f.sizeBytes,
-        uploaded_at: f.createdAt,
-        verified: !!f.verifiedAt,
-      })),
-      registration: student
-        ? {
-            registration_id: student.code,
-            registration_number: student.registrationNumber,
-            status: student.status,
-            aadhaar_masked: maskAadhaar(student.aadhaarLast4),
-            /* As stored (also for a value whose master record has since been deactivated). */
-            display: {
-              religion: student.religion,
-              caste: student.caste,
-              course_centre:
-                masters.byId('region', student.regionId ?? '')?.name ??
-                CENTRES.find((c) => c.code === student.centreCode)?.name ??
-                student.centreCode,
-              education: student.educationQualification,
-              technology: TRACKS.find((t) => t.code === student.trackCode)?.name ?? student.trackSourceValue,
-            },
-          }
-        : null,
+      draft_files: [],
+      submitted_files: own.filter((f) => edpUsesDocumentType(f.docType)).map((f) => ({ ...fileDto(f, f.updatedAt), verified: false })),
+      registration: {
+        registration_id: p.registrationCode,
+        registration_number: p.registrationNumber,
+        status: p.status,
+        aadhaar_masked: maskAadhaar(p.aadhaarLast4),
+        display: await referenceNames(form),
+      },
     };
   },
 
@@ -336,7 +436,7 @@ export const edpApplicationService = {
       return this.get(account);
     }
 
-    const fields: readonly string[] = step === 1 ? EDP_BASIC_FIELDS : EDP_MAIN_FIELDS;
+    const fields: readonly string[] = step === 1 ? EDP_STEP1_FIELDS : EDP_STEP2_FIELDS;
     /* The email is never taken from the request: it is the account's (the address verified with the OTP). */
     const incoming: Record<string, string> = Object.fromEntries(
       Object.entries(body.data).filter(([k]) => fields.includes(k) && k !== 'email'),
@@ -361,21 +461,20 @@ export const edpApplicationService = {
     if (parsed.success && step === 1) {
       if (!masters.byId('caste', values.caste_id!)) errors.push({ field: 'body.caste_id', message: 'Caste not found or inactive' });
       const bidx = aadhaarBlindIndex(digitsOnly(values.aadhaar_number!));
-      const taken: { id: string }[] = await AppDataSource.query(
-        `SELECT "id" FROM "students" WHERE "aadhaarBidx" = $1 AND "isDelete" = false AND ($2::uuid IS NULL OR "id" <> $2::uuid) LIMIT 1`,
-        [bidx, p.studentId],
-      );
-      if (taken.length) errors.push({ field: 'body.aadhaar_number', message: 'A registration with this Aadhaar number already exists' });
+      if (await aadhaarTaken(AppDataSource, bidx, p.id))
+        errors.push({ field: 'body.aadhaar_number', message: 'A registration with this Aadhaar number already exists' });
+      errors.push(...(await checkGeography(values.district_id!, values.taluka_id!)));
     }
     if (parsed.success && step === 2) {
       if (!masters.byId('region', values.region_id!))
-        errors.push({ field: 'body.region_id', message: 'Course centre not found or inactive' });
+        errors.push({ field: 'body.region_id', message: 'Course district not found or inactive' });
       if (!masters.byId('education', values.education_id!))
         errors.push({ field: 'body.education_id', message: 'Education qualification not found or inactive' });
+      errors.push(...(await centreService.checkStudentChoice(values.centre_id!, values.technology!)));
     }
     if (errors.length) throw AppError.validation(errors);
 
-    const { aadhaar_number: _a, ...clean } = values;
+    const { aadhaar_number: _a, ...clean } = dropInapplicable(values);
     const now = new Date();
     await apps().update(p.id, {
       data: { ...p.data, ...rest, ...(clean as Record<string, string>) },
@@ -434,15 +533,15 @@ export const edpApplicationService = {
     return this.get(account);
   },
 
-  /* The student's own file: the one uploaded for the draft, else the one stored with the submitted registration. */
+  /* The student's own file: the application's (draft or submitted), or for an earlier submission the student register's. */
   async documentFile(account: EdpAccount, docType: string): Promise<{ stream: Readable; mimeType: string; name: string }> {
     const p = await loadApplication(account.id);
     const code = docType.toUpperCase();
     if (!edpUsesDocumentType(code)) throw AppError.notFound('No file has been uploaded for this document');
-    const draft = editable(p) ? await appFiles().findOne({ where: { applicationId: p.id, docType: code } }) : null;
+    const draft = !legacySubmission(p) ? await appFiles().findOne({ where: { applicationId: p.id, docType: code } }) : null;
     const stored =
-      !draft && p.studentId
-        ? await AppDataSource.getRepository(StudentDocument).findOne({ where: { studentId: p.studentId, docType: code, isDelete: false } })
+      !draft && legacySubmission(p)
+        ? await AppDataSource.getRepository(StudentDocument).findOne({ where: { studentId: p.studentId!, docType: code, isDelete: false } })
         : null;
     const f = draft ?? stored;
     if (!f) throw AppError.notFound('No file has been uploaded for this document');
@@ -450,56 +549,234 @@ export const edpApplicationService = {
   },
 
   /*
-   * Final submission: every step checked again, the documents with the admin form's rules, then the registration is
-   * created through the same path as the admin form (registrationService.register: validation, duplicate Aadhaar → 409,
-   * registration number, files stored with it). It then appears in the Amrut admin panel's Student Registrations.
+   * Final submission (once): every step checked again, with the documents. The application then becomes the submitted
+   * record in the EDP system — nothing is copied to the Amrut admin panel's student register. In one transaction (under
+   * a per-Aadhaar lock, so two applications with the same Aadhaar cannot both pass): the duplicate check (another EDP
+   * registration with this Aadhaar → 409), the registration ID (EDP-000001) and number, and the documents moved into the
+   * candidate's own folder (edp/candidates/<registration ID>_<name>/). If anything fails, the files are moved back.
    */
-  async submit(req: Request, account: EdpAccount, body: SubmitBody) {
+  async submit(req: Request, account: EdpAccount, _body: SubmitBody) {
     const first = await loadApplication(account.id);
     return withApplicationLock(first.id, async () => {
       const p = await loadApplication(account.id);
       if (p.status !== STATUS.DRAFT) throw AppError.conflict(EDP_MESSAGES.ALREADY_SUBMITTED, EDP_ERROR_CODES.ALREADY_SUBMITTED);
-      const barcodes = { ...p.barcodes, ...(body.barcodes ?? {}) };
-      if (body.barcodes) await apps().update(p.id, { barcodes });
-
+      /* body.barcodes is still accepted (an older page may send it) but not used: the portal asks for no barcodes. */
       const errors: FieldError[] = [];
-      const parsed = fullForm.safeParse({ ...draftForm(p), email: account.email });
+      const form = { ...draftForm(p), email: account.email };
+      const parsed = fullForm.safeParse(form);
       if (!parsed.success) errors.push(...zodErrors(parsed.error.issues));
+      else {
+        /* The references are checked as they stand now: a centre or allocation may have been deactivated since step 2. */
+        errors.push(...(await checkGeography(parsed.data.district_id, parsed.data.taluka_id)));
+        errors.push(...(await centreService.checkStudentChoice(parsed.data.centre_id, parsed.data.technology)));
+      }
       const masters = await mastersService.loadLookup();
-      const files = await appFiles().find({ where: { applicationId: p.id } });
-      checkDocuments(
-        masters,
-        (c) => files.some((f) => f.docType === c),
-        (c) => barcodes[c]?.trim() || null,
-        errors,
-      );
-      const prepared = await preparedFromDraft(files, masters, barcodes, errors);
+      const files = (await appFiles().find({ where: { applicationId: p.id } })).filter((f) => edpUsesDocumentType(f.docType));
+      checkDocuments(masters, (c) => files.some((f) => f.docType === c), errors);
+      checkStoredTypes(files, masters, errors);
       if (errors.length || !parsed.success) throw AppError.validation(errors);
 
-      const result = await registrationService.register(
-        req,
-        { ...parsed.data, declaration_accepted: true },
-        { actorUserId: await systemUserId(), files: prepared, channel: 'EDP' },
-      );
-      const now = new Date();
-      await apps().update(p.id, {
-        status: STATUS.SUBMITTED,
-        studentId: result.studentId,
-        submittedAt: now,
-        currentStep: 3,
-        data: {},
-        aadhaarEnc: null,
-        barcodes: {},
-      });
-      await clearDraftFiles(p.id);
+      const digits = digitsOnly(parsed.data.aadhaar_number);
+      const bidx = aadhaarBlindIndex(digits);
+      const { aadhaar_number: _a, ...clean } = dropInapplicable(parsed.data as unknown as Form);
+      const moved: { from: string; to: string }[] = [];
+      let result: { code: string; number: string; folder: string };
+      try {
+        result = await AppDataSource.transaction(async (m) => {
+          await m.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`edp-aadhaar:${bidx}`]);
+          if (await aadhaarTaken(m, bidx, p.id)) throw AppError.conflict(REGISTRATION_MESSAGES.DUPLICATE);
+          const [{ n }] = (await m.query(`SELECT nextval('edp_registration_code_seq') AS "n"`)) as { n: string }[];
+          const code = 'EDP-' + String(n).padStart(6, '0');
+          const number = await allocateEdpNumber(m);
+          const folder = candidateFolder(code, parsed.data.first_name, parsed.data.last_name);
+          for (const f of files) {
+            const to = documentStorage.edpCandidateKey(folder, `${f.docType}${path.extname(f.storageKey)}`);
+            await documentStorage.move(f.storageKey, to);
+            moved.push({ from: f.storageKey, to });
+            await m.getRepository(EdpApplicationFile).update(f.id, { storageKey: to });
+          }
+          await m.getRepository(EdpApplication).update(p.id, {
+            status: STATUS.SUBMITTED,
+            submittedAt: new Date(),
+            currentStep: 3,
+            registrationCode: code,
+            registrationNumber: number,
+            aadhaarBidx: bidx,
+            aadhaarLast4: digits.slice(-4),
+            data: clean as Record<string, string>,
+            barcodes: {},
+          });
+          return { code, number, folder };
+        });
+      } catch (err) {
+        for (const mv of moved.reverse())
+          await documentStorage.move(mv.to, mv.from).catch((e) => logger.error({ err: e, key: mv.to }, 'could not move an EDP file back'));
+        if ((err as { driverError?: { code?: string } }).driverError?.code === '23505')
+          throw AppError.conflict(REGISTRATION_MESSAGES.DUPLICATE);
+        throw err;
+      }
+      /* Files of types the portal no longer lists stay out of the candidate's folder and are removed. */
+      const leftovers = await appFiles().find({ where: { applicationId: p.id } });
+      for (const f of leftovers.filter((x) => !edpUsesDocumentType(x.docType))) {
+        await appFiles().delete(f.id);
+        await documentStorage
+          .remove(f.storageKey)
+          .catch((e) => logger.error({ err: e, key: f.storageKey }, 'could not delete an EDP file'));
+      }
       await auditService.record(req, {
         action: 'edp.application.submitted',
         resource: 'edp_application',
         resourceId: p.id,
         actorUserId: null,
-        details: { studentId: result.studentId, code: result.registration_id, files: prepared.length },
+        details: { code: result.code, registrationNumber: result.number, folder: result.folder, files: files.length },
       });
-      return { registration_id: result.registration_id, registration_number: result.registration_number, status: result.status };
+      return { registration_id: result.code, registration_number: result.number, status: STATUS.SUBMITTED };
     });
+  },
+
+  /*
+   * The EDP tracking panel's full view of one candidate (any stage): account, steps, every form value with names,
+   * the Aadhaar masked, and the documents. A submission from before migration 1795600000000 is read from the student
+   * register.
+   */
+  async adminView(accountId: string) {
+    const account = await AppDataSource.getRepository(EdpAccountEntity).findOne({ where: { id: accountId, isDelete: false } });
+    if (!account) throw AppError.notFound('Student not found');
+    const p = await loadApplication(account.id);
+    const masters = await mastersService.loadLookup();
+    const docName = (code: string) => edpDocument(code)?.label ?? masters.find('documentType', code)?.name ?? DOC_LABEL.get(code) ?? code;
+    let form: Form;
+    let aadhaarMasked: string | null;
+    let files: { doc_type: string; name: string; original_name: string; mime_type: string; size_bytes: number; uploaded_at: Date }[];
+    let registration: { registration_id: string | null; registration_number: string | null } | null = null;
+    if (legacySubmission(p)) {
+      const student = await AppDataSource.getRepository(Student).findOne({ where: { id: p.studentId!, isDelete: false } });
+      form = student ? studentForm(student) : (Object.fromEntries(EDP_FORM_FIELDS.map((k) => [k, ''])) as Form);
+      aadhaarMasked = student ? maskAadhaar(student.aadhaarLast4) : null;
+      files = student
+        ? (await AppDataSource.getRepository(StudentDocument).find({ where: { studentId: student.id, isDelete: false } }))
+            .filter((f) => edpUsesDocumentType(f.docType))
+            .map((f) => ({
+              doc_type: f.docType,
+              name: docName(f.docType),
+              original_name: f.originalName,
+              mime_type: f.mimeType,
+              size_bytes: f.sizeBytes,
+              uploaded_at: f.createdAt,
+            }))
+        : [];
+      if (student) registration = { registration_id: student.code, registration_number: student.registrationNumber };
+    } else {
+      form = draftForm(p);
+      aadhaarMasked = p.aadhaarLast4
+        ? maskAadhaar(p.aadhaarLast4)
+        : form.aadhaar_number
+          ? maskAadhaar(form.aadhaar_number.slice(-4))
+          : null;
+      files = (await appFiles().find({ where: { applicationId: p.id } }))
+        .filter((f) => edpUsesDocumentType(f.docType))
+        .map((f) => ({
+          doc_type: f.docType,
+          name: docName(f.docType),
+          original_name: f.originalName,
+          mime_type: f.mimeType,
+          size_bytes: f.sizeBytes,
+          uploaded_at: f.updatedAt,
+        }));
+      if (p.registrationCode) registration = { registration_id: p.registrationCode, registration_number: p.registrationNumber };
+    }
+    form.aadhaar_number = '';
+    form.email ||= account.email;
+    const order = new Map(EDP_DOCUMENTS.map((d, i) => [d.code, i]));
+    files.sort((a, b) => (order.get(a.doc_type) ?? 99) - (order.get(b.doc_type) ?? 99));
+    return {
+      account: {
+        id: account.id,
+        name: [account.firstName, account.middleName, account.lastName].filter(Boolean).join(' '),
+        email: account.email,
+        mobile_number: account.mobile,
+        created_at: account.createdAt,
+        email_verified_at: account.emailVerifiedAt,
+        last_login_at: account.lastLoginAt,
+      },
+      status: p.status,
+      steps: { basic_completed_at: p.basicCompletedAt, main_completed_at: p.mainCompletedAt, submitted_at: p.submittedAt },
+      registration,
+      aadhaar_masked: aadhaarMasked,
+      form,
+      display: await referenceNames(form),
+      documents: EDP_DOCUMENTS.map((d) => ({
+        code: d.code,
+        name: d.label,
+        required: d.required,
+        file: files.find((f) => f.doc_type === d.code) ?? null,
+      })),
+    };
+  },
+
+  /* A candidate's document for the tracking panel (any stage). */
+  async adminDocumentFile(
+    accountId: string,
+    docType: string,
+  ): Promise<{ stream: Readable; mimeType: string; name: string; downloadName: string }> {
+    const c = await this.candidateFiles(accountId);
+    const code = docType.toUpperCase();
+    const f = c.files.find((x) => x.docType === code);
+    if (!f) throw AppError.notFound('No file has been uploaded for this document');
+    return {
+      stream: await documentStorage.read(f.storageKey),
+      mimeType: f.mimeType,
+      name: f.originalName,
+      /* e.g. EDP-000001_Kavya_Jadhav_Photo.pdf */
+      downloadName: `${c.folder}_${fileLabel(code)}${f.ext}`,
+    };
+  },
+
+  /*
+   * A candidate's documents as one folder (the EDP tracking panel's "Download all"): the folder is named like the
+   * candidate's storage folder (registration ID and name; the name alone before submission), and each file after its
+   * place in the form and its label, e.g. 01_Photo.pdf. Files are streamed from storage, never all held in memory.
+   */
+  async adminDocumentsFolder(accountId: string) {
+    const c = await this.candidateFiles(accountId);
+    if (!c.files.length) throw AppError.notFound('No documents have been uploaded yet');
+    const order = new Map(EDP_DOCUMENTS.map((d, i) => [d.code, i]));
+    const files = [...c.files].sort((a, b) => (order.get(a.docType) ?? 99) - (order.get(b.docType) ?? 99));
+    return {
+      folder: c.folder,
+      entries: files.map((f) => ({
+        path: `${c.folder}/${String((order.get(f.docType) ?? 98) + 1).padStart(2, '0')}_${fileLabel(f.docType)}${f.ext}`,
+        open: () => documentStorage.read(f.storageKey),
+      })),
+    };
+  },
+
+  /* A candidate's stored portal documents (the application's, or for an earlier submission the student register's) and folder name. */
+  async candidateFiles(accountId: string) {
+    const account = await AppDataSource.getRepository(EdpAccountEntity).findOne({ where: { id: accountId, isDelete: false } });
+    if (!account) throw AppError.notFound('Student not found');
+    const p = await loadApplication(account.id);
+    type Stored = { docType: string; storageKey: string; mimeType: string; originalName: string };
+    let stored: Stored[];
+    let folder: string;
+    if (legacySubmission(p)) {
+      const student = await AppDataSource.getRepository(Student).findOne({ where: { id: p.studentId!, isDelete: false } });
+      stored = student
+        ? await AppDataSource.getRepository(StudentDocument).find({ where: { studentId: student.id, isDelete: false } })
+        : [];
+      folder = candidateFolder(student?.code ?? 'EDP', student?.firstName ?? account.firstName, student?.lastName ?? account.lastName);
+    } else {
+      stored = await appFiles().find({ where: { applicationId: p.id } });
+      const form = draftForm(p);
+      const first = form.first_name || account.firstName;
+      const last = form.last_name || account.lastName;
+      folder = p.registrationCode ? candidateFolder(p.registrationCode, first, last) : candidateFolder('DRAFT', first, last);
+    }
+    return {
+      folder,
+      files: stored
+        .filter((f) => edpUsesDocumentType(f.docType))
+        .map((f) => ({ ...f, ext: path.extname(f.storageKey) || extFor(f.mimeType) })),
+    };
   },
 };

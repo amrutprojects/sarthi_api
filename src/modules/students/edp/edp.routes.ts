@@ -6,14 +6,25 @@ import { validateRequest } from '../../../middleware/validate-request.middleware
 import { ApiResponse } from '../../../utils/api-response';
 import { receiveRegistrationUpload } from '../registration/registration-upload.middleware';
 import { edpController as c } from './edp.controller';
-import { requireEdpAdmin, requireEdpStudent } from './edp.security';
+import { parentIdParams } from '../../../shared/validation/common.validation';
+import { publicGeographyRouter } from '../../../cms/masters/geography/geography.routes';
+import {
+  centreIdSchema,
+  centreStatusSchema,
+  createCentreSchema,
+  listCentresSchema,
+  updateCentreSchema,
+} from '../../../masters/centre/centre.validator';
+import { requireEdpAdmin, requireEdpEditor, requireEdpStudent } from './edp.security';
 import {
   applicantParams,
   docTypeParams,
+  fileDownloadQuery,
   emailBody,
   followUpBody,
   loginBody,
   manageListQuery,
+  newUserBody,
   otpBody,
   resetPasswordBody,
   resetTokenBody,
@@ -21,6 +32,8 @@ import {
   signupBody,
   stepParams,
   submitBody,
+  supportBody,
+  userStatusBody,
 } from './edp.validation';
 
 /* Per-IP limit for sign-up, OTP and sign-in, on top of the global API limit. */
@@ -63,10 +76,48 @@ edpRouter.post('/manage/auth/login', edpLimiter, validateRequest({ body: loginBo
 edpRouter.get('/manage/me', requireEdpAdmin, c.manageMe);
 edpRouter.get('/manage/summary', requireEdpAdmin, c.manageSummary);
 edpRouter.get('/manage/applicants', requireEdpAdmin, validateRequest({ query: manageListQuery }), c.manageList);
+edpRouter.get('/manage/applicants/:id', requireEdpAdmin, validateRequest({ params: applicantParams }), c.manageApplicant);
+edpRouter.get(
+  '/manage/applicants/:id/documents/:docType/file',
+  requireEdpAdmin,
+  validateRequest({ params: applicantParams.merge(docTypeParams), query: fileDownloadQuery }),
+  c.manageApplicantFile,
+);
+edpRouter.get('/manage/applicants/:id/documents.zip', requireEdpAdmin, validateRequest({ params: applicantParams }), c.manageApplicantZip);
 edpRouter.get('/manage/applicants/:id/follow-ups', requireEdpAdmin, validateRequest({ params: applicantParams }), c.manageFollowUps);
 edpRouter.post(
   '/manage/applicants/:id/follow-ups',
   requireEdpAdmin,
+  requireEdpEditor,
   validateRequest({ params: applicantParams, body: followUpBody }),
   c.manageAddFollowUp,
 );
+
+/* Dependent dropdowns of the form (public, like /options): talukas of a district, technologies of a centre. */
+edpRouter.get('/districts/:districtId/talukas', validateRequest({ params: parentIdParams('districtId') }), c.districtTalukas);
+edpRouter.get('/centres/:centreId/technologies', validateRequest({ params: parentIdParams('centreId') }), c.centreTechnologies);
+/* State → District → Taluka for the tracking panel's Center Master form: the public geography feed. */
+edpRouter.use('/geography', publicGeographyRouter);
+
+/* Center Master in the tracking panel: the same centres (and service) as the Amrut admin panel's Center Master. */
+edpRouter.get('/manage/centres', requireEdpAdmin, validateRequest(listCentresSchema), c.manageCentres);
+edpRouter.get('/manage/technology-options', requireEdpAdmin, c.manageTechnologyOptions);
+edpRouter.post('/manage/centres', requireEdpAdmin, requireEdpEditor, validateRequest(createCentreSchema), c.manageCreateCentre);
+edpRouter.get('/manage/centres/:id', requireEdpAdmin, validateRequest(centreIdSchema), c.manageCentre);
+edpRouter.patch('/manage/centres/:id', requireEdpAdmin, requireEdpEditor, validateRequest(updateCentreSchema), c.manageUpdateCentre);
+edpRouter.patch('/manage/centres/:id/status', requireEdpAdmin, requireEdpEditor, validateRequest(centreStatusSchema), c.manageCentreStatus);
+
+/* Tracking panel users: ADMIN only (a VIEWER views and downloads, and cannot add or change users). */
+edpRouter.get('/manage/users', requireEdpAdmin, requireEdpEditor, c.manageUsers);
+edpRouter.post('/manage/users', requireEdpAdmin, requireEdpEditor, validateRequest({ body: newUserBody }), c.manageAddUser);
+edpRouter.patch(
+  '/manage/users/:id/status',
+  requireEdpAdmin,
+  requireEdpEditor,
+  validateRequest({ params: applicantParams, body: userStatusBody }),
+  c.manageUserStatus,
+);
+
+/* The support contact line shown to students: every tracking panel user reads it, an ADMIN saves it. */
+edpRouter.get('/manage/settings/support', requireEdpAdmin, c.manageSupport);
+edpRouter.put('/manage/settings/support', requireEdpAdmin, requireEdpEditor, validateRequest({ body: supportBody }), c.manageSaveSupport);

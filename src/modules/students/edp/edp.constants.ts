@@ -1,5 +1,7 @@
 /* ENTREPRENEURSHIP DEVELOPMENT PROGRAM (EDP) portal, edp.sumago.ai. */
 export const EDP_PROGRAM_NAME = 'ENTREPRENEURSHIP DEVELOPMENT PROGRAM';
+/* The same name in title case, for emails (all-capital text reads as shouting and raises spam scores). */
+export const EDP_PROGRAM_TITLE = 'Entrepreneurship Development Program';
 export const EDP_ORGANISATION = 'Sumago Infotech Pvt. Ltd.';
 
 /* A form is submitted once and is final: it cannot be edited or resubmitted afterwards. */
@@ -18,6 +20,14 @@ export const EDP_STAGES = {
   SUBMITTED: 'Form submitted',
 } as const;
 export type EdpStage = keyof typeof EDP_STAGES;
+
+/*
+ * Tracking panel roles: ADMIN may do everything (Center Master, follow-ups, users); VIEWER only views and downloads
+ * (applicants, details, documents, follow-up history, Center Master).
+ */
+export const EDP_ADMIN_ROLES = ['ADMIN', 'VIEWER'] as const;
+export type EdpAdminRole = (typeof EDP_ADMIN_ROLES)[number];
+export const EDP_VIEW_ONLY_MESSAGE = 'Your account can only view. Ask an administrator to make this change.';
 
 /* Follow-up statuses the EDP team records in the tracking panel (each with an optional note). */
 export const EDP_FOLLOW_UP_STATUS = {
@@ -44,15 +54,79 @@ export const EDP_BASIC_FIELDS = [
   'caste_id',
 ] as const;
 export const EDP_MAIN_FIELDS = ['region_id', 'technology', 'education_id'] as const;
-export const EDP_FORM_FIELDS = [...EDP_BASIC_FIELDS, ...EDP_MAIN_FIELDS] as const;
+
+/*
+ * The portal's own details on top of the admin form's (stored in the students row's EDP columns, migration
+ * 1795300000000). Step 1: personal and address details; step 2: centre (its technologies) and qualification.
+ */
+export const EDP_BASIC_EXTRA_FIELDS = [
+  'gender',
+  'marital_status',
+  'permanent_address',
+  'landmark',
+  'district_id',
+  'taluka_id',
+  'pin_code',
+  'alternate_mobile_number',
+  'alternate_email',
+  'disability_status',
+  'disability_type',
+  'disability_certificate_number',
+] as const;
+export const EDP_MAIN_EXTRA_FIELDS = [
+  'centre_id',
+  'qualification_name',
+  'qualification_stream',
+  'qualification_board',
+  'qualification_completed_on',
+  'grading_type',
+  'cgpa_scale',
+  'score',
+  'qualification_class',
+] as const;
+
+export const EDP_STEP1_FIELDS = [...EDP_BASIC_FIELDS, ...EDP_BASIC_EXTRA_FIELDS] as const;
+export const EDP_STEP2_FIELDS = [...EDP_MAIN_FIELDS, ...EDP_MAIN_EXTRA_FIELDS] as const;
+export const EDP_FORM_FIELDS = [...EDP_STEP1_FIELDS, ...EDP_STEP2_FIELDS] as const;
 export type EdpFormField = (typeof EDP_FORM_FIELDS)[number];
 
 /*
- * Document types the EDP portal does not use (Physical Fitness Certificate, Self-Declaration Form). They stay in the
- * Document Types master for the AMRUT admin panel's own form; the portal never lists, requires, accepts or shows them.
+ * Option lists of the portal's own fields. No official list was supplied for these: they are the configurable
+ * defaults (change them here, the portal's dropdowns follow through GET /edp/options).
  */
-export const EDP_EXCLUDED_DOCUMENT_TYPES: readonly string[] = ['FITNESS', 'SELF_DECLARATION'];
-export const edpUsesDocumentType = (code: string) => !EDP_EXCLUDED_DOCUMENT_TYPES.includes(code.toUpperCase());
+export const EDP_GENDERS = ['Male', 'Female', 'Transgender'] as const;
+export const EDP_MARITAL_STATUSES = ['Unmarried', 'Married'] as const;
+export const EDP_YES_NO = ['Yes', 'No'] as const;
+export const EDP_GRADING_TYPES = [
+  { code: 'PERCENTAGE', name: 'Percentage' },
+  { code: 'CGPA', name: 'CGPA' },
+] as const;
+/* CGPA scales in use; a CGPA is checked against the scale the student selects, never assumed to be out of 10. */
+export const EDP_CGPA_SCALES = [4, 5, 10] as const;
+export const EDP_QUALIFICATION_CLASSES = ['Distinction', 'First Class', 'Higher Second Class', 'Second Class', 'Pass Class'] as const;
+
+/*
+ * Step 3 (Upload Documents): exactly these document types, in this order, with the portal's labels and its own
+ * required rule. The codes are Document Types master codes (the master keeps its own names and isMandatory for the
+ * Amrut admin panel's form; a type missing or inactive in the master is not offered). Any other type (Caste
+ * Certificate, Change in Name, Physical Fitness, …) is neither offered, accepted, required nor shown by the portal.
+ */
+export const EDP_DOCUMENTS: readonly { code: string; label: string; required: boolean }[] = [
+  { code: 'PHOTO', label: 'Photo', required: true },
+  { code: 'SIGNATURE', label: 'Signature', required: true },
+  { code: 'AADHAAR_CARD', label: 'Aadhar Card', required: true },
+  { code: 'AADHAAR_PHOTO', label: 'Applicant Photograph with Aadhaar', required: true },
+  { code: 'APPLICANT_VIDEO', label: 'Applicant Video with Aadhaar', required: false },
+  { code: 'PAN_CARD', label: 'PAN Card', required: true },
+  { code: 'HSC_DIPLOMA', label: '12th Pass Or 3 Years Diploma Pass Marksheet / Certificate', required: true },
+  { code: 'EDU_CERT', label: 'Highest Qualification Certificate / Marksheet', required: true },
+  { code: 'INCOME_EWS', label: 'EWS Certificate', required: true },
+  { code: 'SCHOOL_LEAVING', label: 'School Leaving Certificate / Transfer Certificate', required: true },
+  { code: 'DOMICILE', label: 'Domicile of Certificate Maharashtra', required: true },
+];
+const EDP_DOCUMENT_BY_CODE = new Map(EDP_DOCUMENTS.map((d) => [d.code, d]));
+export const edpDocument = (code: string) => EDP_DOCUMENT_BY_CODE.get(code.toUpperCase()) ?? null;
+export const edpUsesDocumentType = (code: string) => EDP_DOCUMENT_BY_CODE.has(code.toUpperCase());
 
 export const EDP_OTP_LENGTH = 6;
 /* Wrong codes accepted for one emailed code before a new one must be requested. */

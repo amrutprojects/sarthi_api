@@ -34,8 +34,9 @@ export class EdpAccount extends AppBaseEntity {
 }
 
 /*
- * The account's application. Before submission `data` holds the form draft (Aadhaar only in aadhaarEnc, encrypted);
- * from submission on (once, final) the students row (studentId) is the record and the draft is cleared.
+ * The account's application. `data` holds the form (Aadhaar only in aadhaarEnc, encrypted). It is submitted once (final)
+ * and stays in the EDP system: the row, with its files, is the submitted record (registrationCode). Applications
+ * submitted before migration 1795600000000 were copied into the student register (studentId) and are read from there.
  * (The table's resubmittedAt and editUsed columns belonged to the dropped edit-once feature: no longer used, kept.)
  */
 @Entity({ name: 'edp_applications' })
@@ -50,6 +51,12 @@ export class EdpApplication extends AppBaseEntity {
   @Column({ type: 'timestamptz', name: 'mainCompletedAt', nullable: true }) mainCompletedAt!: Date | null;
   @Column({ type: 'uuid', name: 'studentId', nullable: true }) studentId!: string | null;
   @Column({ type: 'timestamptz', name: 'submittedAt', nullable: true }) submittedAt!: Date | null;
+  /* The EDP registration (migration 1795600000000): EDP-000001 and MMDDHHmmssSSSfff, allocated at submission. */
+  @Column({ type: 'varchar', length: 20, name: 'registrationCode', nullable: true }) registrationCode!: string | null;
+  @Column({ type: 'varchar', length: 16, name: 'registrationNumber', nullable: true }) registrationNumber!: string | null;
+  /* Set at submission: blind index (one submitted application per Aadhaar) and the last four digits (masked display). */
+  @Column({ type: 'char', length: 64, name: 'aadhaarBidx', nullable: true, select: false }) aadhaarBidx!: string | null;
+  @Column({ type: 'char', length: 4, name: 'aadhaarLast4', nullable: true }) aadhaarLast4!: string | null;
 }
 
 /* A document uploaded in step 3, held until the application is submitted. */
@@ -71,6 +78,8 @@ export class EdpAdmin extends AppBaseEntity {
   @Column({ type: 'varchar', length: 254 }) email!: string;
   @Column({ type: 'varchar', length: 255, name: 'passwordHash', select: false }) passwordHash!: string;
   @Column({ type: 'timestamptz', name: 'lastLoginAt', nullable: true }) lastLoginAt!: Date | null;
+  /* ADMIN or VIEWER (migration 1795700000000); see EDP_ADMIN_ROLES. */
+  @Column({ type: 'varchar', length: 10, default: 'ADMIN' }) role!: string;
 }
 
 /* One follow-up of a student by the EDP team (migration 1794800000000); the newest is the current follow-up status. */
