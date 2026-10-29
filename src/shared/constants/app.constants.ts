@@ -229,6 +229,7 @@ export const AUDIT_ACTIONS = {
   TOPBAR_LINK_DELETE: 'cms.top-bar-link.delete',
   TOPBAR_LINKS_REORDER: 'cms.top-bar-links.reorder',
   TOPBAR_SETTINGS_UPDATE: 'cms.top-bar-settings.update',
+  BRANDBAR_UPDATE: 'cms.brand-bar.update',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

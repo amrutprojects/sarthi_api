@@ -57,6 +57,7 @@ export const MENUS = {
   'cms-modules': 'Modules Page Management',
   'cms-announcements': 'Announcements',
   'cms-topbar': 'Top Bar',
+  'cms-brandbar': 'Brand Bar',
   'cms-hero': 'Home Hero Section',
   'cms-board': 'Board Members Management',
   'cms-ecosystem': 'The AMRUT Ecosystem',
@@ -167,6 +168,8 @@ export const PERMISSIONS = {
   CMS_TOPBAR_CREATE: def('cms-topbar.create', 'Add Top Bar', 'Add in the Top Bar menu'),
   CMS_TOPBAR_UPDATE: def('cms-topbar.update', 'Update Top Bar', 'Update in the Top Bar menu'),
   CMS_TOPBAR_DELETE: def('cms-topbar.delete', 'Delete Top Bar', 'Delete in the Top Bar menu'),
+  CMS_BRANDBAR_VIEW: def('cms-brandbar.view', 'View Brand Bar', 'View in the Brand Bar menu'),
+  CMS_BRANDBAR_UPDATE: def('cms-brandbar.update', 'Update Brand Bar', 'Update in the Brand Bar menu'),
   CMS_HERO_VIEW: def('cms-hero.view', 'View Home Hero Section', 'View in the Home Hero Section menu'),
   CMS_HERO_UPDATE: def('cms-hero.update', 'Update Home Hero Section', 'Update in the Home Hero Section menu'),
   CMS_BOARD_VIEW: def('cms-board.view', 'View Board Members Management', 'View in the Board Members Management menu'),
@@ -328,7 +331,7 @@ export const LMS_MENUS = [
  * under /cms is not part of the website.
  */
 export const WEBSITE_MENUS = [
-  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-announcements', 'cms-topbar', 'cms-hero',
+  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-announcements', 'cms-topbar', 'cms-brandbar', 'cms-hero',
   'cms-highlight', 'cms-board', 'cms-ecosystem', 'cms-schemes', 'cms-impact', 'cms-about', 'cms-programme',
   'cms-states', 'cms-districts', 'cms-talukas',
 ] as const satisfies readonly MenuKey[];

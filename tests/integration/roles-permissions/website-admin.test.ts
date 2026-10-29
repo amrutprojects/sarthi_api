@@ -14,6 +14,7 @@ import { seedProgrammeHighlight } from '../../../src/database/seeds/seed-program
 import { seedProgrammePage } from '../../../src/database/seeds/seed-programme-page';
 import { seedRbac } from '../../../src/database/seeds/seed-rbac';
 import { seedTopBar } from '../../../src/database/seeds/seed-top-bar';
+import { seedBrandBar } from '../../../src/database/seeds/seed-brand-bar';
 import { ROLE_CODES, WEBSITE_MENUS, rbacService } from '../../../src/modules/roles-permissions';
 import {
   API,
@@ -53,6 +54,7 @@ beforeAll(async () => {
     seedAboutAmrut,
     seedAnnouncements,
     seedTopBar,
+    seedBrandBar,
     seedProgrammePage,
   ]) {
     await seed(AppDataSource);
@@ -61,7 +63,7 @@ beforeAll(async () => {
 afterAll(teardownTestApp);
 
 /* The seeded grant: singleton pages are viewed and edited, list pages and geography masters also add and delete. */
-const PAGES = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-hero', 'cms-highlight', 'cms-programme'];
+const PAGES = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-brandbar', 'cms-hero', 'cms-highlight', 'cms-programme'];
 const LISTS = [
   'cms-faqs',
   'cms-eligibility',
@@ -210,6 +212,7 @@ describe('CMS operations as a Website Admin', () => {
       '/cms/announcements/settings',
       '/cms/top-bar',
       '/cms/top-bar/settings',
+      '/cms/brand-bar',
       '/cms/states',
       '/cms/districts',
       '/cms/talukas',

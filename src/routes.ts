@@ -34,6 +34,7 @@ import {
   publicImpactRouter,
   publicAnnouncementsRouter,
   publicTopBarRouter,
+  publicBrandBarRouter,
 } from './cms';
 import { lmsRouter } from './lms';
 
@@ -85,6 +86,7 @@ apiRouter.use('/public/about', publicAboutRouter);
 apiRouter.use('/public/impact', publicImpactRouter);
 apiRouter.use('/public/announcements', publicAnnouncementsRouter);
 apiRouter.use('/public/top-bar', publicTopBarRouter);
+apiRouter.use('/public/brand-bar', publicBrandBarRouter);
 
 /* ENTREPRENEURSHIP DEVELOPMENT PROGRAM portal (edp.sumago.ai) and its tracking panel; own tokens, see the route file. */
 apiRouter.use('/edp', edpRouter);

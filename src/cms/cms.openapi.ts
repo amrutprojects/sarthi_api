@@ -520,3 +520,31 @@ documentEndpoint({
   permission: 'public',
   response: envelope(TopBar.nullable()),
 });
+
+const BrandBar = z.object({
+  /* The bold title on the left of the bar, e.g. "AMRUT KALASH". Never blank. */
+  title: z.string(),
+  /* The organisation's full name, printed as two lines (Marathi above English) in every language. A blank half is a line not shown. */
+  fullName: Bilingual,
+  /* The block on the right of the bar. Null when the partner name is blank: the website then shows none. */
+  partner: z
+    .object({
+      /* The small text above the name, e.g. "अंमलबजावणी भागीदार" / "Implementation Partner". Null when it is blank. */
+      label: Bilingual.nullable(),
+      name: z.string(),
+    })
+    .nullable(),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/brand-bar',
+  tag,
+  summary: 'Brand Bar (bar under the Top Bar)',
+  description:
+    'The bar under the Top Bar on every website page: the programme title, the organisation\'s full name in Marathi and English, ' +
+    'and the implementation partner. Managed in the admin panel under CMS → Home Page Management → Brand Bar. `data` is null when ' +
+    'the Brand Bar has not been configured (the website then shows its own bundled bar).',
+  permission: 'public',
+  response: envelope(BrandBar.nullable()),
+});

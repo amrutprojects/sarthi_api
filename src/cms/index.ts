@@ -18,6 +18,7 @@ import { aboutRouter } from './about/about.routes';
 import { impactRouter } from './impact/impact.routes';
 import { announcementsRouter } from './announcements/announcements.routes';
 import { topBarRouter } from './topbar/topbar.routes';
+import { brandBarRouter } from './brandbar/brandbar.routes';
 
 export {
   ApplyPageItem,
@@ -52,6 +53,7 @@ export { publicAboutRouter } from './about/about.public.routes';
 export { publicImpactRouter } from './impact/impact.public.routes';
 export { publicAnnouncementsRouter } from './announcements/announcements.public.routes';
 export { publicTopBarRouter } from './topbar/topbar.public.routes';
+export { publicBrandBarRouter } from './brandbar/brandbar.public.routes';
 
 /*
  * /api/v1/cms — the whole CMS: the geography masters, the Masters sidebar group (src/masters) and the
@@ -80,6 +82,7 @@ cmsRouter.use('/about', aboutRouter);
 cmsRouter.use('/impact', impactRouter);
 cmsRouter.use('/announcements', announcementsRouter);
 cmsRouter.use('/top-bar', topBarRouter);
+cmsRouter.use('/brand-bar', brandBarRouter);
 /* Mounted at the root: the masters router carries its own /states, /districts and /talukas paths. */
 cmsRouter.use('/', mastersRouter);
 /* The Masters sidebar group (src/masters): /departments, /colleges, /training-centres, /batches, /documents … */

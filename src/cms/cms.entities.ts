@@ -15,6 +15,7 @@ import { ABOUT_ENTITIES } from './about/about.entities';
 import { IMPACT_ENTITIES } from './impact/impact.entities';
 import { ANNOUNCEMENT_ENTITIES } from './announcements/announcements.entities';
 import { TOPBAR_ENTITIES } from './topbar/topbar.entities';
+import { BRANDBAR_ENTITIES } from './brandbar/brandbar.entities';
 
 export { ContactOrganization, ContactPageSettings } from './contact/contact.entities';
 export { District, State, Taluka } from './masters/masters.entities';
@@ -33,6 +34,7 @@ export { AboutCard, AboutFact, AboutSection } from './about/about.entities';
 export { ImpactSection, ImpactStat } from './impact/impact.entities';
 export { Announcement, AnnouncementSettings } from './announcements/announcements.entities';
 export { TopBarLink, TopBarSettings } from './topbar/topbar.entities';
+export { BrandBarSettings } from './brandbar/brandbar.entities';
 
 /*
  * Every model the CMS contributes to the DataSource, picked up by src/entities/index.ts.
@@ -60,4 +62,5 @@ export const CMS_ENTITIES = [
   ...IMPACT_ENTITIES,
   ...ANNOUNCEMENT_ENTITIES,
   ...TOPBAR_ENTITIES,
+  ...BRANDBAR_ENTITIES,
 ];
