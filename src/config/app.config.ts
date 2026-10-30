@@ -37,6 +37,16 @@ export const appConfig = {
     rateLimitMax: env.EDP_RATE_LIMIT_MAX,
     support: { email: env.EDP_SUPPORT_EMAIL ?? null, mobile: env.EDP_SUPPORT_MOBILE ?? null },
     portalUrl: (env.EDP_PORTAL_URL ?? (env.isProduction ? 'https://edp.sumago.ai' : 'http://localhost:5175')).replace(/\/+$/, ''),
+    sms: {
+      url: env.SMS_API_URL ?? 'http://sms.happysms.in/api/sendhttp.php',
+      authKey: env.SMS_AUTH_KEY,
+      sender: env.SMS_SENDER,
+      templateId: env.SMS_DLT_TEMPLATE_ID,
+      route: env.SMS_ROUTE ?? '4',
+      country: env.SMS_COUNTRY ?? '91',
+      otpMessage:
+        env.SMS_OTP_MESSAGE ?? 'Your OTP for Entrepreneurship Development Program registration is {otp}. Valid for {seconds} seconds. - Sumago Infotech',
+    },
     smtp: {
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,

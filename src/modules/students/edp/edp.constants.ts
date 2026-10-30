@@ -129,7 +129,7 @@ export const edpDocument = (code: string) => EDP_DOCUMENT_BY_CODE.get(code.toUpp
 export const edpUsesDocumentType = (code: string) => EDP_DOCUMENT_BY_CODE.has(code.toUpperCase());
 
 export const EDP_OTP_LENGTH = 6;
-/* Wrong codes accepted for one emailed code before a new one must be requested. */
+/* Wrong codes accepted for one SMS code before a new one must be requested. */
 export const EDP_OTP_MAX_ATTEMPTS = 5;
 /* Codes one account may be sent per rolling hour. */
 export const EDP_OTP_MAX_SENDS_PER_HOUR = 10;
@@ -145,6 +145,7 @@ export const EDP_ERROR_CODES = {
   OTP_RESEND_TOO_SOON: 'OTP_RESEND_TOO_SOON',
   EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
   EMAIL_UNAVAILABLE: 'EMAIL_UNAVAILABLE',
+  SMS_UNAVAILABLE: 'SMS_UNAVAILABLE',
   ALREADY_SUBMITTED: 'ALREADY_SUBMITTED',
   RESET_LINK_INVALID: 'RESET_LINK_INVALID',
   RESET_LINK_EXPIRED: 'RESET_LINK_EXPIRED',
@@ -159,7 +160,7 @@ export const EDP_RESET_RESEND_SECONDS = 60;
 export const EDP_RESET_MAX_PER_HOUR = 5;
 
 export const EDP_MESSAGES = {
-  OTP_SENT: 'An OTP has been sent to your email address',
+  OTP_SENT: 'An OTP has been sent to your mobile number',
   OTP_INCORRECT: 'Incorrect OTP',
   OTP_EXPIRED: 'OTP has expired. Please request a new OTP.',
   OTP_NOT_PENDING: 'No OTP is pending for this account. Please request a new OTP.',
@@ -167,10 +168,11 @@ export const EDP_MESSAGES = {
   SIGNUP_PASSWORD_MISMATCH:
     'This is not the password chosen when the account was created. Enter that password, or create the account again.',
   ACCOUNT_EXISTS: 'An account with this email address already exists. Please log in.',
-  ACCOUNT_CREATED: 'Account created. Your email address is verified.',
+  ACCOUNT_CREATED: 'Account created. Your mobile number is verified.',
   LOGIN_FAILED: 'Incorrect email or password',
-  NOT_VERIFIED: 'Your email address is not verified yet. Enter the OTP sent to your email.',
+  NOT_VERIFIED: 'Your mobile number is not verified yet. Enter the OTP sent to your mobile number.',
   EMAIL_UNAVAILABLE: 'Email could not be sent right now. Please try again in a few minutes.',
+  SMS_UNAVAILABLE: 'The OTP SMS could not be sent right now. Please try again in a few minutes.',
   ALREADY_SUBMITTED: 'Your form has already been submitted. A submitted form cannot be changed.',
   SUBMITTED: 'Your form has been submitted successfully',
   RESET_LINK_SENT: `A password reset link has been sent to your email ID. The link is valid for ${EDP_RESET_LINK_MINUTES} minutes.`,

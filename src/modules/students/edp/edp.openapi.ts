@@ -49,7 +49,7 @@ const Account = z.object({
   email_verified: z.boolean(),
 });
 const Session = z.object({ token: z.string(), expires_at: z.string(), account: Account });
-const OtpTiming = z.object({ email: z.string(), otp_expires_in: z.number().int(), resend_after: z.number().int() });
+const OtpTiming = z.object({ email: z.string(), mobile_masked: z.string().nullable().describe('The mobile number the OTP was texted to, masked: +91XXXXXX1234'), otp_expires_in: z.number().int(), resend_after: z.number().int() });
 const Ref = z.object({ id: z.string().uuid(), code: z.string(), name: z.string() });
 const Options = z.object({
   regions: z.array(Ref),
@@ -112,7 +112,7 @@ documentEndpoint({
   tag,
   summary: 'Create a portal account and email a one-time code',
   description:
-    'Stores the account unverified and emails a 6-digit OTP (valid EDP_OTP_TTL_SECONDS, default 5 minutes; a new one can be requested after EDP_OTP_RESEND_SECONDS, default: once the current one has expired). Signing up again before verifying replaces the details and password; while the earlier OTP still works no new one is sent and its remaining timing is returned. A verified email → 409. Rate limited per IP.',
+    'Stores the account unverified and texts a 6-digit OTP to the mobile number (valid EDP_OTP_TTL_SECONDS, default 5 minutes; a new one can be requested after EDP_OTP_RESEND_SECONDS, default: once the current one has expired). Signing up again before verifying replaces the details and password; while the earlier OTP still works no new one is sent and its remaining timing is returned. A verified email → 409. Rate limited per IP.',
   permission: 'public',
   request: { body: signupBody },
   response: envelope(OtpTiming),
@@ -122,7 +122,7 @@ documentEndpoint({
   method: 'post',
   path: '/edp/auth/verify-otp',
   tag,
-  summary: 'Verify the emailed OTP; the account is created and signed in',
+  summary: 'Verify the SMS OTP; the account is created and signed in',
   description:
     'Needs the password chosen at sign-up with the code (the code proves the inbox, the password who signed up). Expired → 400 `OTP_EXPIRED` (checked first); wrong code → 400 `OTP_INCORRECT` ("Incorrect OTP"); another password → 400 `SIGNUP_PASSWORD_MISMATCH`; 5 wrong attempts → 429 `OTP_TOO_MANY_ATTEMPTS`.',
   permission: 'public',
@@ -135,7 +135,7 @@ documentEndpoint({
   method: 'post',
   path: '/edp/auth/resend-otp',
   tag,
-  summary: 'Email a new OTP (by default once the current one has expired); only the newest OTP works',
+  summary: 'Text a new OTP to the registered mobile number (by default once the current one has expired); only the newest OTP works',
   description: 'Too soon → 429 `OTP_RESEND_TOO_SOON` ("Please wait 4 min 47 s before requesting a new OTP.").',
   permission: 'public',
   request: { body: emailBody },

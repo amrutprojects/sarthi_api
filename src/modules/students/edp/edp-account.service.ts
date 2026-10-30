@@ -20,9 +20,12 @@ import {
 } from './edp.constants';
 import { EdpAccount, EdpApplication } from './edp.entities';
 import { edpMailer } from './edp.mailer';
+import { edpSms } from './edp.sms';
+import { maskMobile } from '../aadhaar';
 import { hashOtp, hashResetToken, newResetToken, otpMatches, passwordVersion, signEdpToken } from './edp.security';
 import type { SignupBody } from './edp.validation';
 
+type OtpTiming = { mobile_masked: string | null; otp_expires_in: number; resend_after: number };
 const accounts = () => AppDataSource.getRepository(EdpAccount);
 const HOUR_MS = 3600_000;
 /* Compared against when the email is unknown, so a failed login takes as long either way. */
@@ -58,12 +61,12 @@ export async function ensureApplication(accountId: string): Promise<void> {
 }
 
 /*
- * Emails a new one-time code, valid EDP_OTP_TTL_SECONDS (default 5 minutes). A new code can be requested
+ * Texts a new one-time code to the registered mobile number, valid EDP_OTP_TTL_SECONDS (default 5 minutes). A new code can be requested
  * EDP_OTP_RESEND_SECONDS after the previous one (default: its lifetime, i.e. once it has expired); it replaces it (only
  * the newest code works), at most EDP_OTP_MAX_SENDS_PER_HOUR an hour per account. Only an HMAC of the code is stored.
  * The send slot is taken with a conditional update, so two simultaneous requests cannot both send.
  */
-async function issueOtp(account: EdpAccount): Promise<{ otp_expires_in: number; resend_after: number }> {
+async function issueOtp(account: EdpAccount): Promise<OtpTiming> {
   const ttl = appConfig.edp.otpTtlSeconds;
   const resend = appConfig.edp.otpResendSeconds;
   const now = new Date();
@@ -98,9 +101,9 @@ async function issueOtp(account: EdpAccount): Promise<{ otp_expires_in: number; 
     })
     .execute();
   if (!taken.affected)
-    throw otpError(HTTP_STATUS.TOO_MANY_REQUESTS, 'OTP_RESEND_TOO_SOON', 'An OTP was just sent. Please check your email.');
+    throw otpError(HTTP_STATUS.TOO_MANY_REQUESTS, 'OTP_RESEND_TOO_SOON', 'An OTP was just sent. Please check the SMS on your mobile.');
   try {
-    await edpMailer.sendOtp(account.email, account.firstName, otp, ttl);
+    await edpSms.sendOtp(account.mobile, otp, ttl);
   } catch (err) {
     /* Not sent: free the slot so the student can try again straight away, and do not count it toward the hourly limit. */
     await accounts().update(account.id, {
@@ -112,14 +115,15 @@ async function issueOtp(account: EdpAccount): Promise<{ otp_expires_in: number; 
     });
     throw err;
   }
-  return { otp_expires_in: ttl, resend_after: resend };
+  return { mobile_masked: maskMobile(account.mobile), otp_expires_in: ttl, resend_after: resend };
 }
 
 /* The pending code's remaining lifetime and the wait before a new one, in seconds from now (0 = expired / now). */
-function otpTiming(account: EdpAccount): { otp_expires_in: number; resend_after: number } {
+function otpTiming(account: EdpAccount): OtpTiming {
   const now = Date.now();
   const left = (at: number) => Math.max(0, Math.ceil((at - now) / 1000));
   return {
+    mobile_masked: maskMobile(account.mobile),
     otp_expires_in: account.otpExpiresAt ? left(account.otpExpiresAt.getTime()) : 0,
     resend_after: account.otpSentAt ? left(account.otpSentAt.getTime() + appConfig.edp.otpResendSeconds * 1000) : 0,
   };
@@ -146,9 +150,9 @@ async function accountForResetToken(token: string): Promise<EdpAccount> {
 
 export const edpAccountService = {
   /*
-   * Create account: stores the account unverified and emails a one-time code; a verified email → 409. Signing up again
+   * Create account: stores the account unverified and sends a one-time code by SMS; a verified email → 409. Signing up again
    * before verifying replaces the details and password (e.g. a corrected mobile number). While the code already sent still
-   * works no new one is emailed (the page counts down that code); after it has expired a new one is. The code alone does
+   * works no new one is sent (the page counts down that code); a changed mobile number always gets a new one; after it has expired a new one is. The code alone does
    * not finish the sign-up: verify-otp also needs the password chosen here, so someone who signs up with another
    * person's email cannot end up with a verified account carrying their own password.
    */
@@ -164,8 +168,11 @@ export const edpAccountService = {
     };
     let account: EdpAccount;
     if (existing) {
-      await accounts().update(existing.id, values);
-      account = { ...existing, ...values };
+      /* A corrected mobile number: the code already sent went to the old one, so it is dropped and a new one goes out now. */
+      const mobileChanged = existing.mobile !== values.mobile;
+      const reset = mobileChanged ? { otpHash: null, otpExpiresAt: null, otpSentAt: null, otpAttempts: 0 } : {};
+      await accounts().update(existing.id, { ...values, ...reset });
+      account = { ...existing, ...values, ...reset };
     } else {
       try {
         account = await accounts().save(accounts().create({ ...values, email: body.email }));
@@ -205,8 +212,8 @@ export const edpAccountService = {
   },
 
   /*
-   * Checks the emailed code: past its expiry → 400 "OTP has expired" (checked first, so an expired code always says so),
-   * wrong → 400 "Incorrect OTP" (EDP_OTP_MAX_ATTEMPTS per code). The code proves the inbox, not who chose the password,
+   * Checks the SMS code: past its expiry → 400 "OTP has expired" (checked first, so an expired code always says so),
+   * wrong → 400 "Incorrect OTP" (EDP_OTP_MAX_ATTEMPTS per code). The code proves the handset, not who chose the password,
    * so the password chosen at sign-up must come with it: another one → 400 SIGNUP_PASSWORD_MISMATCH (counted as a wrong
    * attempt). Correct → the account is verified, its application is created and the student is signed in.
    */

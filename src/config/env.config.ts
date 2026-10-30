@@ -155,6 +155,26 @@ const schema = z.object({
   SMTP_PASS: blankAsUnset(z.string().optional()),
   /* Sender, e.g. "EDP – Sumago Infotech <no-reply@sumago.ai>". Defaults to SMTP_USER. */
   SMTP_FROM: blankAsUnset(z.string().optional()),
+  /*
+   * SMS gateway for the sign-up one-time codes (HappySMS-style HTTP API: GET SMS_API_URL?authkey=&mobiles=&message=&sender=
+   * &route=&country=&DLT_TE_ID=). SMS_DLT_TEMPLATE_ID is the TRAI/DLT-registered template; SMS_OTP_MESSAGE must be that
+   * template's text with {otp} and {minutes} where its variables are, or the operator drops the SMS. Unset auth key =
+   * no SMS (development logs the code instead; any other environment refuses).
+   */
+  SMS_API_URL: blankAsUnset(z.string().trim().url('SMS_API_URL must be a URL').optional()),
+  SMS_AUTH_KEY: blankAsUnset(z.string().trim().optional()),
+  SMS_SENDER: blankAsUnset(z.string().trim().regex(/^[A-Za-z0-9]{3,11}$/, 'SMS_SENDER must be 3-11 letters or digits').optional()),
+  SMS_DLT_TEMPLATE_ID: blankAsUnset(z.string().trim().regex(/^\d{10,25}$/, 'SMS_DLT_TEMPLATE_ID must be digits').optional()),
+  SMS_ROUTE: blankAsUnset(z.string().trim().max(10).optional()),
+  SMS_COUNTRY: blankAsUnset(z.string().trim().regex(/^\d{1,4}$/, 'SMS_COUNTRY must be a dialling code, e.g. 91').optional()),
+  SMS_OTP_MESSAGE: blankAsUnset(
+    z
+      .string()
+      .trim()
+      .max(480)
+      .refine((v) => v.includes('{otp}'), 'SMS_OTP_MESSAGE must contain {otp}')
+      .optional(),
+  ),
   /* The tracking panel's sign-in, created by `npm run seed` when both are set (never overwritten afterwards). */
   EDP_ADMIN_EMAIL: blankAsUnset(z.string().email('EDP_ADMIN_EMAIL must be an email address').optional()),
   EDP_ADMIN_PASSWORD: blankAsUnset(z.string().min(10, 'EDP_ADMIN_PASSWORD must be at least 10 characters').optional()),

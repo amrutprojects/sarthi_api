@@ -10,6 +10,7 @@ import { withVerhoeffDigit } from '../../src/modules/students/aadhaar';
 import { storageRoot } from '../../src/modules/students/documents/document-storage';
 import { StudentDocument } from '../../src/modules/students/documents/student-document.entity';
 import { edpMailer } from '../../src/modules/students/edp/edp.mailer';
+import { edpSms } from '../../src/modules/students/edp/edp.sms';
 import { ROLE_CODES } from '../../src/modules/roles-permissions/role.constants';
 import { actorWith, API, createUser, login, request, resetData, setupTestApp, teardownTestApp } from '../helpers/test-app';
 
@@ -62,7 +63,7 @@ beforeEach(async () => {
   await edpFixtures();
   fs.rmSync(storageRoot(), { recursive: true, force: true });
   sent = 0;
-  jest.spyOn(edpMailer, 'sendOtp').mockImplementation(async (_to, _name, otp) => {
+  jest.spyOn(edpSms, 'sendOtp').mockImplementation(async (_mobile, otp) => {
     lastOtp = otp;
     sent++;
   });
@@ -207,8 +208,13 @@ describe('EDP account: sign-up with an emailed OTP', () => {
     const res = await signUp(email, { middle_name: 'Ramesh' });
     expect(res.status).toBe(HTTP_STATUS.CREATED);
     /* Valid 5 minutes; a new one can be asked for only once it has expired. */
-    expect(res.body.data).toEqual({ email: 'asha.patil@example.invalid', otp_expires_in: 300, resend_after: 300 });
-    expect(edpMailer.sendOtp).toHaveBeenCalledWith('asha.patil@example.invalid', 'Kavya', expect.stringMatching(/^\d{6}$/), 300);
+    expect(res.body.data).toEqual({
+      email: 'asha.patil@example.invalid',
+      mobile_masked: expect.stringMatching(/^\+91XXXXXX\d{4}$/),
+      otp_expires_in: 300,
+      resend_after: 300,
+    });
+    expect(edpSms.sendOtp).toHaveBeenCalledWith(expect.stringMatching(/^[6-9]\d{9}$/), expect.stringMatching(/^\d{6}$/), 300);
     const [stored] = await AppDataSource.query(
       `SELECT extract(epoch FROM "otpExpiresAt" - "otpSentAt")::int AS "lifetime" FROM "edp_accounts" WHERE "email" = $1`,
       ['asha.patil@example.invalid'],
