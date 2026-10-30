@@ -38,10 +38,10 @@ export class BoardMemberRepository extends BaseRepository<BoardMember> {
     return qb.getOne();
   }
 
-  /* The same person already listed for the same office (case-insensitive), other than `exceptId`. */
-  findDuplicate(name: string, designationEn: string, exceptId?: string, manager?: EntityManager): Promise<BoardMember | null> {
+  /* The same person already listed for the same office (English, case-insensitive), other than `exceptId`. */
+  findDuplicate(nameEn: string, designationEn: string, exceptId?: string, manager?: EntityManager): Promise<BoardMember | null> {
     const qb = this.query('m', manager)
-      .andWhere('lower(m.name) = lower(:name)', { name })
+      .andWhere('lower(m.nameEn) = lower(:nameEn)', { nameEn })
       .andWhere('lower(m.designationEn) = lower(:designationEn)', { designationEn });
     if (exceptId) qb.andWhere('m.id <> :exceptId', { exceptId });
     return qb.getOne();

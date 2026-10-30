@@ -28,7 +28,7 @@ interface Pair {
 }
 interface AdminMember {
   id: string;
-  name: string | null;
+  name: Pair | null;
   category: Pair;
   designation: Pair;
   description: Pair;
@@ -83,7 +83,7 @@ const SEEDED = [
     description: pair('योजना कार्यान्वयनाचे प्रमुख', 'Heads scheme implementation'),
   },
   {
-    name: 'Rajendra Sumago',
+    name: pair('राजेंद्र सुमागो', 'Rajendra Sumago'),
     category: pair('अंमलबजावणी भागीदार', 'Implementation Partner'),
     designation: pair('प्रकल्प संचालक, सुमागो इन्फोटेक प्रा. लि. (SUMAGO INFOTECH PVT LTD)', 'Project Director, SUMAGO INFOTECH PVT LTD'),
     description: pair('अंमलबजावणी भागीदार', 'Implementation partner'),
@@ -91,7 +91,7 @@ const SEEDED = [
 ];
 
 const member = (n: number, extra: Record<string, unknown> = {}) => ({
-  name: `CMS Test Member ${n}`,
+  name: pair(`चाचणी सदस्य ${n}`, `CMS Test Member ${n}`),
   category: pair('चाचणी', 'Test'),
   designation: pair(`चाचणी पद ${n}`, `Test designation ${n}`),
   description: pair('मराठी वर्णन — चाचणी', 'English description'),
@@ -171,12 +171,14 @@ describe('Board members seed', () => {
 describe('Creating a member', () => {
   it('creates from JSON, trims and collapses text, keeps Marathi intact and appends to the end', async () => {
     const before = await list();
-    const res = await createJson(member(1, { name: '  CMS   Test Member 1 ', subtitle: pair(' उपशीर्षक ', ' Subtitle ') }));
+    const res = await createJson(
+      member(1, { name: pair('  चाचणी   सदस्य 1 ', '  CMS   Test Member 1 '), subtitle: pair(' उपशीर्षक ', ' Subtitle ') }),
+    );
     expect(res.status).toBe(201);
     expect(res.body.message).toBe('Board member created successfully');
     const m = res.body.data as AdminMember;
     expect(m).toMatchObject({
-      name: 'CMS Test Member 1',
+      name: pair('चाचणी सदस्य 1', 'CMS Test Member 1'),
       description: pair('मराठी वर्णन — चाचणी', 'English description'),
       subtitle: pair('उपशीर्षक', 'Subtitle'),
       photoUrl: null,
@@ -187,6 +189,8 @@ describe('Creating a member', () => {
       ['category', 'createdAt', 'description', 'designation', 'displayOrder', 'id', 'isActive', 'name', 'photoUrl', 'subtitle', 'updatedAt'].sort(),
     );
     expect((await request(app).get(`${ADMIN_URL}/${m.id}`).set(auth(admin.token)).expect(200)).body.data).toEqual(m);
+    const card = (await request(app).get(PUBLIC_URL)).body.data.members.find((c: { id: string }) => c.id === m.id);
+    expect(card.name).toEqual(pair('चाचणी सदस्य 1', 'CMS Test Member 1'));
     expect(await auditCount('cms.board-member.create')).toBeGreaterThanOrEqual(1);
   });
 
@@ -203,7 +207,7 @@ describe('Creating a member', () => {
     ['JPEG', JPEG, 'photo.JPEG', 'image/jpeg'],
     ['WebP', WEBP, 'photo.webp', 'image/webp'],
   ])('stores a %s photo and serves it publicly and to the admin', async (_label, file, filename, mime) => {
-    const res = await createWithPhoto(member(3, { name: `Photo ${filename}` }), file, filename);
+    const res = await createWithPhoto(member(3, { name: pair(`फोटो ${filename}`, `Photo ${filename}`) }), file, filename);
     expect(res.status).toBe(201);
     const m = track(res.body.data as AdminMember);
     expect(m.photoUrl).toMatch(/^\/cms\/board-members\/photos\/[0-9a-f-]{36}\.(jpg|png|webp)$/);
@@ -227,25 +231,37 @@ describe('Creating a member', () => {
 
   it('refuses a duplicate of the same person for the same office (case-insensitive)', async () => {
     await createJson(member(4)).expect(201);
-    const res = await createJson(member(4, { name: 'cms test member 4', designation: pair('दुसरे', 'TEST DESIGNATION 4') }));
+    const res = await createJson(member(4, { name: pair('दुसरे नाव', 'cms test member 4'), designation: pair('दुसरे', 'TEST DESIGNATION 4') }));
     expect(res.status).toBe(409);
     expect(res.body.message).toBe('cms test member 4 is already listed with the designation "TEST DESIGNATION 4".');
   });
 });
 
 describe('Validation', () => {
-  it('requires a name — a missing key or a blank string is never a name', async () => {
+  it('requires a name in both languages — a missing key, a blank half or a single string is never a name', async () => {
     const { name: _n, ...noName } = member(5);
-    for (const payload of [noName, member(5, { name: '   ' })]) {
-      const res = await createJson(payload);
-      expect(res.status).toBe(422);
-      expect(details(res)).toContainEqual({ field: 'body.name', message: 'Name is required' });
-    }
+    const missing = await createJson(noName);
+    expect(missing.status).toBe(422);
+    expect(details(missing)).toContainEqual({ field: 'body.name', message: 'Name is required' });
+
+    const half = await createJson(member(5, { name: pair('   ', 'CMS Test Member 5') }));
+    expect(half.status).toBe(422);
+    expect(details(half)).toEqual([{ field: 'body.name.mr', message: 'Name (Marathi) is required' }]);
+
+    const single = await createJson(member(5, { name: 'CMS Test Member 5' }));
+    expect(single.status).toBe(422);
+    expect(fieldsOf(single)).toEqual(['body.name']);
+  });
+
+  it('accepts a Marathi name typed with a zero-width joiner', async () => {
+    const res = await createJson(member(9, { name: pair('सुर\u094D\u200Dया', 'Surya') }));
+    expect(res.status).toBe(201);
+    expect(res.body.data.name).toEqual(pair('सुर\u094D\u200Dया', 'Surya'));
   });
 
   it('names each missing or malformed field', async () => {
     const res = await createJson({
-      name: '<script>',
+      name: pair('<script>', 'Valid Name'),
       category: pair('', 'Only English'),
       designation: pair('पद', ''),
       description: pair('फक्त मराठी', ''),
@@ -254,18 +270,18 @@ describe('Validation', () => {
     });
     expect(res.status).toBe(422);
     expect(fieldsOf(res).sort()).toEqual(
-      ['body', 'body.category.mr', 'body.description.en', 'body.designation.en', 'body.displayOrder', 'body.name'].sort(),
+      ['body', 'body.category.mr', 'body.description.en', 'body.designation.en', 'body.displayOrder', 'body.name.mr'].sort(),
     );
     expect(details(res)).toContainEqual({ field: 'body.description.en', message: 'Description (English) is required when the Marathi text is filled in' });
   });
 
   it('refuses control characters and over-long text', async () => {
-    const res = await createJson(member(6, { name: 'Bad\u0000Name', designation: pair('x'.repeat(251), 'ok') }));
+    const res = await createJson(member(6, { name: pair('चाचणी', 'Bad\u0000Name'), designation: pair('x'.repeat(251), 'ok') }));
     expect(res.status).toBe(422);
     expect(details(res)).toEqual(
       expect.arrayContaining([
         { field: 'body.designation.mr', message: 'Designation (Marathi) must be at most 250 characters' },
-        expect.objectContaining({ field: 'body.name' }),
+        expect.objectContaining({ field: 'body.name.en' }),
       ]),
     );
   });
@@ -284,7 +300,7 @@ describe('Validation', () => {
       expect(details(res)).toEqual([{ field: 'photo', message }]);
     }
     expect(write).not.toHaveBeenCalled();
-    expect((await list()).some((m) => m.name === 'CMS Test Member 7')).toBe(false);
+    expect((await list()).some((m) => m.name?.en === 'CMS Test Member 7')).toBe(false);
   });
 
   it('refuses malformed multipart data and a second file', async () => {
@@ -305,7 +321,7 @@ describe('Validation', () => {
     expect((await request(app).get(`${ADMIN_URL}/not-a-uuid`).set(auth(admin.token))).status).toBe(422);
     const unknown = '00000000-0000-4000-8000-000000000000';
     expect((await request(app).get(`${ADMIN_URL}/${unknown}`).set(auth(admin.token))).status).toBe(404);
-    expect((await patchJson(unknown, { name: 'X' })).status).toBe(404);
+    expect((await patchJson(unknown, { name: pair('क', 'X') })).status).toBe(404);
     expect((await request(app).delete(`${ADMIN_URL}/${unknown}`).set(auth(admin.token))).status).toBe(404);
     expect((await request(app).get(`${API}/public/board-members/photos/..%2F..%2F.env`)).status).toBe(422);
     expect((await request(app).get(`${API}/public/board-members/photos/${unknown}.png`)).status).toBe(404);
@@ -347,15 +363,15 @@ describe('Editing a member', () => {
   });
 
   it('refuses a save over a newer version (409) and changes nothing', async () => {
-    const res = await patchJson(m.id, { name: 'Overwrite', expectedUpdatedAt: '2020-01-01T00:00:00.000Z' });
+    const res = await patchJson(m.id, { name: pair('बदल', 'Overwrite'), expectedUpdatedAt: '2020-01-01T00:00:00.000Z' });
     expect(res.status).toBe(409);
-    expect((await request(app).get(`${ADMIN_URL}/${m.id}`).set(auth(admin.token))).body.data.name).toBe(m.name);
+    expect((await request(app).get(`${ADMIN_URL}/${m.id}`).set(auth(admin.token))).body.data.name).toEqual(m.name);
   });
 
   it('keeps the record and its photo, and discards the new upload, when the database save fails', async () => {
     const write = jest.spyOn(documentStorage, 'write');
     jest.spyOn(auditService, 'recordInTx').mockRejectedValueOnce(new Error('simulated database failure'));
-    const res = await patchWithPhoto(m.id, { name: 'Should not stick' }, PNG, 'third.png');
+    const res = await patchWithPhoto(m.id, { name: pair('टिकू नये', 'Should not stick') }, PNG, 'third.png');
     expect(res.status).toBe(500);
 
     const attempted = write.mock.calls[0]![0] as string;
@@ -367,7 +383,7 @@ describe('Editing a member', () => {
 
   it('keeps the record and its photo when the photo cannot be stored', async () => {
     jest.spyOn(documentStorage, 'write').mockRejectedValueOnce(new Error('disk full'));
-    const res = await patchWithPhoto(m.id, { name: 'Should not stick' }, PNG, 'fourth.png');
+    const res = await patchWithPhoto(m.id, { name: pair('टिकू नये', 'Should not stick') }, PNG, 'fourth.png');
     expect(res.status).toBe(500);
     expect(res.body.message).toBe('The photo could not be saved, so nothing was changed. Please try again.');
     expect((await request(app).get(`${ADMIN_URL}/${m.id}`).set(auth(admin.token))).body.data).toEqual(m);
@@ -386,10 +402,20 @@ describe('Editing a member', () => {
     m = res.body.data;
   });
 
-  it('can clear a name back to the placeholder', async () => {
+  it('changes the Marathi name on its own, and the website follows', async () => {
+    const res = await patchJson(m.id, { name: pair('नवीन नाव', m.name!.en) });
+    expect(res.status).toBe(200);
+    expect(res.body.data.name).toEqual(pair('नवीन नाव', m.name!.en));
+    const card = (await request(app).get(PUBLIC_URL)).body.data.members.find((c: { id: string }) => c.id === m.id);
+    expect(card.name).toEqual(pair('नवीन नाव', m.name!.en));
+  });
+
+  it('can clear a name back to the placeholder, in both languages at once', async () => {
     const res = await patchJson(m.id, { name: null });
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBeNull();
+    const [row] = await AppDataSource.query(`SELECT "nameMr", "nameEn" FROM "board_members" WHERE "id" = $1`, [m.id]);
+    expect(row).toEqual({ nameMr: null, nameEn: null });
   });
 });
 
@@ -498,10 +524,10 @@ describe('Access control', () => {
     expect((await request(app).get(ADMIN_URL).set(auth(viewer.token))).status).toBe(200);
     expect((await createJson(member(31), viewer.token)).status).toBe(403);
     expect((await createWithPhoto(member(31), PNG, 'a.png', viewer.token)).status).toBe(403);
-    expect((await request(app).patch(`${ADMIN_URL}/${first!.id}`).set(auth(viewer.token)).send({ name: 'X' })).status).toBe(403);
+    expect((await request(app).patch(`${ADMIN_URL}/${first!.id}`).set(auth(viewer.token)).send({ name: pair('क', 'X') })).status).toBe(403);
     expect((await request(app).put(`${ADMIN_URL}/order`).set(auth(viewer.token)).send({ ids: [first!.id] })).status).toBe(403);
     expect((await request(app).delete(`${ADMIN_URL}/${first!.id}`).set(auth(viewer.token))).status).toBe(403);
-    expect((await list()).some((m) => m.name === 'CMS Test Member 31')).toBe(false);
+    expect((await list()).some((m) => m.name?.en === 'CMS Test Member 31')).toBe(false);
   });
 
   it('another CMS permission does not open this section', async () => {

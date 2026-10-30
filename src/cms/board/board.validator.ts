@@ -6,32 +6,44 @@ import { clean, displayOrder, expectedUpdatedAt, optionalPair, requiredPair } fr
  * Board Members request contract.
  *
  * Mirrors the database: the same lengths, the same "both languages or neither" rule for optional
- * text, the same nullable name. The CHECK constraints are the real guarantee; these rules exist so a
+ * text and for the nullable name. The CHECK constraints are the real guarantee; these rules exist so a
  * mistake comes back as a 422 naming the field rather than as a constraint violation.
  *
  * Text is normalised and checked by the shared CMS rules (../cms.text.validation.ts).
  */
 
 /*
- * A person's name, in whatever script it is written. `null` is a deliberate value — "the name is
- * still to be supplied" — and the website prints its placeholder for it. A missing key or a blank
- * string is a mistake, never a name.
+ * A person's name, in Marathi and in English. `null` is a deliberate value — "the name is still to be
+ * supplied" — and the website then prints no name. A missing key, a blank half or a name in one
+ * language only is a mistake, never a name.
+ *
+ * Zero-width joiners are allowed: Marathi keyboards use them for forms such as the eyelash र.
  */
-const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M}\p{N} .,'’()/&-]*$/u;
+const NAME_RE = /^[\p{L}\p{M}](?:[\p{L}\p{M}\p{N} .,'’()/&-]|\u200C|\u200D)*$/u;
 const NAME_REQUIRED = 'Name is required';
+const nameHalf = (label: string) =>
+  z
+    .string({ required_error: `${label} is required`, invalid_type_error: `${label} must be text` })
+    .transform(clean(false))
+    .superRefine((v, ctx) => {
+      const message = !v
+        ? `${label} is required`
+        : v.length > 120
+          ? `${label} must be at most 120 characters`
+          : !NAME_RE.test(v)
+            ? `${label} may use letters, digits, spaces and . , ' ( ) - / & only, starting with a letter`
+            : null;
+      if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+    });
 const name = z
-  .string({ required_error: NAME_REQUIRED, invalid_type_error: 'Name must be text, or null while it is not yet available' })
-  .transform(clean(false))
-  .superRefine((v, ctx) => {
-    const message = !v
-      ? NAME_REQUIRED
-      : v.length > 120
-        ? 'Name must be at most 120 characters'
-        : !NAME_RE.test(v)
-          ? "Name may use letters, digits, spaces and . , ' ( ) - / & only, starting with a letter"
-          : null;
-    if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
-  })
+  .object(
+    { mr: nameHalf('Name (Marathi)'), en: nameHalf('Name (English)') },
+    {
+      required_error: NAME_REQUIRED,
+      invalid_type_error: 'Name must have Marathi and English text, or be null while it is not yet available',
+    },
+  )
+  .strict()
   .nullable();
 
 const isActive = z.boolean({ invalid_type_error: 'Status must be true or false' });

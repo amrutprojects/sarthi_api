@@ -13,7 +13,7 @@ export interface Bilingual {
  */
 export interface AdminBoardMember {
   id: string;
-  name: string | null;
+  name: Bilingual | null;
   category: Bilingual;
   designation: Bilingual;
   description: Bilingual;
@@ -43,7 +43,7 @@ export interface AdminBoardSection {
  */
 export interface PublicBoardMember {
   id: string;
-  name: string | null;
+  name: Bilingual | null;
   category: Bilingual;
   designation: Bilingual;
   description: Bilingual | null;
@@ -60,7 +60,7 @@ export interface PublicBoardSection {
 }
 
 export interface CreateBoardMemberInput {
-  name: string | null;
+  name: Bilingual | null;
   category: Bilingual;
   designation: Bilingual;
   description?: Bilingual;

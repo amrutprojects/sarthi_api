@@ -198,8 +198,8 @@ const BoardMembers = z.object({
   members: z.array(
     z.object({
       id: z.string().uuid(),
-      /* null while the officeholder's name is still to be supplied; the website prints its placeholder. */
-      name: z.string().nullable(),
+      /* null while the officeholder's name is still to be supplied; the website then prints no name. */
+      name: Bilingual.nullable(),
       category: Bilingual,
       designation: Bilingual,
       description: Bilingual.nullable(),

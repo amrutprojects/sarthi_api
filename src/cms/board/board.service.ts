@@ -33,12 +33,14 @@ const STORE_FAILED = 'The photo could not be saved, so nothing was changed. Plea
 const pair = (mr: string, en: string): Bilingual => ({ mr, en });
 /* Optional text is blank in both languages or filled in both (database CHECK), so one half decides. */
 const orNull = (p: Bilingual): Bilingual | null => (p.mr ? p : null);
+/* Both halves of a name are null together (database CHECK): null is "still to be supplied". */
+const nameOf = (m: BoardMember): Bilingual | null => (m.nameMr !== null && m.nameEn !== null ? pair(m.nameMr, m.nameEn) : null);
 
 const isStale = (expected: string | undefined, actual: Date) => expected !== undefined && new Date(expected).getTime() !== actual.getTime();
 
 const toAdmin = (m: BoardMember): AdminBoardMember => ({
   id: m.id,
-  name: m.name,
+  name: nameOf(m),
   category: pair(m.categoryMr, m.categoryEn),
   designation: pair(m.designationMr, m.designationEn),
   description: pair(m.descriptionMr, m.descriptionEn),
@@ -53,7 +55,7 @@ const toAdmin = (m: BoardMember): AdminBoardMember => ({
 /* What the website prints — no order numbers, status, timestamps or storage keys. */
 const toPublic = (m: BoardMember): PublicBoardMember => ({
   id: m.id,
-  name: m.name,
+  name: nameOf(m),
   category: pair(m.categoryMr, m.categoryEn),
   designation: pair(m.designationMr, m.designationEn),
   description: orNull(pair(m.descriptionMr, m.descriptionEn)),
@@ -75,7 +77,7 @@ const toAdminSection = (s: BoardSection): AdminBoardSection => ({
 /* The member columns an input touches. Keys the input leaves out are not in the result at all. */
 function memberColumns(input: Partial<CreateBoardMemberInput>): QueryDeepPartialEntity<BoardMember> {
   const out: QueryDeepPartialEntity<BoardMember> = {};
-  if (input.name !== undefined) out.name = input.name;
+  if (input.name !== undefined) Object.assign(out, { nameMr: input.name?.mr ?? null, nameEn: input.name?.en ?? null });
   if (input.category) Object.assign(out, { categoryMr: input.category.mr, categoryEn: input.category.en });
   if (input.designation) Object.assign(out, { designationMr: input.designation.mr, designationEn: input.designation.en });
   if (input.description) Object.assign(out, { descriptionMr: input.description.mr, descriptionEn: input.description.en });
@@ -108,14 +110,15 @@ export class BoardService {
   }
 
   async create(input: CreateBoardMemberInput, photo: PhotoUpload | undefined, req?: Request): Promise<AdminBoardMember> {
-    if (input.name) await this.assertUnique(input.name, input.designation.en);
+    if (input.name) await this.assertUnique(input.name.en, input.designation.en);
 
     const key = await this.store(photo);
     try {
       const id = await AppDataSource.transaction(async (m) => {
         const created = await boardMemberRepository.create(
           {
-            name: input.name,
+            nameMr: input.name?.mr ?? null,
+            nameEn: input.name?.en ?? null,
             categoryMr: input.category.mr,
             categoryEn: input.category.en,
             designationMr: input.designation.mr,
@@ -135,7 +138,7 @@ export class BoardService {
           action: AUDIT_ACTIONS.BOARD_MEMBER_CREATE,
           resource: 'board-member',
           resourceId: created.id,
-          details: { name: created.name, designation: created.designationEn, photo: key !== null, isActive: created.isActive },
+          details: { name: created.nameEn, designation: created.designationEn, photo: key !== null, isActive: created.isActive },
         });
         return created.id;
       });
@@ -166,7 +169,7 @@ export class BoardService {
         if (!current) throw AppError.notFound(NOT_FOUND);
         if (isStale(input.expectedUpdatedAt, current.updatedAt)) throw AppError.conflict(STALE_MEMBER);
 
-        const name = input.name === undefined ? current.name : input.name;
+        const name = input.name === undefined ? current.nameEn : (input.name?.en ?? null);
         if (name && (input.name !== undefined || input.designation)) {
           await this.assertUnique(name, input.designation?.en ?? current.designationEn, id, m);
         }
@@ -217,7 +220,7 @@ export class BoardService {
         action: AUDIT_ACTIONS.BOARD_MEMBER_DELETE,
         resource: 'board-member',
         resourceId: id,
-        details: { name: current.name, designation: current.designationEn, photo: current.photoKey !== null },
+        details: { name: current.nameEn, designation: current.designationEn, photo: current.photoKey !== null },
       });
       return current.photoKey;
     });
@@ -317,9 +320,9 @@ export class BoardService {
     );
   }
 
-  private async assertUnique(name: string, designationEn: string, exceptId?: string, manager?: EntityManager): Promise<void> {
-    if (await boardMemberRepository.findDuplicate(name, designationEn, exceptId, manager)) {
-      throw AppError.conflict(`${name} is already listed with the designation "${designationEn}".`);
+  private async assertUnique(nameEn: string, designationEn: string, exceptId?: string, manager?: EntityManager): Promise<void> {
+    if (await boardMemberRepository.findDuplicate(nameEn, designationEn, exceptId, manager)) {
+      throw AppError.conflict(`${nameEn} is already listed with the designation "${designationEn}".`);
     }
   }
 

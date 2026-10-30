@@ -64,6 +64,7 @@ import { EdpOwnSubmissions1795600000000 } from './1795600000000-EdpOwnSubmission
 import { EdpAdminRoles1795700000000 } from './1795700000000-EdpAdminRoles';
 import { EdpSettings1795800000000 } from './1795800000000-EdpSettings';
 import { CmsBrandBar1795900000000 } from './1795900000000-CmsBrandBar';
+import { BoardMemberNameBilingual1796000000000 } from './1796000000000-BoardMemberNameBilingual';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -140,4 +141,5 @@ export const MIGRATIONS = [
   EdpAdminRoles1795700000000,
   EdpSettings1795800000000,
   CmsBrandBar1795900000000,
+  BoardMemberNameBilingual1796000000000,
 ];

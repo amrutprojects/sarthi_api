@@ -43,16 +43,20 @@ export class BoardSection extends AppBaseEntity {
 /*
  * One card of the section.
  *
- * `name` is null while the officeholder's name is still to be supplied from official records; the
- * website prints its "name to be filled" placeholder for it rather than a guessed name.
+ * The name is null in both languages while the officeholder's name is still to be supplied from
+ * official records; the website then prints no name rather than a guessed one. Otherwise both halves
+ * are filled (see the CHECKs).
  *
  * `photoKey` is where the photo is kept in the document storage ('cms/board-members/<uuid>.jpg').
  * Every upload gets a new key, so a replaced photo never reuses an old URL and can be cached freely.
  */
 @Entity({ name: 'board_members' })
 export class BoardMember extends AppBaseEntity {
-  @Column({ type: 'varchar', length: 120, name: 'name', nullable: true })
-  name!: string | null;
+  @Column({ type: 'varchar', length: 120, name: 'nameMr', nullable: true })
+  nameMr!: string | null;
+
+  @Column({ type: 'varchar', length: 120, name: 'nameEn', nullable: true })
+  nameEn!: string | null;
 
   /* The badge above the name — "राज्य शासन" / "State Government". */
   @Column({ type: 'varchar', length: 60, name: 'categoryMr' })
