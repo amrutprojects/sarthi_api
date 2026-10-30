@@ -69,6 +69,7 @@ export const contactController = {
     ApiResponse.ok(res, null, 'Coordinator deleted successfully');
   }),
 
+  
   /* ---- District offices ---- */
 
   listDistrictOffices: asyncHandler(async (req: Request, res: Response) => {  
