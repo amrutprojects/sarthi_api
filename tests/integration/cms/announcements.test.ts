@@ -61,7 +61,8 @@ const announcement = (n: number, extra: Record<string, unknown> = {}) => ({
 
 const details = (res: { body: { error: { details: Detail[] } } }) => res.body.error.details;
 const list = async (): Promise<AdminAnnouncement[]> => (await request(app).get(ADMIN_URL).set(auth(admin.token)).expect(200)).body.data;
-const publicFeed = async () => (await request(app).get(PUBLIC_URL).expect(200)).body.data as { label: Pair; items: PublicItem[] } | null;
+const publicFeed = async () =>
+  (await request(app).get(PUBLIC_URL).expect(200)).body.data as { showSection: boolean; label: Pair; items: PublicItem[] } | null;
 const publicItems = async () => (await publicFeed())!.items;
 const create = (payload: unknown, token = admin.token) =>
   request(app)
@@ -111,7 +112,7 @@ describe('Announcements seed', () => {
     expect(settings).toMatchObject({ label: LABEL, showSection: true });
 
     /* The optional parts are left out of the feed, not sent empty. */
-    expect(await publicFeed()).toEqual({ label: LABEL, items: [{ title: DEMO }] });
+    expect(await publicFeed()).toEqual({ showSection: true, label: LABEL, items: [{ title: DEMO }] });
   });
 
   it('is idempotent and never brings back a deleted announcement', async () => {
@@ -119,7 +120,7 @@ describe('Announcements seed', () => {
     await request(app).delete(`${ADMIN_URL}/${demo!.id}`).set(auth(admin.token)).expect(200);
     expect(await seedAnnouncements(AppDataSource)).toEqual({ created: false, announcementsCreated: 0 });
     expect(await list()).toEqual([]);
-    expect(await publicFeed()).toEqual({ label: LABEL, items: [] });
+    expect(await publicFeed()).toEqual({ showSection: true, label: LABEL, items: [] });
     /* Put the notice back for the rest of the suite, as a new record. */
     await create({ title: DEMO }).expect(201);
   });
@@ -416,8 +417,8 @@ describe('Ticker settings', () => {
     expect((await publicFeed())!.label).toEqual(pair('नवीन', 'Latest'));
 
     await putSettings({ label: pair('नवीन', 'Latest'), showSection: false }).expect(200);
-    /* Switched off: the feed is still there (not null), so the website shows no strip rather than its bundled notice. */
-    expect(await publicFeed()).toEqual({ label: pair('नवीन', 'Latest'), items: [] });
+    /* Switched off: the feed is still there (not null) and says so, so the website shows no strip rather than its bundled notice. */
+    expect(await publicFeed()).toEqual({ showSection: false, label: pair('नवीन', 'Latest'), items: [] });
     expect((await list()).length).toBeGreaterThan(1);
 
     await putSettings({ label: LABEL, showSection: true }).expect(200);

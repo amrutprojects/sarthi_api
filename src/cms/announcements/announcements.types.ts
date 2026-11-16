@@ -35,6 +35,8 @@ export interface PublicAnnouncement {
 }
 
 export interface PublicAnnouncements {
+  /* false: the website leaves the whole ticker out; `items` is then empty. */
+  showSection: boolean;
   label: Bilingual;
   /* Active announcements only, in display order; empty when the ticker is switched off. */
   items: PublicAnnouncement[];

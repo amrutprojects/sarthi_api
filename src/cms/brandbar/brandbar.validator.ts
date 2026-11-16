@@ -9,8 +9,10 @@ import { expectedUpdatedAt, optionalPair, text } from '../cms.text.validation';
  * translation pair, so either may be blank on its own. Every text is single-line: the bar prints each
  * on one line.
  *
- * A PUT replaces the Brand Bar, so every key is required: a missing key is refused rather than read as
- * "blank", and a stale client can never wipe a line by omission.
+ * A PUT replaces the Brand Bar, so every text key is required: a missing key is refused rather than
+ * read as "blank", and a stale client can never wipe a line by omission. The one exception is the
+ * partner box switch (`showPartner`), which came later: absent, it is left as it is, so a client that
+ * predates it can never switch the box back on or off by omission.
  */
 const fullName = z
   .object(
@@ -29,6 +31,7 @@ export const updateBrandBarSchema = {
         .refine((v) => v !== undefined, 'Partner label is required')
         .pipe(optionalPair('Partner label', 60)),
       partnerName: text('Partner name', 100),
+      showPartner: z.boolean({ invalid_type_error: 'showPartner must be true or false' }).optional(),
       expectedUpdatedAt: expectedUpdatedAt.optional(),
     })
     .strict(),

@@ -60,6 +60,7 @@ export const MENUS = {
   'cms-brandbar': 'Brand Bar',
   'cms-hero': 'Home Hero Section',
   'cms-board': 'Board Members Management',
+  'cms-advisory': 'Advisory Committee Management',
   'cms-ecosystem': 'The AMRUT Ecosystem',
   'cms-schemes': 'AMRUT Schemes Management',
   'cms-about': 'About AMRUT Management',
@@ -176,6 +177,10 @@ export const PERMISSIONS = {
   CMS_BOARD_CREATE: def('cms-board.create', 'Add Board Members Management', 'Add in the Board Members Management menu'),
   CMS_BOARD_UPDATE: def('cms-board.update', 'Update Board Members Management', 'Update in the Board Members Management menu'),
   CMS_BOARD_DELETE: def('cms-board.delete', 'Delete Board Members Management', 'Delete in the Board Members Management menu'),
+  CMS_ADVISORY_VIEW: def('cms-advisory.view', 'View Advisory Committee Management', 'View in the Advisory Committee Management menu'),
+  CMS_ADVISORY_CREATE: def('cms-advisory.create', 'Add Advisory Committee Management', 'Add in the Advisory Committee Management menu'),
+  CMS_ADVISORY_UPDATE: def('cms-advisory.update', 'Update Advisory Committee Management', 'Update in the Advisory Committee Management menu'),
+  CMS_ADVISORY_DELETE: def('cms-advisory.delete', 'Delete Advisory Committee Management', 'Delete in the Advisory Committee Management menu'),
   CMS_ECOSYSTEM_VIEW: def('cms-ecosystem.view', 'View The AMRUT Ecosystem', 'View in the The AMRUT Ecosystem menu'),
   CMS_ECOSYSTEM_CREATE: def('cms-ecosystem.create', 'Add The AMRUT Ecosystem', 'Add in the The AMRUT Ecosystem menu'),
   CMS_ECOSYSTEM_UPDATE: def('cms-ecosystem.update', 'Update The AMRUT Ecosystem', 'Update in the The AMRUT Ecosystem menu'),
@@ -332,7 +337,7 @@ export const LMS_MENUS = [
  */
 export const WEBSITE_MENUS = [
   'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-announcements', 'cms-topbar', 'cms-brandbar', 'cms-hero',
-  'cms-highlight', 'cms-board', 'cms-ecosystem', 'cms-schemes', 'cms-impact', 'cms-about', 'cms-programme',
+  'cms-highlight', 'cms-board', 'cms-advisory', 'cms-ecosystem', 'cms-schemes', 'cms-impact', 'cms-about', 'cms-programme',
   'cms-states', 'cms-districts', 'cms-talukas',
 ] as const satisfies readonly MenuKey[];
 

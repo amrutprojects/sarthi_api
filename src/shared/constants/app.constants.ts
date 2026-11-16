@@ -166,6 +166,17 @@ export const AUDIT_ACTIONS = {
   BOARD_MEMBER_DELETE: 'cms.board-member.delete',
   BOARD_MEMBERS_REORDER: 'cms.board-members.reorder',
   BOARD_SECTION_UPDATE: 'cms.board-section.update',
+  ADVISORY_MEMBER_CREATE: 'cms.advisory-member.create',
+  ADVISORY_MEMBER_UPDATE: 'cms.advisory-member.update',
+  ADVISORY_MEMBER_STATUS: 'cms.advisory-member.status',
+  ADVISORY_MEMBER_DELETE: 'cms.advisory-member.delete',
+  ADVISORY_MEMBERS_REORDER: 'cms.advisory-members.reorder',
+  ADVISORY_SECTION_UPDATE: 'cms.advisory-section.update',
+  ADVISORY_GROUP_CREATE: 'cms.advisory-group.create',
+  ADVISORY_GROUP_UPDATE: 'cms.advisory-group.update',
+  ADVISORY_GROUP_STATUS: 'cms.advisory-group.status',
+  ADVISORY_GROUP_DELETE: 'cms.advisory-group.delete',
+  ADVISORY_GROUPS_REORDER: 'cms.advisory-groups.reorder',
   ECOSYSTEM_PROGRAMME_CREATE: 'cms.ecosystem-programme.create',
   ECOSYSTEM_PROGRAMME_UPDATE: 'cms.ecosystem-programme.update',
   ECOSYSTEM_PROGRAMME_STATUS: 'cms.ecosystem-programme.status',
@@ -230,6 +241,7 @@ export const AUDIT_ACTIONS = {
   TOPBAR_LINKS_REORDER: 'cms.top-bar-links.reorder',
   TOPBAR_SETTINGS_UPDATE: 'cms.top-bar-settings.update',
   BRANDBAR_UPDATE: 'cms.brand-bar.update',
+  SECTION_VISIBILITY_UPDATE: 'cms.section-visibility.update',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

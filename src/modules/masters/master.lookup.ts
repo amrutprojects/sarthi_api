@@ -6,6 +6,8 @@ export interface MasterRef {
   code: string;
   name: string;
   isMandatory?: boolean;
+  /* Castes only: the English name, or null when none is set. */
+  nameEn?: string | null;
 }
 
 export type MasterRecords = Record<MasterKey, MasterRef[]>;

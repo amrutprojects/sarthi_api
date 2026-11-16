@@ -4,7 +4,7 @@ import type { Request } from 'express';
 import { In, type EntityManager } from 'typeorm';
 import { AppDataSource } from '../../../config/database.config';
 import { env } from '../../../config/env.config';
-import { BATCH_STATUS, ISSUE_CODES, ROW_STATUS, STUDENT_STATUS, type IssueCode } from '../student.constants';
+import { APPROVED_STATUS, BATCH_STATUS, ISSUE_CODES, ROW_STATUS, STUDENT_STATUS, type IssueCode } from '../student.constants';
 import { ImportBatch, type ImportBatchCounts } from './import-batch.entity';
 import { ImportRow, type StoredIssue } from './import-row.entity';
 import { Student } from '../register/student.entity';
@@ -13,9 +13,10 @@ import { AppError } from '../../../shared/errors/app-error';
 import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import { maskAadhaar, maskEmail, maskMobile } from '../aadhaar';
 import { auditService } from '../../audit';
-import { ImportFileError, parseImportFile } from './file-parser';
+import { ImportFileError, parseImportFile, type ParsedFile } from './file-parser';
 import { documentService } from '../documents/document.service';
-import { rowChecksum, validateRow, type NormalisedRow } from './row-validator';
+import { legacyRowChecksum, rowChecksum, validateRow, type ImportRowValues, type NormalisedRow } from './row-validator';
+import { loadGeographyLookup } from './geography';
 import { mastersService } from '../../masters';
 import { allocateRegistrationNumber } from '../registration/registration-number';
 
@@ -29,9 +30,57 @@ function rowData(r: NormalisedRow): Record<string, unknown> {
   return rest;
 }
 
+/* A row's source values for the checksum: the mapped fields, plus the file's other columns when it has any. */
+function checksumOf(raw: Record<string, string>, extra: Record<string, string> | undefined): string {
+  const others = Object.entries(extra ?? {});
+  return rowChecksum(others.length ? { ...raw, ...Object.fromEntries(others.map(([k, v]) => [`extra:${k}`, v])) } : raw);
+}
+
+const toDate = (v: unknown) => (typeof v === 'string' && v ? new Date(v) : null);
+
+/*
+ * The student profile and source details of a row, as students columns (null when the row has none: rows validated
+ * before these columns existed have none).
+ */
+function profileColumns(d: Partial<ImportRowValues>) {
+  return {
+    gender: d.gender ?? null,
+    maritalStatus: d.maritalStatus ?? null,
+    permanentAddress: d.permanentAddress ?? null,
+    landmark: d.landmark ?? null,
+    districtId: d.districtId ?? null,
+    talukaId: d.talukaId ?? null,
+    districtName: d.districtName ?? null,
+    talukaName: d.talukaName ?? null,
+    division: d.division ?? null,
+    pinCode: d.pinCode ?? null,
+    alternateMobile: d.alternateMobile ?? null,
+    alternateEmail: d.alternateEmail ?? null,
+    disabilityStatus: d.disabilityStatus ?? null,
+    disabilityType: d.disabilityType ?? null,
+    disabilityCertificateNumber: d.disabilityCertificateNumber ?? null,
+    qualificationName: d.qualificationName ?? null,
+    qualificationStream: d.qualificationStream ?? null,
+    qualificationBoard: d.qualificationBoard ?? null,
+    qualificationCompletedOn: d.qualificationCompletedOn ?? null,
+    gradingType: d.gradingType ?? null,
+    cgpaScale: d.cgpaScale ?? null,
+    score: d.score ?? null,
+    qualificationClass: d.qualificationClass ?? null,
+    schemeName: d.schemeName ?? null,
+    sourceSubmittedAt: toDate(d.sourceSubmittedAt),
+    sourceUpdatedAt: toDate(d.sourceUpdatedAt),
+    sourceRemarks: d.sourceRemarks ?? null,
+    sourceExtra: d.sourceExtra ?? {},
+  };
+}
+
+/* An approved row becomes an eligible student (RECEIVED); a row accepted while still under review at the source, a pending one. */
+const isApproved = (d: Partial<NormalisedRow>) => (d.approvalStatus ?? '') === APPROVED_STATUS;
+
 /* Masked view of a row for the preview grid (protected values are masked for every role). */
 export function publicRow(r: ImportRow) {
-  const d = r.data as Partial<NormalisedRow>;
+  const d = r.data as Partial<ImportRowValues>;
   return {
     id: r.id,
     rowNumber: r.rowNumber,
@@ -54,6 +103,36 @@ export function publicRow(r: ImportRow) {
     approvedAt: d.approvedAt,
     evidenceRef: d.evidenceRef,
     documents: d.documents,
+    /* Profile and source details (absent on rows validated before they were imported). */
+    gender: d.gender ?? null,
+    maritalStatus: d.maritalStatus ?? null,
+    permanentAddress: d.permanentAddress ?? null,
+    landmark: d.landmark ?? null,
+    districtName: d.districtName ?? null,
+    districtId: d.districtId ?? null,
+    talukaName: d.talukaName ?? null,
+    division: d.division ?? null,
+    pinCode: d.pinCode ?? null,
+    alternateMobile: maskMobile(d.alternateMobile ?? null),
+    alternateEmail: maskEmail(d.alternateEmail ?? null),
+    disabilityStatus: d.disabilityStatus ?? null,
+    disabilityType: d.disabilityType ?? null,
+    disabilityCertificateNumber: d.disabilityCertificateNumber ?? null,
+    qualificationName: d.qualificationName ?? null,
+    qualificationStream: d.qualificationStream ?? null,
+    qualificationBoard: d.qualificationBoard ?? null,
+    qualificationCompletedOn: d.qualificationCompletedOn ?? null,
+    gradingType: d.gradingType ?? null,
+    cgpaScale: d.cgpaScale ?? null,
+    score: d.score ?? null,
+    qualificationClass: d.qualificationClass ?? null,
+    schemeName: d.schemeName ?? null,
+    sourceSubmittedAt: d.sourceSubmittedAt ?? null,
+    sourceUpdatedAt: d.sourceUpdatedAt ?? null,
+    sourceRemarks: d.sourceRemarks ?? null,
+    sourceExtra: d.sourceExtra ?? {},
+    centreFromDistrict: d.centreFromDistrict ?? false,
+    nameFrom: d.nameFrom ?? null,
     issues: r.issues,
     match: r.matchTier ? { tier: r.matchTier, studentId: r.matchStudentId, rowNumber: r.matchRowNumber, note: r.matchNote } : null,
     decision: r.decision,
@@ -124,7 +203,7 @@ export class ImportService {
     batch.columnMapping = parsed.mapping;
     batch.ignoredColumns = parsed.ignoredColumns;
     await this.batches().save(batch);
-    await this.validate(batch, parsed.rows);
+    await this.validate(batch, parsed);
     await auditService.record(req, {
       action: 'import.batch.validation_completed',
       resource: 'import_batch',
@@ -135,10 +214,19 @@ export class ImportService {
   }
 
   /* A-14 + A-15: validate every row and detect duplicates, in the file and against the register. One failing row never blocks others. */
-  private async validate(batch: ImportBatch, rawRows: Record<string, string>[]) {
-    /* Masters are loaded once per batch; validateRow matches against them in memory. */
-    const masters = await mastersService.loadLookup();
-    const results = rawRows.map((raw, i) => ({ rowNumber: i + 2, raw, checksum: rowChecksum(raw), ...validateRow(raw, masters) }));
+  private async validate(batch: ImportBatch, parsed: Pick<ParsedFile, 'rows' | 'extras' | 'mapping'>) {
+    /* Masters and geography are loaded once per batch; validateRow matches against them in memory. */
+    const [masters, geography] = await Promise.all([mastersService.loadLookup(), loadGeographyLookup()]);
+    const results = parsed.rows.map((raw, i) => {
+      const extra = parsed.extras[i];
+      return {
+        rowNumber: i + 2,
+        raw,
+        checksum: checksumOf(raw, extra),
+        legacyChecksum: legacyRowChecksum(raw),
+        ...validateRow(raw, masters, { geography, extra, mapping: parsed.mapping }),
+      };
+    });
 
     /* Load only the register rows that could match. */
     const srcIds = [...new Set(results.map((r) => r.row.sourceRecordId).filter((x): x is string => !!x))];
@@ -199,7 +287,7 @@ export class ImportService {
                 ((row.mobile && s.mobile === row.mobile) || (row.email && s.email === row.email)),
             )
           : undefined;
-        if (t0 && t0.sourceChecksum === r.checksum) {
+        if (t0 && (t0.sourceChecksum === r.checksum || t0.sourceChecksum === r.legacyChecksum)) {
           status = ROW_STATUS.SKIPPED_UNCHANGED;
           matchStudentId = t0.id;
           matchTier = 'T0';
@@ -329,6 +417,62 @@ export class ImportService {
     return publicRow(row);
   }
 
+  /*
+   * A-17 for a whole batch: accept, with one reason, the open waivable issues of every exception row (only issues of
+   * `code` when given). A row with an open issue that cannot be waived is left untouched, exactly as the per-row
+   * accept refuses it: correct it at the source or reject it. Rows are updated with one statement per 1,000.
+   */
+  async acceptAllIssues(batchId: string, reason: string, code: IssueCode | undefined, actor: AuthUser, req?: Request) {
+    if (code && !ISSUE_CODES[code]?.waivable) throw AppError.badRequest(`Issues of type ${code} cannot be waived`);
+    const result = await AppDataSource.transaction(async (m) => {
+      const batch = await this.batches(m).findOne({ where: { id: batchId, isDelete: false }, lock: { mode: 'pessimistic_write' } });
+      if (!batch) throw AppError.notFound(MESSAGES.notFound('Import batch'));
+      if (!editable(batch)) throw AppError.conflict(`Rows cannot be changed while the batch is ${batch.status}`);
+      const rows = await m
+        .getRepository(ImportRow)
+        .find({ where: { batchId, status: ROW_STATUS.DATA_EXCEPTION, isDelete: false }, order: { rowNumber: 'ASC' } });
+      const at = new Date().toISOString();
+      const changed: ImportRow[] = [];
+      let skipped = 0;
+      for (const row of rows) {
+        const open = row.issues.filter((i) => i.status === 'OPEN');
+        if (open.some((i) => !ISSUE_CODES[i.code as IssueCode]?.waivable)) {
+          skipped++;
+          continue;
+        }
+        const take = (i: StoredIssue) => i.status === 'OPEN' && (!code || i.code === code);
+        if (!open.some(take)) continue;
+        row.issues = row.issues.map((i) => (take(i) ? { ...i, status: 'ACCEPTED', reason, by: actor.id, at } : i));
+        this.settleRow(row);
+        changed.push(row);
+      }
+      for (let i = 0; i < changed.length; i += 1000) {
+        const part = changed.slice(i, i + 1000);
+        await m.query(
+          `UPDATE "import_rows" r SET "issues" = v."issues"::jsonb, "status" = v."status", "updatedAt" = now()
+             FROM unnest($1::uuid[], $2::text[], $3::text[]) AS v("id", "issues", "status") WHERE r."id" = v."id"`,
+          [part.map((r) => r.id), part.map((r) => JSON.stringify(r.issues)), part.map((r) => r.status)],
+        );
+      }
+      const refreshed = await this.refreshBatch(batchId, m);
+      return { batch: refreshed, accepted: changed.length, skipped };
+    });
+    await auditService.record(req, {
+      action: 'exception.resolved',
+      resource: 'import_batch',
+      resourceId: batchId,
+      details: {
+        resolution: 'ACCEPTED_WITH_REASON',
+        bulk: true,
+        code: code ?? null,
+        rows: result.accepted,
+        skipped: result.skipped,
+        reason,
+      },
+    });
+    return result;
+  }
+
   async rejectRow(batchId: string, rowId: string, reason: string, req?: Request) {
     const row = await AppDataSource.transaction(async (m) => {
       const { row } = await this.rowForUpdate(batchId, rowId, m);
@@ -411,25 +555,33 @@ export class ImportService {
         .find({ where: { batchId, status: ROW_STATUS.VALID, isDelete: false }, order: { rowNumber: 'ASC' } });
       let created = 0;
       let linked = 0;
+      let pendingApproval = 0;
       for (const row of valid) {
-        const d = row.data as unknown as NormalisedRow;
+        const d = row.data as unknown as ImportRowValues;
+        const approved = isApproved(d);
         if (row.matchStudentId && row.decision === 'SAME_PERSON') {
           /* Same person: linked to the existing student; protected identity fields are never overwritten by an import. */
           row.studentId = row.matchStudentId;
           /*
-           * Linked to a public registration that is still pending: this approved row approves it (RECEIVED, with the
-           * row's approval evidence); otherwise the person could never hold a batch seat. The status guard leaves
-           * imported students and deleted rows untouched; source stays PUBLIC_REGISTRATION.
+           * Linked to a student still pending approval (a public registration, or an application imported before the
+           * source approved it): an approved row approves it (RECEIVED, with the row's approval evidence and the
+           * source's latest update); otherwise the person could never hold a batch seat. The status guard leaves
+           * eligible students and deleted rows untouched; the source stays as it was. A row that is itself not
+           * approved yet only links.
            */
-          const promoted = await m.getRepository(Student).update(
-            { id: row.matchStudentId, isDelete: false, status: STUDENT_STATUS.REGISTRATION_PENDING },
-            {
-              status: STUDENT_STATUS.RECEIVED,
-              externalStatus: d.approvalStatus,
-              approvedAt: new Date(d.approvedAt as string),
-              evidenceRef: d.evidenceRef,
-            },
-          );
+          const promoted = approved
+            ? await m.getRepository(Student).update(
+                { id: row.matchStudentId, isDelete: false, status: STUDENT_STATUS.REGISTRATION_PENDING },
+                {
+                  status: STUDENT_STATUS.RECEIVED,
+                  externalStatus: d.approvalStatus,
+                  approvedAt: new Date(d.approvedAt as string),
+                  evidenceRef: d.evidenceRef,
+                  ...(d.sourceUpdatedAt ? { sourceUpdatedAt: new Date(d.sourceUpdatedAt) } : {}),
+                  ...(d.sourceRemarks ? { sourceRemarks: d.sourceRemarks } : {}),
+                },
+              )
+            : { affected: 0 };
           if (promoted.affected) {
             await auditService.recordInTx(m, req, {
               action: AUDIT_ACTIONS.STUDENT_REGISTRATION_PROMOTED,
@@ -469,16 +621,20 @@ export class ImportService {
               trackCode: d.trackCode,
               trackSourceValue: d.trackSourceValue,
               educationQualification: d.educationQualification,
-              externalStatus: d.approvalStatus,
-              approvedAt: new Date(d.approvedAt as string),
+              /* Approved: eligible (RECEIVED). Accepted while under review at the source: pending approval. */
+              status: approved ? STUDENT_STATUS.RECEIVED : STUDENT_STATUS.REGISTRATION_PENDING,
+              externalStatus: (d.approvalStatus ?? '').slice(0, 30),
+              approvedAt: approved ? new Date(d.approvedAt as string) : null,
               evidenceRef: d.evidenceRef,
               declarationAccepted: d.declarationAccepted,
               documents: d.documents,
               importBatchId: batch.id,
+              ...profileColumns(d),
             }),
           );
           row.studentId = student.id;
           created++;
+          if (!approved) pendingApproval++;
         }
         row.status = ROW_STATUS.RECONCILED;
       }
@@ -499,7 +655,7 @@ export class ImportService {
       batch.status = BATCH_STATUS.FINALISED;
       batch.finalisedById = actor.id;
       batch.finalisedAt = new Date();
-      batch.counts = { ...batch.counts, created, linked };
+      batch.counts = { ...batch.counts, created, linked, pendingApproval };
       await this.batches(m).save(batch);
       return this.refreshBatch(batch.id, m);
     }).catch(async (err) => {

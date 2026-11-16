@@ -65,6 +65,13 @@ import { EdpAdminRoles1795700000000 } from './1795700000000-EdpAdminRoles';
 import { EdpSettings1795800000000 } from './1795800000000-EdpSettings';
 import { CmsBrandBar1795900000000 } from './1795900000000-CmsBrandBar';
 import { BoardMemberNameBilingual1796000000000 } from './1796000000000-BoardMemberNameBilingual';
+import { StudentImportSourceDetails1796100000000 } from './1796100000000-StudentImportSourceDetails';
+import { CmsAdvisoryCommittee1796200000000 } from './1796200000000-CmsAdvisoryCommittee';
+import { SectionVisibility1796300000000 } from './1796300000000-SectionVisibility';
+import { AdvisoryProfiles1796400000000 } from './1796400000000-AdvisoryProfiles';
+import { BrandBarShowPartner1796500000000 } from './1796500000000-BrandBarShowPartner';
+import { CasteOfficialList1796600000000 } from './1796600000000-CasteOfficialList';
+import { AdvisoryGroups1796700000000 } from './1796700000000-AdvisoryGroups';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -142,4 +149,11 @@ export const MIGRATIONS = [
   EdpSettings1795800000000,
   CmsBrandBar1795900000000,
   BoardMemberNameBilingual1796000000000,
+  StudentImportSourceDetails1796100000000,
+  CmsAdvisoryCommittee1796200000000,
+  SectionVisibility1796300000000,
+  AdvisoryProfiles1796400000000,
+  BrandBarShowPartner1796500000000,
+  CasteOfficialList1796600000000,
+  AdvisoryGroups1796700000000,
 ];

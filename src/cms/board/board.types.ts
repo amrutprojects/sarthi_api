@@ -32,6 +32,8 @@ export interface AdminBoardSection {
   noticeTitle: Bilingual;
   noticeBody: Bilingual;
   showNotice: boolean;
+  /* Read-only here: the "Show on website" switch (/cms/section-visibility) is its one writer. */
+  showSection: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +54,8 @@ export interface PublicBoardMember {
 }
 
 export interface PublicBoardSection {
+  /* false: the website leaves the section out, on the home and About pages; `members` is then empty. */
+  showSection: boolean;
   heading: Bilingual;
   subtitle: Bilingual | null;
   /* null when the notice is switched off. */

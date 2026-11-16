@@ -19,15 +19,25 @@ const toAdmin = (s: BrandBarSettings): AdminBrandBar => ({
   fullName: pair(s.fullNameMr, s.fullNameEn),
   partnerLabel: pair(s.partnerLabelMr, s.partnerLabelEn),
   partnerName: s.partnerName,
+  showPartner: s.showPartner,
+  showSection: s.showSection,
   createdAt: s.createdAt,
   updatedAt: s.updatedAt,
 });
 
-/* The partner label is blank in both languages or filled in both (database CHECK), so one half decides. */
+/*
+ * The partner label is blank in both languages or filled in both (database CHECK), so one half decides.
+ * A switched-off partner box is sent as no partner at all, so the website is never sent a box it must
+ * not show; its label and name stay in the admin view.
+ */
 const toPublic = (s: BrandBarSettings): PublicBrandBar => ({
+  showSection: s.showSection,
   title: s.title,
   fullName: pair(s.fullNameMr, s.fullNameEn),
-  partner: s.partnerName ? { label: s.partnerLabelMr ? pair(s.partnerLabelMr, s.partnerLabelEn) : null, name: s.partnerName } : null,
+  partner:
+    s.showPartner && s.partnerName
+      ? { label: s.partnerLabelMr ? pair(s.partnerLabelMr, s.partnerLabelEn) : null, name: s.partnerName }
+      : null,
 });
 
 /*
@@ -44,12 +54,14 @@ export class BrandBarService {
   /*
    * Replaces the Brand Bar. `expectedUpdatedAt` is the version the admin screen loaded; a mismatch
    * means someone else saved first, and their work is kept rather than silently overwritten.
+   * `showPartner` is the one optional key: absent, the partner box stays as it is.
    */
   async update(input: UpdateBrandBarInput, req?: Request): Promise<AdminBrandBar> {
     await AppDataSource.transaction(async (m) => {
       const s = await brandBarSettingsRepository.findForUpdate(m);
       if (!s) throw AppError.notFound(NOT_CONFIGURED);
       if (isStale(input.expectedUpdatedAt, s.updatedAt)) throw AppError.conflict(STALE);
+      const showPartner = input.showPartner ?? s.showPartner;
       await brandBarSettingsRepository.updateWhere(
         { id: s.id },
         {
@@ -59,6 +71,7 @@ export class BrandBarService {
           partnerLabelMr: input.partnerLabel.mr,
           partnerLabelEn: input.partnerLabel.en,
           partnerName: input.partnerName,
+          showPartner,
         },
         m,
       );
@@ -66,7 +79,7 @@ export class BrandBarService {
         action: AUDIT_ACTIONS.BRANDBAR_UPDATE,
         resource: 'brand-bar',
         resourceId: s.id,
-        details: { title: input.title, partnerName: input.partnerName },
+        details: { title: input.title, partnerName: input.partnerName, showPartner },
       });
     });
     return this.get();
@@ -74,7 +87,8 @@ export class BrandBarService {
 
   /*
    * What the website reads. Null — not an error — when the Brand Bar has never been configured, so
-   * the site keeps its own bundled bar.
+   * the site keeps its own bundled bar. A hidden bar comes back with `showSection: false`, never as
+   * null, so the site leaves it out instead of falling back.
    */
   async getPublic(): Promise<PublicBrandBar | null> {
     const s = await brandBarSettingsRepository.find();

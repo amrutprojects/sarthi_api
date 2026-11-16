@@ -19,7 +19,7 @@ function row(over: Record<string, string> = {}): Record<string, string> {
     aadhaar_number: withVerhoeffDigit('23456789012'),
     mobile_number: '+91 98765 43210',
     religion: 'हिंदू',
-    caste: 'मराठी',
+    caste: 'ब्राह्मण',
     course_centre: 'Pune',
     technology: 'AI-ML Engineer',
     education_qualification: 'Graduate',
@@ -34,6 +34,20 @@ function row(over: Record<string, string> = {}): Record<string, string> {
 const codes = (r: Record<string, string>) => validateRow(r, masters).issues.map((i) => i.code);
 
 describe('validateRow', () => {
+  /* The source portals' exports still use the master's earlier spellings; they are read as the caste itself. */
+  it.each([
+    ['गुजराथी', 'गुजराती'],
+    ['लोहाणा', 'लोहाना'],
+    ['सेनगुप्तर', 'सेनगूनथर'],
+    ['कोमटी/वैश्य', 'कोमटी/ वैश्य'],
+    ['हिंदू वेरशैव लिंगायत', 'हिंदू / वीरशैव लिंगायत'],
+  ])('reads the earlier caste spelling %s as %s', (earlier, official) => {
+    const { row: n, issues } = validateRow(row({ caste: earlier }), masters);
+    expect(issues).toEqual([]);
+    expect(n.caste).toBe(official);
+    expect(n.casteId).toBe(masters.find('caste', official)!.id);
+  });
+
   it('accepts a valid row and normalises it', () => {
     const { row: n, issues } = validateRow(row(), masters);
     expect(issues).toEqual([]);
@@ -64,9 +78,15 @@ describe('validateRow', () => {
     [{ date_of_birth: '2003-02-30' }, 'DOB_INVALID'],
     [{ mobile_number: '5123456789' }, 'MOBILE_INVALID'],
     [{ caste: 'Unknown' }, 'REF_UNKNOWN'],
+    /* Not in the official target-group list (CasteOfficialList migration). */
+    [{ caste: 'मराठी' }, 'REF_UNKNOWN'],
+    [{ caste: 'ठाकूर' }, 'REF_UNKNOWN'],
     [{ technology: 'Accounting & Financial Management' }, 'TRACK_NOT_OFFERED'],
     [{ course_centre: 'Atlantis' }, 'REF_UNKNOWN'],
-    [{ approval_status: 'PENDING' }, 'EVIDENCE_MISSING'],
+    /* Still under review at the source: waivable (added as pending approval). A closed application is never imported. */
+    [{ approval_status: 'PENDING' }, 'NOT_APPROVED'],
+    [{ approval_status: 'REJECTED' }, 'EVIDENCE_MISSING'],
+    [{ approved_at: 'Jan 10 2026' }, 'EVIDENCE_MISSING'],
     [{ approved_at: '2999-01-01T00:00:00Z' }, 'EVIDENCE_MISSING'],
     [{ first_name: 'Asha2' }, 'NAME_INVALID'],
     [{ father_name: 'Ramesh 2' }, 'NAME_INVALID'],

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { uuid } from '../../../shared/validation/common.validation';
-import { BATCH_STATUS, ROW_STATUS } from '../student.constants';
+import { BATCH_STATUS, ISSUE_CODES, ROW_STATUS, type IssueCode } from '../student.constants';
 
 const page = { page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(200).default(25) };
 const search = z.string().trim().max(100).optional();
@@ -16,6 +16,16 @@ export const listRowsSchema = {
 };
 export const reasonSchema = { params: rowParams, body: z.object({ reason }).strict() };
 export const restoreRowSchema = { params: rowParams, body: z.object({}).strict() };
+const WAIVABLE = (Object.keys(ISSUE_CODES) as IssueCode[]).filter((c) => ISSUE_CODES[c].waivable) as [IssueCode, ...IssueCode[]];
+export const acceptAllSchema = {
+  params: batchParams,
+  body: z
+    .object({
+      reason,
+      code: z.enum(WAIVABLE).optional().describe('Accept only issues of this type (default: every waivable issue)'),
+    })
+    .strict(),
+};
 export const decideSchema = {
   params: rowParams,
   body: z.object({ decision: z.enum(['SAME_PERSON', 'DIFFERENT_PERSON', 'HOLD']), reason }).strict(),
@@ -40,3 +50,4 @@ export const documentsForm = z.object({ documents: z.string().describe('ZIP of d
 export type ListBatchesQuery = z.infer<typeof listBatchesSchema.query>;
 export type ListRowsQuery = z.infer<typeof listRowsSchema.query>;
 export type DecideBody = z.infer<typeof decideSchema.body>;
+export type AcceptAllBody = z.infer<typeof acceptAllSchema.body>;

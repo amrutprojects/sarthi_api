@@ -5,6 +5,7 @@ import { seedAmrutImpact } from '../../../src/database/seeds/seed-amrut-impact';
 import { seedAmrutSchemes } from '../../../src/database/seeds/seed-amrut-schemes';
 import { seedAnnouncements } from '../../../src/database/seeds/seed-announcements';
 import { seedBoardMembers } from '../../../src/database/seeds/seed-board-members';
+import { seedAdvisoryCommittee } from '../../../src/database/seeds/seed-advisory-committee';
 import { seedContactPage } from '../../../src/database/seeds/seed-contact-page';
 import { seedEcosystem } from '../../../src/database/seeds/seed-ecosystem';
 import { seedFooter } from '../../../src/database/seeds/seed-footer';
@@ -48,6 +49,7 @@ beforeAll(async () => {
     seedHomeHero,
     seedProgrammeHighlight,
     seedBoardMembers,
+    seedAdvisoryCommittee,
     seedEcosystem,
     seedAmrutSchemes,
     seedAmrutImpact,
@@ -71,6 +73,7 @@ const LISTS = [
   'cms-announcements',
   'cms-topbar',
   'cms-board',
+  'cms-advisory',
   'cms-ecosystem',
   'cms-schemes',
   'cms-impact',
@@ -196,6 +199,8 @@ describe('CMS operations as a Website Admin', () => {
       '/cms/highlight',
       '/cms/board-members',
       '/cms/board-members/settings',
+      '/cms/advisory-committee',
+      '/cms/advisory-committee/settings',
       '/cms/ecosystem',
       '/cms/ecosystem/settings',
       '/cms/schemes',

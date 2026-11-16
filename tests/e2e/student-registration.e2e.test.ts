@@ -24,7 +24,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await resetData();
   ids.pune = await masterId('regions', 'PUN');
-  ids.maratha = await masterId('castes', 'मराठी');
+  ids.maratha = await masterId('castes', 'ब्राह्मण');
   ids.bcom = await masterId('educations', 'B.Com');
   ids.pan = await masterId('document_types', 'PAN_CARD');
   ids.lc = await masterId('document_types', 'SCHOOL_LEAVING');
@@ -92,7 +92,7 @@ describe('POST /student-registrations', () => {
       mobile: '+919876543210',
       centreCode: 'PUN',
       regionId: ids.pune,
-      caste: 'मराठी',
+      caste: 'ब्राह्मण',
       casteId: ids.maratha,
       educationQualification: 'B.Com',
       educationId: ids.bcom,
@@ -175,7 +175,7 @@ describe('POST /student-registrations', () => {
 
     const text = await request(app)
       .post(URL)
-      .send(registration({ caste: 'मराठी' }));
+      .send(registration({ caste: 'ब्राह्मण' }));
     expect(text.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
     expect(await AppDataSource.getRepository(Student).count()).toBe(0);
   });

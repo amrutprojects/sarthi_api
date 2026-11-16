@@ -51,37 +51,49 @@ export function inspectPhoto(file: Express.Multer.File | undefined): PhotoUpload
  * small and is checked before anything is written) and a `data` field holding the same JSON a plain
  * JSON request would send. `data` is unpacked into req.body so the route's validateRequest() sees one
  * shape either way. A JSON request passes through untouched.
+ *
+ * A factory because the sections that share it carry different amounts of text: `fieldSize` caps the
+ * `data` field in bytes, and `tooLong`, when given, turns an over-long `data` into a 422 the admin can
+ * act on (otherwise it is multer's generic 400).
  */
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: PHOTO_MAX_MB * MB, files: 1, fields: 1, fieldSize: 64 * 1024 },
-}).single('photo');
+export function makeReceivePhoto(opts: { fieldSize: number; tooLong?: string }) {
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: PHOTO_MAX_MB * MB, files: 1, fields: 1, fieldSize: opts.fieldSize },
+  }).single('photo');
 
-export function receivePhoto(req: Request, res: Response, next: NextFunction) {
-  if (!req.is('multipart/form-data')) return next();
-  upload(req, res, (err: unknown) => {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') return next(invalid(`The photo is larger than ${PHOTO_MAX_MB} MB`));
-      if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT')
-        return next(invalid('Send at most one photo, in the "photo" field'));
-      if (err.code === 'LIMIT_FIELD_COUNT') return next(AppError.validation([{ field: 'body.data', message: 'Send the member as one "data" field' }]));
-      return next(AppError.badRequest(`Invalid upload: ${err.message}`));
-    }
-    if (err) return next(err as Error);
+  return function receivePhoto(req: Request, res: Response, next: NextFunction) {
+    if (!req.is('multipart/form-data')) return next();
+    upload(req, res, (err: unknown) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') return next(invalid(`The photo is larger than ${PHOTO_MAX_MB} MB`));
+        if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT')
+          return next(invalid('Send at most one photo, in the "photo" field'));
+        if (err.code === 'LIMIT_FIELD_COUNT')
+          return next(AppError.validation([{ field: 'body.data', message: 'Send the member as one "data" field' }]));
+        if (err.code === 'LIMIT_FIELD_VALUE' && opts.tooLong)
+          return next(AppError.validation([{ field: 'body.data', message: opts.tooLong }]));
+        return next(AppError.badRequest(`Invalid upload: ${err.message}`));
+      }
+      if (err) return next(err as Error);
 
-    const raw = (req.body as { data?: unknown } | undefined)?.data;
-    if (raw === undefined) {
-      req.body = {};
-      return next();
-    }
-    try {
-      req.body = JSON.parse(String(raw)) as unknown;
-    } catch {
-      return next(AppError.validation([{ field: 'body.data', message: 'data must be valid JSON' }]));
-    }
-    next();
-  });
+      const raw = (req.body as { data?: unknown } | undefined)?.data;
+      if (raw === undefined) {
+        req.body = {};
+        return next();
+      }
+      try {
+        req.body = JSON.parse(String(raw)) as unknown;
+      } catch {
+        return next(AppError.validation([{ field: 'body.data', message: 'data must be valid JSON' }]));
+      }
+      next();
+    });
+  };
 }
+
+/* Board Members: a name and a few short lines, so 64 KiB of JSON is ample. */
+export const receivePhoto = makeReceivePhoto({ fieldSize: 64 * 1024 });
 
 export const uploadedPhoto = (req: Request) => req.file;
 

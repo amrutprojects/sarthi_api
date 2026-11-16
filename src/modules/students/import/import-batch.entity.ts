@@ -25,6 +25,8 @@ export interface ImportBatchCounts {
   reconciled: number;
   created?: number;
   linked?: number;
+  /* Of `created`: students added as pending approval (the source had not approved the application yet). */
+  pendingApproval?: number;
 }
 
 /* One received file (A-11/A-12). The raw file is not kept; its SHA-256 prevents a second batch from the same file. */

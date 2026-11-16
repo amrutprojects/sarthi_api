@@ -18,9 +18,16 @@ export abstract class MasterEntity extends AppBaseEntity {
 @Index('UQ_regions_code', ['code'], { unique: true })
 export class Region extends MasterEntity {}
 
+/*
+ * `name` is the Marathi name (the official list's spelling); `nameEn` is shown on the English website. Castes are
+ * listed in `displayOrder` (the official sequence), not by name (migration 1796600000000).
+ */
 @Entity({ name: 'castes' })
 @Index('UQ_castes_code', ['code'], { unique: true })
-export class Caste extends MasterEntity {}
+export class Caste extends MasterEntity {
+  @Column({ type: 'varchar', length: 150, name: 'nameEn', nullable: true }) nameEn!: string | null;
+  @Column({ type: 'integer', name: 'displayOrder', default: 0 }) displayOrder!: number;
+}
 
 /* Document type definitions (PAN, Aadhaar, LC, …); code matches the import's doc_<code> column and student_documents.docType. */
 @Entity({ name: 'document_types' })

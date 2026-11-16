@@ -18,7 +18,7 @@ const person: Record<string, string> = {
   aadhaar_number: withVerhoeffDigit('23456789012'),
   mobile_number: '09876543210',
   religion: 'हिंदू',
-  caste: 'मराठी',
+  caste: 'ब्राह्मण',
   course_centre: 'pune',
   technology: 'T03',
   education_qualification: 'B.Com',

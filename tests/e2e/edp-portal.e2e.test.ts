@@ -140,7 +140,7 @@ async function basic(over: Record<string, string> = {}) {
     aadhaar_number: withVerhoeffDigit(`3456789${String(10000 + n).slice(-4)}`),
     mobile_number: `97654${String(10000 + n).slice(-5)}`,
     religion: 'हिंदू',
-    caste_id: await masterId('castes', 'मराठी'),
+    caste_id: await masterId('castes', 'ब्राह्मण'),
     gender: 'Female',
     marital_status: 'Unmarried',
     permanent_address: 'Kothrud, Pune',
@@ -467,7 +467,7 @@ describe('EDP tokens are separate from the Amrut admin panel', () => {
 
 describe('EDP options', () => {
   it('lists only active master values', async () => {
-    const casteId = await masterId('castes', 'मराठी');
+    const casteId = await masterId('castes', 'ब्राह्मण');
     const before = await request(app).get(`${EDP}/options`);
     expect(before.status).toBe(HTTP_STATUS.OK);
     expect(before.body.data.castes.map((c: { id: string }) => c.id)).toContain(casteId);
@@ -1421,7 +1421,7 @@ describe('Other masters respect the Center Master and EDP registrations', () => 
         centre: 'Pune EDP Centre',
         district: 'Pune',
         taluka: 'Haveli',
-        caste: 'मराठी',
+        caste: 'ब्राह्मण',
         technology: 'Web Design & Development',
       }),
     });

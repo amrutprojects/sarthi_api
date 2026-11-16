@@ -24,10 +24,12 @@ export interface AdminProgrammeHighlight {
 }
 
 /*
- * What the website receives — the words only. No ids, timestamps, publication flag or soft-delete
- * state, and only the objectives that are active.
+ * What the website receives — the words, and whether to show them. No ids, timestamps or
+ * soft-delete state, and only the objectives that are active.
  */
 export interface PublicProgrammeHighlight {
+  /* `isPublished`. false: the website leaves the whole band out; `objectives` is then empty. */
+  showSection: boolean;
   heading: Bilingual;
   subheading: Bilingual;
   tagline: Bilingual;

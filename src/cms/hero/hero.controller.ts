@@ -22,11 +22,12 @@ export const heroController = {
   }),
 
   /*
-   * Public read. `null` is a legitimate answer — unpublished or not yet configured — so it is a
-   * 200 with no data rather than a 404: the website treats it as "show the bundled copy".
+   * Public read. `null` is a legitimate answer — not yet configured — so it is a 200 with no data
+   * rather than a 404: the website treats it as "show the bundled copy". An unpublished section is
+   * data with `showSection: false`, not null.
    */
   public: asyncHandler(async (_req: Request, res: Response) => {
     const data = await heroService.getPublic();
-    ApiResponse.ok(res, data, data ? 'Home hero section retrieved successfully' : 'Home hero section is not published');
+    ApiResponse.ok(res, data, data ? 'Home hero section retrieved successfully' : 'Home hero section is not configured');
   }),
 };

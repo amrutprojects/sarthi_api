@@ -70,6 +70,7 @@ const toAdminSection = (s: BoardSection): AdminBoardSection => ({
   noticeTitle: pair(s.noticeTitleMr, s.noticeTitleEn),
   noticeBody: pair(s.noticeBodyMr, s.noticeBodyEn),
   showNotice: s.showNotice,
+  showSection: s.showSection,
   createdAt: s.createdAt,
   updatedAt: s.updatedAt,
 });
@@ -289,14 +290,16 @@ export class BoardService {
 
   /*
    * What the website reads. Null — not an error — when the section has never been configured; the
-   * site then shows that the board details are unavailable. Hidden members are left out, the rest
-   * come in display order, and a hidden notice is null.
+   * site then shows that the board details are unavailable. A hidden section comes back with
+   * `showSection: false` and no members, so the site leaves it out instead. Hidden members are left
+   * out, the rest come in display order, and a hidden notice is null.
    */
   async getPublic(): Promise<PublicBoardSection | null> {
     const s = await boardSectionRepository.find();
     if (!s || !s.isActive) return null;
-    const members = await boardMemberRepository.list({ activeOnly: true });
+    const members = s.showSection ? await boardMemberRepository.list({ activeOnly: true }) : [];
     return {
+      showSection: s.showSection,
       heading: pair(s.headingMr, s.headingEn),
       subtitle: orNull(pair(s.subtitleMr, s.subtitleEn)),
       notice: s.showNotice ? { title: orNull(pair(s.noticeTitleMr, s.noticeTitleEn)), body: pair(s.noticeBodyMr, s.noticeBodyEn) } : null,

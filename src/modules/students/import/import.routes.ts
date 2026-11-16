@@ -6,6 +6,7 @@ import { idempotent } from '../../../shared/idempotency/idempotency.middleware';
 import { importController as c } from './import.controller';
 import { receiveDocumentsZip, receiveImportUpload } from './upload.middleware';
 import {
+  acceptAllSchema,
   batchIdSchema,
   decideSchema,
   finaliseSchema,
@@ -34,6 +35,7 @@ importRouter.post('/', authorizePermission('imports.create'), receiveImportUploa
 importRouter.get('/:id', authorizePermission('imports.view'), validateRequest(batchIdSchema), c.get);
 importRouter.get('/:id/rows', authorizePermission('imports.view'), validateRequest(listRowsSchema), c.rows);
 importRouter.post('/:id/rows/:rowId/accept', authorizePermission('imports.update'), validateRequest(reasonSchema), c.accept);
+importRouter.post('/:id/accept-issues', authorizePermission('imports.update'), validateRequest(acceptAllSchema), c.acceptAll);
 importRouter.post('/:id/rows/:rowId/reject', authorizePermission('imports.update'), validateRequest(reasonSchema), c.reject);
 importRouter.post('/:id/rows/:rowId/restore', authorizePermission('imports.update'), validateRequest(restoreRowSchema), c.restore);
 importRouter.post('/:id/rows/:rowId/decide', authorizePermission('imports.update'), validateRequest(decideSchema), c.decide);

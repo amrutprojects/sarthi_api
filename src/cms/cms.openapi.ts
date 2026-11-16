@@ -139,7 +139,8 @@ documentEndpoint({
   tag,
   summary: 'Published home page programme section',
   description:
-    'The home page band: heading, tagline, objectives and certification line, in Marathi and English. `data` is null when unpublished.',
+    'The home page band: heading, tagline, objectives and certification line, in Marathi and English. `data` is null only when ' +
+    'not configured; an unpublished band has `showSection: false`.',
   permission: 'public',
   response: envelope(z.object({}).passthrough().nullable()),
 });
@@ -151,16 +152,29 @@ documentEndpoint({
   summary: 'Home page programme section',
   description:
     'Heading, subheading, tagline, certification line and objectives of the home page programme band, in Marathi and English. ' +
-    'Only active objectives, in display order. `data` is null when the section is unpublished; the website then renders its bundled copy.',
+    'Only active objectives, in display order. `data` is null only when the section has not been configured; the website then ' +
+    'renders its bundled copy. An unpublished section is not null: `showSection` is false and the website leaves the band out.',
   permission: 'public',
   response: envelope(
     z
-      .object({ heading: Bilingual, subheading: Bilingual, tagline: Bilingual, certification: Bilingual, objectives: z.array(Bilingual) })
+      .object({
+        /* The publish switch. false: the website leaves the band out (objectives is then empty). */
+        showSection: z.boolean(),
+        heading: Bilingual,
+        subheading: Bilingual,
+        tagline: Bilingual,
+        certification: Bilingual,
+        objectives: z.array(Bilingual),
+      })
       .nullable(),
   ),
 });
 
 const HomeHero = z.object({
+  /* The publish switch. false: the website leaves the whole banner out, glance card included (slides is then empty). */
+  showSection: z.boolean(),
+  /* false: the website leaves out only the "Programme at a glance" card (its figures come from /public/modules). */
+  showGlance: z.boolean(),
   /* The two buttons printed on every slide; their links are fixed (/programme and /track). */
   readMoreLabel: Bilingual,
   checkStatusLabel: Bilingual,
@@ -183,13 +197,16 @@ documentEndpoint({
   summary: 'Published home page hero banner',
   description:
     'The rotating banner at the top of the home page: the tag, heading, description and button of each slide, and the labels of ' +
-    'the two buttons shown on every slide, in Marathi and English. `data` is null when unpublished or not configured; the ' +
-    'website then renders its bundled copy.',
+    'the two buttons shown on every slide, in Marathi and English, and the switches for the banner and its "Programme at a ' +
+    'glance" card. `data` is null only when not configured; the website then renders its bundled copy. An unpublished banner ' +
+    'is not null: `showSection` is false and the website leaves it out.',
   permission: 'public',
   response: envelope(HomeHero.nullable()),
 });
 
 const BoardMembers = z.object({
+  /* false: the website leaves the section out, on the home and About pages (members is then empty). */
+  showSection: z.boolean(),
   heading: Bilingual,
   subtitle: Bilingual.nullable(),
   /* null when the notice under the cards is switched off. */
@@ -303,6 +320,70 @@ documentEndpoint({
   description:
     'The image named by a `photoUrl` from /public/board-members (JPEG, PNG or WebP). Served only while it belongs to a visible, ' +
     'non-deleted member; 404 otherwise. File names are immutable, so the response may be cached.',
+  permission: 'public',
+  request: { params: z.object({ file: z.string().describe('<uuid>.jpg | .png | .webp') }) },
+  response: { file: 'image/jpeg' },
+  errors: [404],
+});
+
+/*
+ * A profile list of the "View Profile" dialog: the items in each language, in order. Either language may be
+ * empty ([]); the whole list is null when both are. Sent as stored — the website picks the visitor's language
+ * and falls back to the other one.
+ */
+const AdvisoryProfileList = z.object({ mr: z.array(z.string()), en: z.array(z.string()) }).nullable();
+
+const AdvisoryMember = z.object({
+  id: z.string().uuid(),
+  name: Bilingual,
+  /* The position line ("Vice Chancellor, COEP Technological University, Pune"); null when the member has none. */
+  designation: Bilingual.nullable(),
+  /* Relative to the API base URL, e.g. /public/advisory-committee/photos/<uuid>.jpg; null when there is no photo. */
+  photoUrl: z.string().nullable(),
+  /* One paragraph. A blank language is null, and the whole is null when both are blank. */
+  experience: z.object({ mr: z.string().nullable(), en: z.string().nullable() }).nullable(),
+  administrativeRoles: AdvisoryProfileList,
+  keyAchievements: AdvisoryProfileList,
+  majorContributions: AdvisoryProfileList,
+  researchLeadership: AdvisoryProfileList,
+  education: AdvisoryProfileList,
+});
+
+const AdvisoryCommittee = z.object({
+  heading: Bilingual,
+  subtitle: Bilingual.nullable(),
+  /* Visible members in no group, already in display order — shown first, under no heading. */
+  members: z.array(AdvisoryMember),
+  /*
+   * Visible groups in group display order, each a heading (e.g. the organisation the members belong to) with its
+   * visible members in member display order. A group with no visible member is left out; the members of a hidden
+   * group appear nowhere.
+   */
+  groups: z.array(z.object({ id: z.string().uuid(), name: Bilingual, members: z.array(AdvisoryMember) })),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/advisory-committee',
+  tag,
+  summary: 'AMRUT Kalash Advisory Committee page',
+  description:
+    'The "अमृत कलश सल्लागार समिती" page: its heading and subtitle, and the visible trainers and advisors in display order, in ' +
+    'Marathi and English, each with the profile behind its "View Profile" button (experience and five lists, any of which may ' +
+    'be filled in one language only). Members in no group come in `members`; the rest under their group headings in `groups`. ' +
+    'Managed in the admin panel under CMS → Advisory Committee Management. `data` is null when the section has not been configured.',
+  permission: 'public',
+  response: envelope(AdvisoryCommittee.nullable()),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/advisory-committee/photos/:file',
+  tag,
+  summary: "A visible advisory committee member's photo",
+  description:
+    'The image named by a `photoUrl` from /public/advisory-committee (JPEG, PNG or WebP). Served only while it belongs to a ' +
+    'visible, non-deleted member; 404 otherwise. File names are immutable, so the response may be cached.',
   permission: 'public',
   request: { params: z.object({ file: z.string().describe('<uuid>.jpg | .png | .webp') }) },
   response: { file: 'image/jpeg' },
@@ -463,6 +544,8 @@ documentEndpoint({
 });
 
 const Announcements = z.object({
+  /* false: the ticker is switched off and the website shows no strip (items is then empty). */
+  showSection: z.boolean(),
   /* The pill on the left of the ticker, e.g. "सूचना" / "Announcements". */
   label: Bilingual,
   /* Active announcements only, already in display order. Empty when the ticker is switched off: the website then shows no strip. */
@@ -492,6 +575,8 @@ documentEndpoint({
 });
 
 const TopBar = z.object({
+  /* false: the website leaves the whole strip out, language switch included (links is then empty). */
+  showSection: z.boolean(),
   /* The bold text on the left of the strip, e.g. "महाराष्ट्र शासन" / "Government of Maharashtra". Null when it is blank: the website then shows none. */
   governmentName: Bilingual.nullable(),
   /* Whether the Marathi / English switch on the right of the strip is shown. */
@@ -522,11 +607,16 @@ documentEndpoint({
 });
 
 const BrandBar = z.object({
+  /* false: the website leaves the whole bar out. */
+  showSection: z.boolean(),
   /* The bold title on the left of the bar, e.g. "AMRUT KALASH". Never blank. */
   title: z.string(),
   /* The organisation's full name, printed as two lines (Marathi above English) in every language. A blank half is a line not shown. */
   fullName: Bilingual,
-  /* The block on the right of the bar. Null when the partner name is blank: the website then shows none. */
+  /*
+   * The "Implementation Partner" block on the right of the bar. Null when the partner name is blank or the
+   * partner box is switched off in the admin panel: the website then shows none.
+   */
   partner: z
     .object({
       /* The small text above the name, e.g. "अंमलबजावणी भागीदार" / "Implementation Partner". Null when it is blank. */
@@ -544,7 +634,8 @@ documentEndpoint({
   description:
     'The bar under the Top Bar on every website page: the programme title, the organisation\'s full name in Marathi and English, ' +
     'and the implementation partner. Managed in the admin panel under CMS → Home Page Management → Brand Bar. `data` is null when ' +
-    'the Brand Bar has not been configured (the website then shows its own bundled bar).',
+    'the Brand Bar has not been configured (the website then shows its own bundled bar). `partner` is null when the partner name ' +
+    'is blank or the implementation partner box is switched off (its label and name are kept in the admin panel).',
   permission: 'public',
   response: envelope(BrandBar.nullable()),
 });

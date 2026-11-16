@@ -31,7 +31,7 @@ function record(over: Record<string, string> = {}): Record<string, string> {
     aadhaar_number: aadhaar(),
     mobile_number: `+91 98${String(10000000 + n).slice(-8)}`,
     religion: 'हिंदू',
-    caste: 'मराठी',
+    caste: 'ब्राह्मण',
     course_centre: 'Pune',
     technology: 'Cyber Security',
     education_qualification: 'Graduate',

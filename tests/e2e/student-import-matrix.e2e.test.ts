@@ -72,7 +72,7 @@ function record(over: Record<string, string> = {}): Record<string, string> {
     aadhaar_number: nextAadhaar(),
     mobile_number: `97${String(10000000 + n).slice(-8)}`,
     religion: 'हिंदू',
-    caste: 'मराठी',
+    caste: 'ब्राह्मण',
     course_centre: 'Pune',
     technology: 'Cyber Security',
     education_qualification: 'B.Com',
@@ -151,21 +151,41 @@ describe('A. whole-file checks', () => {
     expect(res.body.data).toMatchObject({ status: 'READY_TO_FINALISE', counts: { total: 2, valid: 2 } });
   });
 
-  it('A3 maps headers written as labels or aliases (Aadhar, DOB, Father\'s Name …) and lists unknown columns as ignored', async () => {
+  it('A3 maps headers written as labels or aliases (Aadhar, DOB, Father\'s Name, Remarks …) and lists unknown columns as kept', async () => {
     const { op } = await people();
     const r = record();
-    const header = HEADER.map((h) =>
-      ({ aadhaar_number: 'Aadhar', date_of_birth: 'DOB', father_name: "Father's Name", mobile_number: 'Mobile Number', email: 'E-mail' })[
-        h as 'email'
-      ] ?? h,
+    /* "Remarks" is an alias of source_remarks (so it replaces that column here); "Counsellor Notes" is unknown. */
+    const header = HEADER.map(
+      (h) =>
+        (
+          ({
+            aadhaar_number: 'Aadhar',
+            date_of_birth: 'DOB',
+            father_name: "Father's Name",
+            mobile_number: 'Mobile Number',
+            email: 'E-mail',
+            source_remarks: 'Remarks',
+          }) as Record<string, string>
+        )[h] ?? h,
     );
     const renamed = Object.fromEntries(header.map((h, i) => [h, r[HEADER[i]]]));
-    const file = csv([{ ...renamed, 'Caste Description': 'x', 'Remarks': 'y' }], [...header, 'Caste Description', 'Remarks']);
-    keep('A03-aliased-headers.csv', file, 'READY_TO_FINALISE; "Caste Description" and "Remarks" listed as ignored columns');
+    const file = csv(
+      [{ ...renamed, Remarks: 'y', 'Caste Description': 'x', 'Counsellor Notes': 'z' }],
+      [...header, 'Caste Description', 'Counsellor Notes'],
+    );
+    keep(
+      'A03-aliased-headers.csv',
+      file,
+      'READY_TO_FINALISE; "Remarks" read as the source remarks, "Caste Description" ignored, "Counsellor Notes" kept as an other source value',
+    );
     const res = await upload(op, file);
     expect(res.body.data.status).toBe('READY_TO_FINALISE');
-    expect(res.body.data.ignoredColumns).toEqual(expect.arrayContaining(['Caste Description (not used in V1.0)', 'Remarks']));
-    expect(res.body.data.columnMapping).toMatchObject({ aadhaar_number: 'Aadhar', date_of_birth: 'DOB' });
+    expect(res.body.data.ignoredColumns).toEqual(
+      expect.arrayContaining(['Caste Description (not used in V1.0)', 'Counsellor Notes (kept as an other source value)']),
+    );
+    expect(res.body.data.columnMapping).toMatchObject({ aadhaar_number: 'Aadhar', date_of_birth: 'DOB', source_remarks: 'Remarks' });
+    const [row] = await rows(op, res.body.data.id);
+    expect(row).toMatchObject({ sourceRemarks: 'y', sourceExtra: { 'Counsellor Notes': 'z' } });
   });
 
   it.each([
@@ -299,7 +319,9 @@ describe('B. row rules (one file, one row per case)', () => {
     ['track-unknown', { technology: 'Rocket Science' }, ['technology:REF_UNKNOWN']],
     ['education-missing', { education_qualification: '' }, ['education_qualification:REQUIRED']],
     ['education-not-in-master', { education_qualification: 'Diploma in Pottery' }, ['education_qualification:REF_UNKNOWN']],
-    ['approval-pending', { approval_status: 'PENDING' }, ['approval_status:EVIDENCE_MISSING']],
+    /* Still under review at the source: waivable (accepted → added as pending approval). A closed status is never imported. */
+    ['approval-pending', { approval_status: 'PENDING' }, ['approval_status:NOT_APPROVED']],
+    ['approval-rejected', { approval_status: 'REJECTED' }, ['approval_status:EVIDENCE_MISSING']],
     ['approved-at-missing', { approved_at: '' }, ['approved_at:EVIDENCE_MISSING']],
     ['approved-at-garbage', { approved_at: 'yesterday' }, ['approved_at:EVIDENCE_MISSING']],
     ['approved-at-future', { approved_at: inDays(10) }, ['approved_at:EVIDENCE_MISSING']],

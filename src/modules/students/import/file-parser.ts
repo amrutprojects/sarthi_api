@@ -1,25 +1,39 @@
 import { parse as parseCsv } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
-import { IGNORED_COLUMNS, IMPORT_COLUMNS } from '../student.constants';
+import { IGNORED_COLUMNS, IMPORT_COLUMNS, REQUIRED_COLUMN_GROUPS, SENSITIVE_COLUMN_RE } from '../student.constants';
 
 export class ImportFileError extends Error {}
 
 export interface ParsedFile {
   /* field name → source header actually used */
   mapping: Record<string, string>;
+  /* Columns not read into a field: unknown columns (kept per row in `extras`) and columns never stored. */
   ignoredColumns: string[];
   rows: Record<string, string>[];
+  /* Per row (same order as rows): the non-empty values of the columns no field reads, by their header as written. */
+  extras: Record<string, string>[];
 }
 
 /* Byte-order mark that Excel and Notepad put at the start of UTF-8 CSV files. */
 const BOM_RE = new RegExp('^' + String.fromCharCode(0xfeff));
-const norm = (h: string) =>
+/*
+ * Header key: case, spaces, underscores and punctuation do not matter, so "applicationId", "Application ID" and
+ * "application_id" are one header, as are "Father's Name" and "Are you a disabled person ?". Letters (with their
+ * marks, for Marathi headers) and digits are kept.
+ */
+export const headerKey = (h: string) =>
   h
     .replace(BOM_RE, '')
-    .toLowerCase()
-    .replace(/[_\s]+/g, ' ')
+    .normalize('NFC')
     .replace(/&amp;/g, '&')
-    .trim();
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, '');
+
+/* Field by header key (the internal name, the label and every alias). */
+const FIELD_BY_KEY = new Map<string, string>();
+for (const c of IMPORT_COLUMNS)
+  for (const h of [c.field, c.label, ...c.aliases]) if (!FIELD_BY_KEY.has(headerKey(h))) FIELD_BY_KEY.set(headerKey(h), c.field);
+const IGNORED_KEYS = new Set(IGNORED_COLUMNS.map(headerKey));
 
 /* Type is decided by content, not by the file name: XLSX is a ZIP (PK\x03\x04); CSV must be valid UTF-8 text. */
 function detectType(buf: Buffer): 'xlsx' | 'csv' {
@@ -33,13 +47,29 @@ function detectType(buf: Buffer): 'xlsx' | 'csv' {
   return 'csv';
 }
 
-function cellText(v: ExcelJS.CellValue): string {
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/*
+ * Excel stores a date as the wall-clock value in UTC: a date alone becomes YYYY-MM-DD; a date with a time becomes
+ * "YYYY-MM-DD HH:mm:ss" (no zone, read in the source time zone like the same text in a CSV). A number formatted as a
+ * percentage (0.785 shown as 78.5%) is read as the percentage shown.
+ */
+function cellText(v: ExcelJS.CellValue, numFmt?: string): string {
   if (v === null || v === undefined) return '';
-  if (v instanceof Date) return v.toISOString().slice(0, 10); // dates arrive as UTC midnight
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return '';
+    const day = v.toISOString().slice(0, 10);
+    const hasTime = v.getUTCHours() || v.getUTCMinutes() || v.getUTCSeconds();
+    return hasTime ? `${day} ${pad(v.getUTCHours())}:${pad(v.getUTCMinutes())}:${pad(v.getUTCSeconds())}` : day;
+  }
+  if (typeof v === 'number') {
+    if (numFmt && numFmt.includes('%')) return String(Math.round(v * 100 * 1e6) / 1e6);
+    return String(v);
+  }
   if (typeof v === 'object') {
+    if ('richText' in v && Array.isArray(v.richText)) return v.richText.map((r) => r.text).join('');
     if ('text' in v && typeof v.text === 'string') return v.text;
-    if ('result' in v) return cellText(v.result as ExcelJS.CellValue);
-    if ('richText' in v) return v.richText.map((r) => r.text).join('');
+    if ('result' in v) return cellText(v.result as ExcelJS.CellValue, numFmt);
     if ('hyperlink' in v && 'text' in v) return String(v.text);
     return '';
   }
@@ -68,13 +98,21 @@ async function readTable(buf: Buffer): Promise<string[][]> {
   if (!ws) throw new ImportFileError('The workbook has no sheet');
   const out: string[][] = [];
   ws.eachRow({ includeEmpty: false }, (row) => {
-    const vals = (row.values as ExcelJS.CellValue[]).slice(1).map(cellText);
+    const vals: string[] = [];
+    for (let i = 1; i <= row.cellCount; i++) {
+      const cell = row.getCell(i);
+      vals.push(cellText(cell.value, cell.numFmt));
+    }
     if (vals.some((v) => v.trim())) out.push(vals);
   });
   return out;
 }
 
-/* Reads the file, maps its header row to internal fields by name and alias, and returns the data rows. */
+/*
+ * Reads the file, maps its header row to internal fields by name and alias, and returns the data rows. Columns no
+ * field reads are returned per row in `extras` (kept with the student), except identity-number columns and the
+ * columns the specification ignores, which are only listed.
+ */
 export async function parseImportFile(buf: Buffer, maxRows: number): Promise<ParsedFile> {
   if (!buf.length) throw new ImportFileError('The file is empty');
   const table = await readTable(buf);
@@ -87,24 +125,36 @@ export async function parseImportFile(buf: Buffer, maxRows: number): Promise<Par
   const mapping: Record<string, string> = {};
   const indexOf: Record<string, number> = {};
   const ignoredColumns: string[] = [];
+  const extraIndex: { header: string; i: number }[] = [];
+  const seenExtra = new Set<string>();
   header.forEach((h, i) => {
-    const key = norm(h);
+    const key = headerKey(h);
     if (!key) return;
-    const col = IMPORT_COLUMNS.find((c) => norm(c.field) === key || norm(c.label) === key || c.aliases.some((a) => norm(a) === key));
-    if (!col) {
-      ignoredColumns.push(h.trim());
+    const label = h.replace(BOM_RE, '').trim();
+    const field = FIELD_BY_KEY.get(key);
+    if (!field) {
+      if (IGNORED_KEYS.has(key)) ignoredColumns.push(`${label} (not used in V1.0)`);
+      else if (SENSITIVE_COLUMN_RE.test(label)) ignoredColumns.push(`${label} (identity number: not stored)`);
+      else if (seenExtra.has(key)) ignoredColumns.push(`${label} (repeated column)`);
+      else {
+        seenExtra.add(key);
+        extraIndex.push({ header: label, i });
+        ignoredColumns.push(`${label} (kept as an other source value)`);
+      }
       return;
     }
-    if (col.field in indexOf)
-      throw new ImportFileError(`Two columns map to the same field "${col.field}": "${mapping[col.field]}" and "${h.trim()}"`);
-    mapping[col.field] = h.trim();
-    indexOf[col.field] = i;
+    if (field in indexOf) throw new ImportFileError(`Two columns map to the same field "${field}": "${mapping[field]}" and "${label}"`);
+    mapping[field] = label;
+    indexOf[field] = i;
   });
 
   const missing = IMPORT_COLUMNS.filter((c) => c.required && !(c.field in indexOf)).map((c) => c.label);
+  for (const g of REQUIRED_COLUMN_GROUPS) if (!g.anyOf.some((fields) => fields.every((f) => f in indexOf))) missing.push(g.label);
   if (missing.length) throw new ImportFileError(`Required columns missing: ${missing.join(', ')}`);
 
   const rows = dataRows.map((r) => Object.fromEntries(Object.entries(indexOf).map(([f, i]) => [f, String(r[i] ?? '')])));
-  /* Unmapped columns are listed on the batch and ignored (Caste Description is expected and ignored in V1.0). */
-  return { mapping, ignoredColumns: ignoredColumns.map((c) => (IGNORED_COLUMNS.includes(norm(c)) ? `${c} (not used in V1.0)` : c)), rows };
+  const extras = dataRows.map((r) =>
+    Object.fromEntries(extraIndex.map(({ header: h, i }) => [h, String(r[i] ?? '').trim()]).filter(([, v]) => v !== '')),
+  );
+  return { mapping, ignoredColumns, rows, extras };
 }

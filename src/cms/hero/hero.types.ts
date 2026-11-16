@@ -49,7 +49,10 @@ export interface AdminHomeHero {
   slides: AdminHeroSlide[];
   /* null while the Modules page content has not been configured: there is nothing to sum. */
   glance: HeroGlance | null;
+  /* false: the whole banner, the glance card included, is hidden from the website. */
   isPublished: boolean;
+  /* The glance card on its own. Read-only here: the "Show on website" switch (/cms/section-visibility) is its one writer. */
+  showGlance: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,10 +66,14 @@ export interface PublicHeroSlide {
 }
 
 /*
- * What the website receives — the words and links only. No ids, timestamps, publication flag,
- * order numbers or soft-delete state, and only the slides that are visible, already in order.
+ * What the website receives — the words and links, and the two visibility switches. No ids,
+ * timestamps, order numbers or soft-delete state, and only the slides that are visible, already in order.
  */
 export interface PublicHomeHero {
+  /* `isPublished`. false: the website leaves the whole banner out, glance card included; `slides` is then empty. */
+  showSection: boolean;
+  /* false: the website leaves out only the "Programme at a glance" card (its figures come from /public/modules). */
+  showGlance: boolean;
   readMoreLabel: Bilingual;
   checkStatusLabel: Bilingual;
   slides: PublicHeroSlide[];

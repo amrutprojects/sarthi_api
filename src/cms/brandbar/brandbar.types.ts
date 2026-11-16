@@ -12,6 +12,10 @@ export interface AdminBrandBar {
   fullName: Bilingual;
   partnerLabel: Bilingual;
   partnerName: string;
+  /* Whether the website prints the partner box. Off: the label and name are kept, but not shown. */
+  showPartner: boolean;
+  /* Read-only here: the "Show on website" switch (/cms/section-visibility) is its one writer. */
+  showSection: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,10 +27,12 @@ export interface PublicBrandBarPartner {
 }
 
 export interface PublicBrandBar {
+  /* false: the website leaves the whole bar out. */
+  showSection: boolean;
   title: string;
   /* Each half is '' when that line is not shown. */
   fullName: Bilingual;
-  /* null when the partner name is blank: the website then leaves the partner block out. */
+  /* null when the partner name is blank or the partner box is switched off: the website then leaves the partner block out. */
   partner: PublicBrandBarPartner | null;
 }
 
@@ -37,5 +43,7 @@ export interface UpdateBrandBarInput {
   partnerLabel: Bilingual;
   /* Blank: no partner block. */
   partnerName: string;
+  /* Absent: left as it is, so a client that does not know the switch can never reset it. */
+  showPartner?: boolean;
   expectedUpdatedAt?: string;
 }

@@ -45,6 +45,7 @@ const toAdminSettings = (s: TopBarSettings): AdminTopBarSettings => ({
   id: s.id,
   governmentName: pair(s.governmentNameMr, s.governmentNameEn),
   showLanguageToggle: s.showLanguageToggle,
+  showSection: s.showSection,
   createdAt: s.createdAt,
   updatedAt: s.updatedAt,
 });
@@ -206,14 +207,20 @@ export class TopBarService {
 
   /*
    * What the website reads. Null — not an error — when the Top Bar has never been configured, so the
-   * site keeps its own bundled strip. A blank government name comes back as null, and the site then
-   * leaves the bold text out.
+   * site keeps its own bundled strip. A hidden strip comes back with `showSection: false` and no
+   * links, never as null, so the site leaves it out instead of falling back. A blank government name
+   * comes back as null, and the site then leaves the bold text out.
    */
   async getPublic(): Promise<PublicTopBar | null> {
     const s = await topBarSettingsRepository.find();
     if (!s || !s.isActive) return null;
-    const links = await topBarLinkRepository.list({ activeOnly: true });
-    return { governmentName: nameOf(s), showLanguageToggle: s.showLanguageToggle, links: links.map(toPublicLink) };
+    const links = s.showSection ? await topBarLinkRepository.list({ activeOnly: true }) : [];
+    return {
+      showSection: s.showSection,
+      governmentName: nameOf(s),
+      showLanguageToggle: s.showLanguageToggle,
+      links: links.map(toPublicLink),
+    };
   }
 }
 

@@ -20,6 +20,8 @@ export interface AdminTopBarSettings {
   id: string;
   governmentName: Bilingual;
   showLanguageToggle: boolean;
+  /* Read-only here: the "Show on website" switch (/cms/section-visibility) is its one writer. */
+  showSection: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +33,8 @@ export interface PublicTopBarLink {
 }
 
 export interface PublicTopBar {
+  /* false: the website leaves the whole strip out, language switch included; `links` is then empty. */
+  showSection: boolean;
   /* null when the name is blank: the website then leaves the bold text out. */
   governmentName: Bilingual | null;
   showLanguageToggle: boolean;

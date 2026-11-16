@@ -3,6 +3,7 @@ import { AppDataSource } from '../../src/config/database.config';
 import { HTTP_STATUS } from '../../src/constants/api-response.constants';
 import { AuditLog } from '../../src/database/entities';
 import { MASTER_LIST, masterPermission, type MasterDefinition } from '../../src/modules/masters';
+import { CASTE_LIST } from '../../src/modules/students/student.constants';
 import { API, actorWith, request, resetData, setupTestApp, teardownTestApp } from '../helpers/test-app';
 
 let app: Express;
@@ -130,7 +131,7 @@ describe('masters referenced by students', () => {
     await AppDataSource.query(
       `INSERT INTO "students" ("code", "sourceChecksum", "firstName", "lastName", "fatherName", "motherName", "currentAddress",
          "religion", "caste", "centreCode", "regionId", "trackSourceValue", "educationQualification", "externalStatus", "source", "documents")
-       VALUES ('REG-TEST01', repeat('0', 64), 'A', 'B', 'C', 'D', 'E', 'हिंदू', 'मराठी', 'PUN', $1, 'T03', 'B.Com', 'PENDING', 'PUBLIC_REGISTRATION',
+       VALUES ('REG-TEST01', repeat('0', 64), 'A', 'B', 'C', 'D', 'E', 'हिंदू', 'ब्राह्मण', 'PUN', $1, 'T03', 'B.Com', 'PENDING', 'PUBLIC_REGISTRATION',
          jsonb_build_object('PAN_CARD', jsonb_build_object('supplied', false, 'barcode', null, 'documentTypeId', $2::text)))`,
       [pune.id, pan.id],
     );
@@ -151,5 +152,74 @@ describe('masters referenced by students', () => {
     expect(byCode.get('PAN_CARD')).toMatchObject({ isMandatory: false });
     expect(byCode.get('AADHAAR_CARD')).toMatchObject({ isMandatory: true });
     expect(byCode.get('SCHOOL_LEAVING')).toMatchObject({ isMandatory: true });
+  });
+});
+
+describe('the caste master: the official target-group list', () => {
+  const castes = MASTER_LIST.find((d) => d.key === 'caste')!;
+  const URL = `${API}/castes`;
+  type Option = { id: string; code: string; name: string; nameEn: string | null };
+  const options = async () => (await request(app).get(`${URL}/options`)).body.data as Option[];
+
+  it('lists the 26 castes first, in the official order and spelling, with English names', async () => {
+    /* Castes other tests create go to the end of the list (the next display order), so the first 26 are the list. */
+    const first = (await options()).slice(0, CASTE_LIST.length);
+    expect(first.map((o) => o.name)).toEqual(CASTE_LIST.map((c) => c.name));
+    expect(first.map((o) => o.nameEn)).toEqual(CASTE_LIST.map((c) => c.nameEn));
+  });
+
+  it('keeps the castes outside the list, and the earlier spellings, out of the options', async () => {
+    const names = (await options()).map((o) => o.name);
+    for (const gone of ['मराठी', 'ठाकूर', 'गुजराथी', 'लोहाणा', 'सेनगुप्तर', 'कोमटी/वैश्य', 'हिंदू वेरशैव लिंगायत']) {
+      expect(names).not.toContain(gone);
+    }
+    /* Inactive, not deleted: a student registered with one keeps the link. */
+    const [row] = await AppDataSource.query(`SELECT "isActive", "isDelete" FROM "castes" WHERE "name" = 'मराठी'`);
+    expect(row).toEqual({ isActive: false, isDelete: false });
+  });
+
+  it('stores an English name and a display order; a caste without one goes to the end', async () => {
+    const token = `Bearer ${(await actorWith(allCodes(castes))).token}`;
+    const u = unique();
+    const appended = await request(app)
+      .post(URL)
+      .set('Authorization', token)
+      .send({ code: `T${u}`, name: `Test caste ${u}` });
+    expect(appended.status).toBe(HTTP_STATUS.CREATED);
+    expect(appended.body.data).toMatchObject({ nameEn: null });
+    expect(appended.body.data.displayOrder).toBeGreaterThan(CASTE_LIST.length);
+    expect((await options()).at(-1)?.id).toBe(appended.body.data.id);
+
+    const edited = await request(app)
+      .patch(`${URL}/${appended.body.data.id}`)
+      .set('Authorization', token)
+      .send({ nameEn: '  Test   caste  ', displayOrder: 9999 });
+    expect(edited.status).toBe(HTTP_STATUS.OK);
+    expect(edited.body.data).toMatchObject({ nameEn: 'Test caste', displayOrder: 9999 });
+
+    const list = await request(app).get(URL).query({ sortBy: 'displayOrder', sortOrder: 'asc', limit: 1 }).set('Authorization', token);
+    expect(list.status).toBe(HTTP_STATUS.OK);
+    expect(list.body.data[0]).toMatchObject({ name: CASTE_LIST[0]!.name, displayOrder: 1 });
+
+    expect(
+      (await request(app).patch(`${URL}/${appended.body.data.id}`).set('Authorization', token).send({ displayOrder: -1 })).status,
+    ).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    await request(app).delete(`${URL}/${appended.body.data.id}`).set('Authorization', token);
+  });
+
+  it('gives no other master an English name or a display order', async () => {
+    const regions = MASTER_LIST.find((d) => d.key === 'region')!;
+    const token = `Bearer ${(await actorWith(allCodes(regions))).token}`;
+    const u = unique();
+    const res = await request(app)
+      .post(`${API}/regions`)
+      .set('Authorization', token)
+      .send({ code: `R${u}`.slice(0, 10), name: `Region ${u}`, nameEn: 'X' });
+    expect(res.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect((await request(app).get(`${API}/regions`).query({ sortBy: 'displayOrder' }).set('Authorization', token)).status).toBe(
+      HTTP_STATUS.UNPROCESSABLE_ENTITY,
+    );
+    const option = (await request(app).get(`${API}/regions/options`)).body.data[0];
+    expect(option).not.toHaveProperty('nameEn');
   });
 });

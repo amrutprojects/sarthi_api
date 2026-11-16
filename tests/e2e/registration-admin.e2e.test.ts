@@ -47,7 +47,7 @@ async function data(over: Record<string, unknown> = {}) {
     aadhaar_number: withVerhoeffDigit(`3456789${String(10000 + n).slice(-4)}`),
     mobile_number: `97654${String(10000 + n).slice(-5)}`,
     religion: 'हिंदू',
-    caste_id: await masterId('castes', 'मराठी'),
+    caste_id: await masterId('castes', 'ब्राह्मण'),
     region_id: await masterId('regions', 'PUN'),
     technology: 'T03',
     education_id: await masterId('educations', 'B.Com'),
@@ -226,7 +226,7 @@ describe('admin registration entry with documents', () => {
       `INSERT INTO "students" ("code", "sourceChecksum", "firstName", "lastName", "fatherName", "motherName", "currentAddress",
          "religion", "caste", "centreCode", "regionId", "trackSourceValue", "educationQualification", "externalStatus",
          "approvedAt", "importBatchId", "source")
-       VALUES ('STU-TEST01', repeat('0', 64), 'Imported', 'Student', 'F', 'M', 'A', 'हिंदू', 'मराठी', 'PUN', $1, 'T03', 'B.Com',
+       VALUES ('STU-TEST01', repeat('0', 64), 'Imported', 'Student', 'F', 'M', 'A', 'हिंदू', 'ब्राह्मण', 'PUN', $1, 'T03', 'B.Com',
          'APPROVED', now(), $2, 'IMPORT')
        RETURNING "id"`,
       [region.id, batch.id],
@@ -296,7 +296,7 @@ describe('admin registration entry with documents', () => {
       `INSERT INTO "students" ("code", "sourceChecksum", "firstName", "lastName", "fatherName", "motherName", "currentAddress",
          "religion", "caste", "centreCode", "trackSourceValue", "educationQualification", "externalStatus",
          "approvedAt", "importBatchId", "source")
-       VALUES ('STU-TEST02', repeat('0', 64), 'Imported', 'Student', 'F', 'M', 'A', 'हिंदू', 'मराठी', 'PUN', 'T03', 'B.Com',
+       VALUES ('STU-TEST02', repeat('0', 64), 'Imported', 'Student', 'F', 'M', 'A', 'हिंदू', 'ब्राह्मण', 'PUN', 'T03', 'B.Com',
          'APPROVED', now(), $1, 'IMPORT')
        RETURNING "id"`,
       [batch.id],

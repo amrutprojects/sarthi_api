@@ -41,7 +41,7 @@ function record(sourceId: string, over: Record<string, string> = {}): Record<str
     aadhaar_number: withVerhoeffDigit(`3456789${String(10000 + n).slice(-4)}`),
     mobile_number: `97${String(10000000 + n).slice(-8)}`,
     religion: 'हिंदू',
-    caste: 'मराठी',
+    caste: 'ब्राह्मण',
     course_centre: 'Pune',
     technology: 'Cyber Security',
     education_qualification: 'Graduate',

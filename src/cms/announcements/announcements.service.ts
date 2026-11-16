@@ -210,14 +210,14 @@ export class AnnouncementsService {
 
   /*
    * What the website reads. Null — not an error — when the ticker has never been configured, so the
-   * site keeps its own bundled notice. A switched-off ticker comes back with no items, and the site
-   * then leaves the strip out.
+   * site keeps its own bundled notice. A switched-off ticker comes back with `showSection: false`
+   * and no items, and the site then leaves the strip out.
    */
   async getPublic(): Promise<PublicAnnouncements | null> {
     const s = await announcementSettingsRepository.find();
     if (!s || !s.isActive) return null;
     const items = s.showSection ? await announcementRepository.list({ activeOnly: true }) : [];
-    return { label: pair(s.labelMr, s.labelEn), items: items.map(toPublic) };
+    return { showSection: s.showSection, label: pair(s.labelMr, s.labelEn), items: items.map(toPublic) };
   }
 }
 

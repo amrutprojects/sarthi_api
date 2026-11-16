@@ -46,16 +46,20 @@ export class HighlightService {
   }
 
   /*
-   * What the website reads. Returns null — not an error — when the section is unpublished or has
-   * never been configured, because "there is nothing to show" is a normal state the site handles
-   * by rendering its own bundled copy.
+   * What the website reads. Returns null — not an error — only when the section has never been
+   * configured, a normal state the site handles by rendering its own bundled copy. An unpublished
+   * band is NOT null: it comes back with `showSection: false` and no objectives, so the site hides
+   * it rather than falling back to that bundled copy.
    */
   async getPublic(): Promise<PublicProgrammeHighlight | null> {
     const settings = await highlightRepository.findSettings();
-    if (!settings || !settings.isPublished || !settings.isActive) return null;
+    if (!settings || !settings.isActive) return null;
 
-    const objectives = await highlightRepository.findObjectives(settings.id, { activeOnly: true });
+    const objectives = settings.isPublished
+      ? await highlightRepository.findObjectives(settings.id, { activeOnly: true })
+      : [];
     return {
+      showSection: settings.isPublished,
       heading: { mr: settings.headingMr, en: settings.headingEn },
       subheading: { mr: settings.subheadingMr, en: settings.subheadingEn },
       tagline: { mr: settings.taglineMr, en: settings.taglineEn },

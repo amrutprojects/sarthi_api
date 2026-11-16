@@ -55,6 +55,7 @@ export class HeroService {
       })),
       glance: await this.glance(),
       isPublished: settings.isPublished,
+      showGlance: settings.showGlance,
       createdAt: settings.createdAt,
       updatedAt: settings.updatedAt,
     };
@@ -91,16 +92,20 @@ export class HeroService {
   }
 
   /*
-   * What the website reads. Returns null — not an error — when the section is unpublished or has
-   * never been configured, because "there is nothing to show" is a normal state the site handles
-   * by rendering its own bundled copy.
+   * What the website reads. Returns null — not an error — only when the section has never been
+   * configured, a normal state the site handles by rendering its own bundled copy. An unpublished
+   * banner is NOT null: it comes back with `showSection: false` and no slides, so the site hides it
+   * rather than falling back to that bundled copy. `showGlance` travels here, not with the card's
+   * figures in /public/modules, because it is this section's switch.
    */
   async getPublic(): Promise<PublicHomeHero | null> {
     const settings = await heroRepository.findSettings();
-    if (!settings || !settings.isPublished || !settings.isActive) return null;
+    if (!settings || !settings.isActive) return null;
 
-    const slides = await heroRepository.findSlides(settings.id, { activeOnly: true });
+    const slides = settings.isPublished ? await heroRepository.findSlides(settings.id, { activeOnly: true }) : [];
     return {
+      showSection: settings.isPublished,
+      showGlance: settings.showGlance,
       readMoreLabel: { mr: settings.readMoreLabelMr, en: settings.readMoreLabelEn },
       checkStatusLabel: { mr: settings.checkStatusLabelMr, en: settings.checkStatusLabelEn },
       slides: slides.map(slideText),

@@ -15,7 +15,7 @@ import { BATCH_STATUS } from '../student.constants';
 import { uploadedFile } from './upload.middleware';
 import { toImportBatchDto } from './import-batch.mapper';
 import { importService } from './import.service';
-import type { DecideBody, ListBatchesQuery, ListRowsQuery } from './import.validation';
+import type { AcceptAllBody, DecideBody, ListBatchesQuery, ListRowsQuery } from './import.validation';
 
 type BatchParams = { id: string };
 type RowParams = { id: string; rowId: string };
@@ -128,6 +128,18 @@ export const importController = {
       res,
       await importService.acceptIssues(p.id, p.rowId, body<{ reason: string }>(req).reason, req.auth!, req),
       'Issues accepted with reason',
+    );
+  }),
+
+  /* Accept the waivable issues of every exception row with one reason (rows with a non-waivable issue are left). */
+  acceptAll: asyncHandler(async (req: Request, res: Response) => {
+    const b = body<AcceptAllBody>(req);
+    const r = await importService.acceptAllIssues(params<BatchParams>(req).id, b.reason, b.code, req.auth!, req);
+    ApiResponse.ok(
+      res,
+      { batch: toImportBatchDto(r.batch), accepted: r.accepted, skipped: r.skipped },
+      `Issues accepted on ${r.accepted} rows` +
+        (r.skipped ? `; ${r.skipped} rows have issues that cannot be waived (correct them at the source or reject them)` : ''),
     );
   }),
 

@@ -17,12 +17,15 @@ export interface MasterDto {
   name: string;
   description: string | null;
   isMandatory?: boolean;
+  nameEn?: string | null;
+  displayOrder?: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
-type WithMandatory = MasterEntity & { isMandatory?: boolean };
+/* A master row with the extra columns some masters have (document types: isMandatory; castes: nameEn, displayOrder). */
+type WithMandatory = MasterEntity & { isMandatory?: boolean; nameEn?: string | null; displayOrder?: number };
 
 /* CRUD for one master, following the users module: paging, soft delete, explicit activation, audit in the same transaction. */
 export class MasterService {
@@ -43,6 +46,8 @@ export class MasterService {
       updatedAt: e.updatedAt,
     };
     if (this.def.hasMandatory) out.isMandatory = !!e.isMandatory;
+    if (this.def.hasEnglishName) out.nameEn = e.nameEn ?? null;
+    if (this.def.ordered) out.displayOrder = e.displayOrder ?? 0;
     return out;
   }
 
@@ -58,14 +63,22 @@ export class MasterService {
     return { items: items.map((e) => this.toDto(e)), meta: buildMeta(q, total) };
   }
 
-  /* Dropdown values: active and not deleted only, by name. */
+  /* Dropdown values: active and not deleted only, by name — or, for an ordered master (castes), by display order. */
   async options(): Promise<MasterRef[]> {
-    const rows: WithMandatory[] = await this.repo.findMany({ isActive: true }, { order: { name: 'ASC' } });
+    const order = (this.def.ordered ? { displayOrder: 'ASC', name: 'ASC' } : { name: 'ASC' }) as Record<string, 'ASC'>;
+    const rows: WithMandatory[] = await this.repo.findMany({ isActive: true }, { order });
     return rows.map((e) => {
       const ref: MasterRef = { id: e.id, code: e.code, name: e.name };
       if (this.def.hasMandatory) ref.isMandatory = !!e.isMandatory;
+      if (this.def.hasEnglishName) ref.nameEn = e.nameEn ?? null;
       return ref;
     });
+  }
+
+  /* The next free display order: a new record without one goes to the end of the list. */
+  private async nextDisplayOrder(m: EntityManager): Promise<number> {
+    const [row] = await m.query(`SELECT COALESCE(MAX("displayOrder"), 0) + 1 AS "next" FROM "${this.def.table}" WHERE "isDelete" = false`);
+    return Number(row?.next ?? 1);
   }
 
   async get(id: string): Promise<MasterDto> {
@@ -103,6 +116,8 @@ export class MasterService {
         isActive: input.isActive ?? true,
       };
       if (this.def.hasMandatory) data.isMandatory = input.isMandatory ?? false;
+      if (this.def.hasEnglishName) data.nameEn = input.nameEn ?? null;
+      if (this.def.ordered) data.displayOrder = input.displayOrder ?? (await this.nextDisplayOrder(m));
       const e = await this.repo.create(data, m);
       await auditService.recordInTx(m, req, {
         action: `${this.def.audit}.create`,
@@ -123,6 +138,8 @@ export class MasterService {
       const patch: MasterInput = { ...input };
       delete patch.isActive;
       if (!this.def.hasMandatory) delete patch.isMandatory;
+      if (!this.def.hasEnglishName) delete patch.nameEn;
+      if (!this.def.ordered) delete patch.displayOrder;
       if (patch.code === e.code) delete patch.code;
       if (patch.code !== undefined && (await this.isReferenced(m, id)))
         throw AppError.conflict(`${this.def.label} is in use; its code cannot be changed`);

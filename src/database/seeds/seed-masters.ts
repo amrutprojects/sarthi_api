@@ -1,5 +1,5 @@
 import type { DataSource } from 'typeorm';
-import { CASTES, CENTRES, DOCUMENTS } from '../../modules/students/student.constants';
+import { CASTE_LIST, CENTRES, DOCUMENTS } from '../../modules/students/student.constants';
 
 /*
  * Reference data for the four masters. Idempotent: a row is inserted only when its code and name are both unused
@@ -60,11 +60,19 @@ export async function seedMasters(ds: DataSource): Promise<Record<string, number
       'regions',
       CENTRES.map((c) => ({ code: c.code, name: c.name })),
     ),
-    /* Codes C01–C27 follow the source order, as in the Masters migration. */
+    /*
+     * The official list, in order (CasteOfficialList migration). On a migrated database every code or name is already
+     * taken, so nothing is inserted; on one created another way, codes C01–C26 follow the official order.
+     */
     castes: await insert(
       ds,
       'castes',
-      CASTES.map((name, i) => ({ code: 'C' + String(i + 1).padStart(2, '0'), name: name.normalize('NFC') })),
+      CASTE_LIST.map((c, i) => ({
+        code: 'C' + String(i + 1).padStart(2, '0'),
+        name: c.name.normalize('NFC'),
+        nameEn: c.nameEn,
+        displayOrder: i + 1,
+      })),
     ),
     documentTypes: await insert(
       ds,

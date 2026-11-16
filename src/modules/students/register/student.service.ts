@@ -61,6 +61,36 @@ export function publicStudent(s: Student, detail = false) {
     externalStatus: s.externalStatus,
     evidenceRef: s.evidenceRef,
     declarationAccepted: s.declarationAccepted,
+    /* Profile (imported or entered on the EDP portal); alternate contacts masked like the primary ones. */
+    gender: s.gender,
+    maritalStatus: s.maritalStatus,
+    permanentAddress: s.permanentAddress,
+    landmark: s.landmark,
+    districtId: s.districtId,
+    districtName: s.districtName,
+    talukaId: s.talukaId,
+    talukaName: s.talukaName,
+    division: s.division,
+    pinCode: s.pinCode,
+    alternateMobile: maskMobile(s.alternateMobile),
+    alternateEmail: maskEmail(s.alternateEmail),
+    disabilityStatus: s.disabilityStatus,
+    disabilityType: s.disabilityType,
+    disabilityCertificateNumber: s.disabilityCertificateNumber,
+    qualificationName: s.qualificationName,
+    qualificationStream: s.qualificationStream,
+    qualificationBoard: s.qualificationBoard,
+    qualificationCompletedOn: s.qualificationCompletedOn,
+    gradingType: s.gradingType,
+    cgpaScale: s.cgpaScale,
+    score: s.score,
+    qualificationClass: s.qualificationClass,
+    /* The source's own record details and its other columns, as supplied. */
+    schemeName: s.schemeName,
+    sourceSubmittedAt: s.sourceSubmittedAt,
+    sourceUpdatedAt: s.sourceUpdatedAt,
+    sourceRemarks: s.sourceRemarks,
+    sourceExtra: s.sourceExtra ?? {},
     documents: DOCUMENTS.map((d) => ({
       key: d.key,
       label: d.label,
@@ -276,7 +306,13 @@ export class StudentService {
 
   reference() {
     return {
-      columns: IMPORT_COLUMNS.map((c) => ({ field: c.field, label: c.label, required: c.required })),
+      columns: IMPORT_COLUMNS.map((c) => ({
+        field: c.field,
+        label: c.label,
+        required: c.required,
+        alternative: c.alternative ?? null,
+        aliases: c.aliases,
+      })),
       tracks: TRACKS.map(({ code, name, aliases }) => ({ code, name, aliases })),
       centres: CENTRES,
     };

@@ -18,6 +18,10 @@ export class TopBarSettings extends AppBaseEntity {
 
   @Column({ type: 'boolean', name: 'showLanguageToggle', default: true })
   showLanguageToggle!: boolean;
+
+  /* The whole strip (the language switch included). Written only by the "Show on website" switch (src/cms/visibility). */
+  @Column({ type: 'boolean', name: 'showSection', default: true })
+  showSection!: boolean;
 }
 
 /*

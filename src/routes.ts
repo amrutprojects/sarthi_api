@@ -28,6 +28,7 @@ import {
   publicApplyRouter,
   publicHeroRouter,
   publicBoardRouter,
+  publicAdvisoryRouter,
   publicEcosystemRouter,
   publicSchemesRouter,
   publicAboutRouter,
@@ -80,6 +81,7 @@ integrationRouter.use('/lms', lmsIntegrationRouter);
 integrationRouter.use('/reference', lmsReferenceRouter);
 apiRouter.use('/public/hero', publicHeroRouter);
 apiRouter.use('/public/board-members', publicBoardRouter);
+apiRouter.use('/public/advisory-committee', publicAdvisoryRouter);
 apiRouter.use('/public/ecosystem', publicEcosystemRouter);
 apiRouter.use('/public/schemes', publicSchemesRouter);
 apiRouter.use('/public/about', publicAboutRouter);

@@ -154,7 +154,14 @@ describe('Home hero seed', () => {
 
     const pub = await request(app).get(PUBLIC_URL);
     expect(pub.status).toBe(200);
-    expect(pub.body.data).toEqual({ readMoreLabel: SEEDED_READ_MORE, checkStatusLabel: SEEDED_CHECK_STATUS, slides: SEEDED_SLIDES });
+    expect(pub.body.data).toEqual({
+      showSection: true,
+      showGlance: true,
+      readMoreLabel: SEEDED_READ_MORE,
+      checkStatusLabel: SEEDED_CHECK_STATUS,
+      slides: SEEDED_SLIDES,
+    });
+    expect(d.showGlance).toBe(true);
   });
 
   it('returns the documented admin shape', async () => {
@@ -166,6 +173,7 @@ describe('Home hero seed', () => {
       'id',
       'isPublished',
       'readMoreLabel',
+      'showGlance',
       'slides',
       'updatedAt',
     ]);
@@ -270,7 +278,7 @@ describe('Home hero management', () => {
     expect(after).toEqual(retired);
   });
 
-  it('serves the public feed with the words and links only', async () => {
+  it('serves the public feed with the words, links and the two switches only', async () => {
     const payload = { ...validPayload(), slides: [slide(1), slide(2, { isActive: false }), slide(3, { ctaLink: '/track' })] };
     await put(payload).expect(200);
 
@@ -278,42 +286,48 @@ describe('Home hero management', () => {
     expect(pub.status).toBe(200);
     expect(pub.body.message).toBe('Home hero section retrieved successfully');
     expect(pub.body.data).toEqual({
+      showSection: true,
+      showGlance: true,
       readMoreLabel: payload.readMoreLabel,
       checkStatusLabel: payload.checkStatusLabel,
       slides: [publicSlide(slide(1)), publicSlide(slide(3, { ctaLink: '/track' }))],
     });
-    expect(Object.keys(pub.body.data).sort()).toEqual(['checkStatusLabel', 'readMoreLabel', 'slides']);
+    expect(Object.keys(pub.body.data).sort()).toEqual(['checkStatusLabel', 'readMoreLabel', 'showGlance', 'showSection', 'slides']);
     for (const s of pub.body.data.slides) expect(Object.keys(s).sort()).toEqual(['ctaLabel', 'ctaLink', 'description', 'tag', 'title']);
     for (const field of ['"id"', '"isActive"', '"isPublished"', '"displayOrder"', '"createdAt"', '"updatedAt"', '"isDelete"', '"heroId"']) {
       expect(JSON.stringify(pub.body.data)).not.toContain(field);
     }
   });
 
-  it('unpublishing makes the public feed return null (200), publishing restores it', async () => {
+  it('unpublishing hides the banner (showSection false, no slides — never null), publishing restores it', async () => {
+    const shownSlides = async () => ((await request(app).get(PUBLIC_URL)).body.data.slides as unknown[]).length;
     const off = await request(app).patch(`${ADMIN_URL}/status`).set(auth(admin.token)).send({ isPublished: false });
     expect(off.status).toBe(200);
     expect(off.body.message).toBe('Home hero section unpublished');
     expect(off.body.data.isPublished).toBe(false);
 
+    /* Not null: null means "not configured", which the website answers with its bundled copy rather than hiding. */
     const hidden = await request(app).get(PUBLIC_URL);
     expect(hidden.status).toBe(200);
-    expect(hidden.body.data).toBeNull();
-    expect(hidden.body.message).toBe('Home hero section is not published');
+    expect(hidden.body.message).toBe('Home hero section retrieved successfully');
+    expect(hidden.body.data).toMatchObject({ showSection: false, showGlance: true, slides: [] });
     /* The admin screen still reads and edits an unpublished section, and a save leaves it unpublished. */
     await put(validPayload()).expect(200);
     expect((await getAdmin()).isPublished).toBe(false);
-    expect((await request(app).get(PUBLIC_URL)).body.data).toBeNull();
+    expect((await request(app).get(PUBLIC_URL)).body.data).toMatchObject({ showSection: false, slides: [] });
 
     const on = await request(app).patch(`${ADMIN_URL}/status`).set(auth(admin.token)).send({ isPublished: true });
     expect(on.status).toBe(200);
     expect(on.body.message).toBe('Home hero section published');
-    expect((await request(app).get(PUBLIC_URL)).body.data).not.toBeNull();
+    expect((await request(app).get(PUBLIC_URL)).body.data.showSection).toBe(true);
+    expect(await shownSlides()).toBe(2);
 
     /* PUT can carry the switch too. */
     await put({ ...validPayload(), isPublished: false }).expect(200);
-    expect((await request(app).get(PUBLIC_URL)).body.data).toBeNull();
+    expect((await request(app).get(PUBLIC_URL)).body.data).toMatchObject({ showSection: false, slides: [] });
     await put({ ...validPayload(), isPublished: true }).expect(200);
-    expect((await request(app).get(PUBLIC_URL)).body.data).not.toBeNull();
+    expect((await request(app).get(PUBLIC_URL)).body.data.showSection).toBe(true);
+    expect(await shownSlides()).toBe(2);
 
     const bad = await request(app).patch(`${ADMIN_URL}/status`).set(auth(admin.token)).send({ isPublished: 'yes', extra: 1 });
     expect(bad.status).toBe(422);

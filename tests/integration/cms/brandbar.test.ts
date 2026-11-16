@@ -32,6 +32,8 @@ interface AdminBrandBar {
   fullName: Pair;
   partnerLabel: Pair;
   partnerName: string;
+  showPartner: boolean;
+  showSection: boolean;
   updatedAt: string;
 }
 interface Detail {
@@ -56,6 +58,12 @@ const put = (payload: unknown, token = admin.token) =>
     .set(auth(token))
     .send(payload as object);
 const getBar = async (): Promise<AdminBrandBar> => (await request(app).get(ADMIN_URL).set(auth(admin.token)).expect(200)).body.data;
+const lastAuditDetails = async () =>
+  (
+    await AppDataSource.query(
+      `SELECT "details" FROM "audit_logs" WHERE "action" = 'cms.brand-bar.update' ORDER BY "createdAt" DESC LIMIT 1`,
+    )
+  )[0].details as Record<string, unknown>;
 
 beforeAll(async () => {
   app = await setupTestApp();
@@ -75,8 +83,9 @@ describe('Brand Bar — before the seed', () => {
 describe('Brand Bar seed', () => {
   it('seeds exactly what the bar showed', async () => {
     expect(await seedBrandBar(AppDataSource)).toEqual({ created: true });
-    expect(await getBar()).toMatchObject(SEEDED);
+    expect(await getBar()).toMatchObject({ ...SEEDED, showSection: true, showPartner: true });
     expect(await publicFeed()).toEqual({
+      showSection: true,
       title: TITLE,
       fullName: FULL_NAME,
       partner: { label: PARTNER_LABEL, name: PARTNER_NAME },
@@ -109,6 +118,7 @@ describe('Editing the Brand Bar', () => {
       partnerName: 'Example Partner Ltd',
     });
     expect(await publicFeed()).toEqual({
+      showSection: true,
       title: 'AMRUT KALASH 2.0',
       fullName: pair('नवीन नाव', 'New name'),
       partner: { label: pair('भागीदार', 'Partner'), name: 'Example Partner Ltd' },
@@ -187,6 +197,76 @@ describe('Editing the Brand Bar', () => {
     jest.spyOn(auditService, 'recordInTx').mockRejectedValueOnce(new Error('simulated database failure'));
     expect((await put({ ...SEEDED, title: 'Never saved' })).status).toBe(500);
     expect(await getBar()).toEqual(before);
+  });
+});
+
+describe('The implementation partner box switch', () => {
+  const PARTNER = { label: PARTNER_LABEL, name: PARTNER_NAME };
+
+  it('hiding the box sends no partner to the website but keeps its label and name; showing it brings them back', async () => {
+    const current = await getBar();
+    const hidden = await put({ ...SEEDED, showPartner: false, expectedUpdatedAt: current.updatedAt });
+    expect(hidden.status).toBe(200);
+    expect(hidden.body.data).toMatchObject({ ...SEEDED, showPartner: false, showSection: true });
+    expect(await lastAuditDetails()).toEqual({ title: TITLE, partnerName: PARTNER_NAME, showPartner: false });
+    /* Only the partner box goes: the rest of the bar is still shown. */
+    expect(await publicFeed()).toEqual({ showSection: true, title: TITLE, fullName: FULL_NAME, partner: null });
+
+    const shown = await put({ ...SEEDED, showPartner: true, expectedUpdatedAt: hidden.body.data.updatedAt });
+    expect(shown.status).toBe(200);
+    expect(shown.body.data.showPartner).toBe(true);
+    expect(await lastAuditDetails()).toEqual({ title: TITLE, partnerName: PARTNER_NAME, showPartner: true });
+    expect((await publicFeed()).partner).toEqual(PARTNER);
+  });
+
+  it('a save without showPartner leaves the switch as it is, either way', async () => {
+    await put({ ...SEEDED, showPartner: false }).expect(200);
+    /* An edit from a client that does not send the switch: the box stays hidden, and the new name is kept for later. */
+    const edited = await put({ ...SEEDED, partnerName: 'Example Partner Ltd' });
+    expect(edited.status).toBe(200);
+    expect(edited.body.data).toMatchObject({ partnerName: 'Example Partner Ltd', showPartner: false });
+    expect(await lastAuditDetails()).toEqual({ title: TITLE, partnerName: 'Example Partner Ltd', showPartner: false });
+    expect((await publicFeed()).partner).toBeNull();
+
+    await put({ ...SEEDED, showPartner: true }).expect(200);
+    expect((await put(SEEDED).expect(200)).body.data.showPartner).toBe(true);
+    expect((await publicFeed()).partner).toEqual(PARTNER);
+  });
+
+  it('a blank partner name sends no partner even while the box is switched on', async () => {
+    await put({ ...SEEDED, partnerName: '', showPartner: true }).expect(200);
+    expect((await publicFeed()).partner).toBeNull();
+    await put(SEEDED).expect(200);
+  });
+
+  it('is independent of the whole-bar switch, which a save never changes', async () => {
+    /* The "Show on website" switch (src/cms/visibility) is the whole bar's one writer. */
+    await AppDataSource.query(`UPDATE "brand_bar_settings" SET "showSection" = false`);
+    const res = await put({ ...SEEDED, showPartner: false });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ showSection: false, showPartner: false });
+    expect(await publicFeed()).toMatchObject({ showSection: false, partner: null });
+
+    await put({ ...SEEDED, showPartner: true }).expect(200);
+    expect(await publicFeed()).toMatchObject({ showSection: false, partner: PARTNER });
+
+    await AppDataSource.query(`UPDATE "brand_bar_settings" SET "showSection" = true`);
+    expect(await publicFeed()).toMatchObject({ showSection: true, partner: PARTNER });
+  });
+
+  it('refuses a showPartner that is not true or false', async () => {
+    for (const value of ['yes', 1, null]) {
+      const res = await put({ ...SEEDED, showPartner: value });
+      expect(res.status).toBe(422);
+      expect(details(res)).toEqual([{ field: 'body.showPartner', message: 'showPartner must be true or false' }]);
+    }
+    expect((await getBar()).showPartner).toBe(true);
+  });
+
+  it('a view-only administrator cannot switch it', async () => {
+    const viewer = await actorWith(['cms-brandbar.view']);
+    expect((await put({ ...SEEDED, showPartner: false }, viewer.token)).status).toBe(403);
+    expect((await getBar()).showPartner).toBe(true);
   });
 });
 

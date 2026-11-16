@@ -38,6 +38,10 @@ export class BoardSection extends AppBaseEntity {
   /* Whether the notice box under the cards is printed. Its text is kept while it is hidden. */
   @Column({ type: 'boolean', name: 'showNotice', default: true })
   showNotice!: boolean;
+
+  /* The whole section, on the home and About pages. Written only by the "Show on website" switch (src/cms/visibility). */
+  @Column({ type: 'boolean', name: 'showSection', default: true })
+  showSection!: boolean;
 }
 
 /*

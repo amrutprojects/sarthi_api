@@ -54,7 +54,7 @@ async function pendingRegistrant(token: string, firstName: string, lastName: str
     aadhaar_number: withVerhoeffDigit(`3456789${String(10000 + n).slice(-4)}`),
     mobile_number: `97654${String(10000 + n).slice(-5)}`,
     religion: 'हिंदू',
-    caste_id: await masterId('castes', 'मराठी'),
+    caste_id: await masterId('castes', 'ब्राह्मण'),
     region_id: await masterId('regions', 'PUN'),
     technology: 'T03',
     education_id: await masterId('educations', 'B.Com'),

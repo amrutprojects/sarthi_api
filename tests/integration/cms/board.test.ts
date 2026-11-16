@@ -490,7 +490,9 @@ describe('Section settings', () => {
       notice: { title: null, body: pair('सूचना', 'Notice') },
     });
 
-    await put({ ...res.body.data, id: undefined, createdAt: undefined, updatedAt: undefined, showNotice: false }).expect(200);
+    /* showSection is read-only here (the "Show on website" switch writes it), so it is not sent back. */
+    const { id: _id, createdAt: _c, updatedAt: _u, showSection: _s, ...saved } = res.body.data;
+    await put({ ...saved, showNotice: false }).expect(200);
     expect((await request(app).get(PUBLIC_URL)).body.data).toMatchObject({ notice: null });
   });
 

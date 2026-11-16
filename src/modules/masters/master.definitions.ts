@@ -23,6 +23,9 @@ export interface MasterDefinition {
   referencedSql: string;
   /* Document types carry the extra isMandatory flag. */
   hasMandatory?: boolean;
+  /* Castes carry an English name (nameEn) and a display order; their options are listed in that order, not by name. */
+  hasEnglishName?: boolean;
+  ordered?: boolean;
 }
 
 const studentFk = (col: string) => `SELECT 1 FROM "students" WHERE "isDelete" = false AND "${col}" = $1 LIMIT 1`;
@@ -55,6 +58,8 @@ export const MASTERS: Record<MasterKey, MasterDefinition> = {
     /* Stored in students.caste varchar(80). */
     nameMax: 80,
     referencedSql: studentFk('casteId'),
+    hasEnglishName: true,
+    ordered: true,
   },
   documentType: {
     key: 'documentType',

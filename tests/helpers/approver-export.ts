@@ -1,0 +1,150 @@
+import { withVerhoeffDigit } from '../../src/modules/students/aadhaar';
+
+/*
+ * The source portal's "approver dashboard" CSV export (the file the Student Import receives as it is downloaded).
+ * APPROVER_HEADER is that export's header row exactly as written: 40 columns, including the source's own spellings
+ * ("Distrct", "Alernate Email", "Adhaar Number") and the two spaces in "Percentage /  CGPA".
+ * Every value below is synthetic: example.invalid emails, 90000000xx mobiles, generated Aadhaar numbers.
+ */
+export const APPROVER_HEADER = [
+  'applicationId',
+  'schemeName',
+  'applicantName',
+  'submissionDate',
+  'lastUpdated',
+  'status',
+  'remarks',
+  'Caste',
+  'Taluka',
+  'District',
+  'Division',
+  'Primary Mobile Number',
+  'Email',
+  'Are you a disabled person ?',
+  'Specify Disability If Applicable',
+  'Disability Certificate Number',
+  'Full Name',
+  'Date Of Birth',
+  'Gender',
+  'Adhaar Number',
+  'Marital Status',
+  'Address',
+  'Permanent Address',
+  'Landmark',
+  'Distrct',
+  'Pincode',
+  'Mobile Number',
+  'Alternate Mobile Number',
+  'Alernate Email',
+  "Father's Name",
+  "Mother's Name",
+  'Religion',
+  'Course Type',
+  'Class / Grade',
+  'Educational Qualification',
+  'Name of Qualification',
+  'Subject/Stream/Branch',
+  'Board / University Name',
+  'Date Of Qualification Completion',
+  'Percentage /  CGPA',
+];
+
+/* The import field each column of the export is read into (field → header as written). */
+export const APPROVER_MAPPING: Record<string, string> = {
+  source_record_id: 'applicationId',
+  scheme_name: 'schemeName',
+  applicant_name: 'applicantName',
+  submitted_at: 'submissionDate',
+  source_updated_at: 'lastUpdated',
+  approval_status: 'status',
+  source_remarks: 'remarks',
+  caste: 'Caste',
+  taluka: 'Taluka',
+  district: 'District',
+  division: 'Division',
+  primary_mobile_number: 'Primary Mobile Number',
+  email: 'Email',
+  disability_status: 'Are you a disabled person ?',
+  disability_type: 'Specify Disability If Applicable',
+  disability_certificate_number: 'Disability Certificate Number',
+  full_name: 'Full Name',
+  date_of_birth: 'Date Of Birth',
+  gender: 'Gender',
+  aadhaar_number: 'Adhaar Number',
+  marital_status: 'Marital Status',
+  current_address: 'Address',
+  permanent_address: 'Permanent Address',
+  landmark: 'Landmark',
+  address_district: 'Distrct',
+  pin_code: 'Pincode',
+  mobile_number: 'Mobile Number',
+  alternate_mobile_number: 'Alternate Mobile Number',
+  alternate_email: 'Alernate Email',
+  father_name: "Father's Name",
+  mother_name: "Mother's Name",
+  religion: 'Religion',
+  technology: 'Course Type',
+  qualification_class: 'Class / Grade',
+  education_qualification: 'Educational Qualification',
+  qualification_name: 'Name of Qualification',
+  qualification_stream: 'Subject/Stream/Branch',
+  qualification_board: 'Board / University Name',
+  qualification_completed_on: 'Date Of Qualification Completion',
+  score: 'Percentage /  CGPA',
+};
+
+export const APPROVER_AADHAAR = withVerhoeffDigit('23456789012');
+
+/* One synthetic application in the export's layout (values by header as written). */
+export function approverRow(over: Record<string, string> = {}): Record<string, string> {
+  return {
+    applicationId: 'KL400-900001',
+    schemeName: 'Synthetic Skill Scheme',
+    applicantName: 'Asha Ramesh Patil',
+    submissionDate: '2026-10-20 10:15:00',
+    lastUpdated: '2026-10-27 05:59:32',
+    status: 'PENDING',
+    remarks: 'Synthetic remark: documents checked',
+    Caste: 'ब्राह्मण',
+    Taluka: 'हवेली',
+    District: 'पुणे',
+    Division: 'पुणे',
+    'Primary Mobile Number': '9000000011',
+    Email: 'asha.approver@example.invalid',
+    'Are you a disabled person ?': 'No',
+    'Specify Disability If Applicable': 'NA',
+    'Disability Certificate Number': 'NA',
+    'Full Name': 'Asha Ramesh Patil',
+    'Date Of Birth': '2003-04-12',
+    Gender: 'Female',
+    'Adhaar Number': APPROVER_AADHAAR,
+    'Marital Status': 'Unmarried',
+    Address: 'Flat 1, Test Lane, Pune',
+    'Permanent Address': 'House 2, Sample Road, Pune',
+    Landmark: 'Near Test Garden',
+    Distrct: 'पुणे',
+    Pincode: '411001',
+    'Mobile Number': '9000000011',
+    'Alternate Mobile Number': '9000000012',
+    'Alernate Email': 'asha.alt@example.invalid',
+    "Father's Name": 'Ramesh Patil',
+    "Mother's Name": 'Sunita Patil',
+    Religion: 'हिंदु',
+    'Course Type': 'Web Design & Development',
+    'Class / Grade': 'A',
+    'Educational Qualification': 'HSC',
+    'Name of Qualification': 'HSC',
+    'Subject/Stream/Branch': 'Science',
+    'Board / University Name': 'Maharashtra State Board',
+    'Date Of Qualification Completion': '2021-06-15',
+    'Percentage /  CGPA': '8',
+    ...over,
+  };
+}
+
+const cell = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+export const BOM = String.fromCharCode(0xfeff);
+
+/* A CSV as the portal downloads it: UTF-8 with a byte-order mark, LF line ends, values quoted only when needed. */
+export const approverCsv = (rows: Record<string, string>[], header = APPROVER_HEADER) =>
+  Buffer.from(BOM + [header.join(','), ...rows.map((r) => header.map((h) => cell(r[h] ?? '')).join(','))].join('\n') + '\n');

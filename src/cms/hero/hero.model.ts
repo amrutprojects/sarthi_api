@@ -31,8 +31,17 @@ export class HomeHero extends AppBaseEntity {
   @Column({ type: 'varchar', length: 60, name: 'checkStatusLabelEn' })
   checkStatusLabelEn!: string;
 
+  /* The whole banner, the "Programme at a glance" card included: false hides it from the website. */
   @Column({ type: 'boolean', name: 'isPublished', default: true })
   isPublished!: boolean;
+
+  /*
+   * The "Programme at a glance" card on its own; the slides then take the full width. Kept here
+   * because the card has no row of its own (see above). Written only by the "Show on website" switch
+   * (src/cms/visibility).
+   */
+  @Column({ type: 'boolean', name: 'showGlance', default: true })
+  showGlance!: boolean;
 
   @OneToMany('HomeHeroSlide', (s: HomeHeroSlide) => s.hero)
   slides!: HomeHeroSlide[];

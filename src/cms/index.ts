@@ -12,6 +12,7 @@ import { mastersRouter } from './masters';
 import { programmeMastersRouter } from '../masters';
 import { heroRouter } from './hero/hero.routes';
 import { boardRouter } from './board/board.routes';
+import { advisoryRouter } from './advisory/advisory.routes';
 import { ecosystemRouter } from './ecosystem/ecosystem.routes';
 import { schemesRouter } from './schemes/schemes.routes';
 import { aboutRouter } from './about/about.routes';
@@ -19,6 +20,7 @@ import { impactRouter } from './impact/impact.routes';
 import { announcementsRouter } from './announcements/announcements.routes';
 import { topBarRouter } from './topbar/topbar.routes';
 import { brandBarRouter } from './brandbar/brandbar.routes';
+import { visibilityRouter } from './visibility/visibility.routes';
 
 export {
   ApplyPageItem,
@@ -47,6 +49,7 @@ export { publicEligibilityRouter } from './eligibility/eligibility.public.routes
 export { publicApplyRouter } from './apply/apply.public.routes';
 export { publicHeroRouter } from './hero/hero.public.routes';
 export { publicBoardRouter } from './board/board.public.routes';
+export { publicAdvisoryRouter } from './advisory/advisory.public.routes';
 export { publicEcosystemRouter } from './ecosystem/ecosystem.public.routes';
 export { publicSchemesRouter } from './schemes/schemes.public.routes';
 export { publicAboutRouter } from './about/about.public.routes';
@@ -76,6 +79,7 @@ cmsRouter.use('/eligibility', eligibilityRouter);
 cmsRouter.use('/apply', applyRouter);
 cmsRouter.use('/hero', heroRouter);
 cmsRouter.use('/board-members', boardRouter);
+cmsRouter.use('/advisory-committee', advisoryRouter);
 cmsRouter.use('/ecosystem', ecosystemRouter);
 cmsRouter.use('/schemes', schemesRouter);
 cmsRouter.use('/about', aboutRouter);
@@ -83,6 +87,7 @@ cmsRouter.use('/impact', impactRouter);
 cmsRouter.use('/announcements', announcementsRouter);
 cmsRouter.use('/top-bar', topBarRouter);
 cmsRouter.use('/brand-bar', brandBarRouter);
+cmsRouter.use('/section-visibility', visibilityRouter);
 /* Mounted at the root: the masters router carries its own /states, /districts and /talukas paths. */
 cmsRouter.use('/', mastersRouter);
 /* The Masters sidebar group (src/masters): /departments, /colleges, /training-centres, /batches, /documents … */

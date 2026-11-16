@@ -85,6 +85,19 @@ export class Student extends AppBaseEntity {
   /* numeric(5,2): returned by the driver as a string, e.g. "78.50". */
   @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true }) score!: string | null;
   @Column({ type: 'varchar', length: 40, name: 'qualificationClass', nullable: true }) qualificationClass!: string | null;
+  /*
+   * Source details of an imported application (migration 1796100000000): district, taluka and division as received
+   * (districtId / talukaId are set only when they match the geography masters), the scheme, the source's own
+   * submission and last-update date-times and remarks, and the file's other columns as supplied (sourceExtra).
+   */
+  @Column({ type: 'varchar', length: 100, name: 'districtName', nullable: true }) districtName!: string | null;
+  @Column({ type: 'varchar', length: 100, name: 'talukaName', nullable: true }) talukaName!: string | null;
+  @Column({ type: 'varchar', length: 100, nullable: true }) division!: string | null;
+  @Column({ type: 'varchar', length: 150, name: 'schemeName', nullable: true }) schemeName!: string | null;
+  @Column({ type: 'timestamptz', name: 'sourceSubmittedAt', nullable: true }) sourceSubmittedAt!: Date | null;
+  @Column({ type: 'timestamptz', name: 'sourceUpdatedAt', nullable: true }) sourceUpdatedAt!: Date | null;
+  @Column({ type: 'varchar', length: 1000, name: 'sourceRemarks', nullable: true }) sourceRemarks!: string | null;
+  @Column({ type: 'jsonb', name: 'sourceExtra', default: () => `'{}'::jsonb` }) sourceExtra!: Record<string, string>;
 }
 
 /* The EDP portal's details as registrationService.register stores them (every key optional; absent = null). */

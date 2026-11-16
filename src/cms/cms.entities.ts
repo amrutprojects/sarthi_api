@@ -9,6 +9,7 @@ import { MASTER_ENTITIES } from './masters/masters.entities';
 import { PROGRAMME_PAGE_ENTITIES } from './programme/programme.entities';
 import { HERO_ENTITIES } from './hero/hero.entities';
 import { BOARD_ENTITIES } from './board/board.entities';
+import { ADVISORY_ENTITIES } from './advisory/advisory.entities';
 import { ECOSYSTEM_ENTITIES } from './ecosystem/ecosystem.entities';
 import { SCHEMES_ENTITIES } from './schemes/schemes.entities';
 import { ABOUT_ENTITIES } from './about/about.entities';
@@ -28,6 +29,7 @@ export { EligibilityItem, EligibilityPageSettings } from './eligibility/eligibil
 export { ApplyPageItem, ApplyPageSettings } from './apply/apply.entities';
 export { HomeHero, HomeHeroSlide } from './hero/hero.entities';
 export { BoardMember, BoardSection } from './board/board.entities';
+export { AdvisoryGroup, AdvisoryMember, AdvisorySection } from './advisory/advisory.entities';
 export { EcosystemProgramme, EcosystemSection } from './ecosystem/ecosystem.entities';
 export { AmrutScheme, AmrutSchemesSection } from './schemes/schemes.entities';
 export { AboutCard, AboutFact, AboutSection } from './about/about.entities';
@@ -56,6 +58,7 @@ export const CMS_ENTITIES = [
   ...APPLY_ENTITIES,
   ...HERO_ENTITIES,
   ...BOARD_ENTITIES,
+  ...ADVISORY_ENTITIES,
   ...ECOSYSTEM_ENTITIES,
   ...SCHEMES_ENTITIES,
   ...ABOUT_ENTITIES,

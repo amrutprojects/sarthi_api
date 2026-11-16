@@ -39,6 +39,7 @@ interface PublicLink {
   link: string;
 }
 interface PublicFeed {
+  showSection: boolean;
   governmentName: Pair | null;
   showLanguageToggle: boolean;
   links: PublicLink[];
@@ -121,9 +122,10 @@ describe('Top Bar seed', () => {
       { label: STATUS, link: '/track', displayOrder: 2, isActive: true },
     ]);
 
-    expect(await getSettings()).toMatchObject({ governmentName: GOVERNMENT, showLanguageToggle: true });
+    expect(await getSettings()).toMatchObject({ governmentName: GOVERNMENT, showLanguageToggle: true, showSection: true });
 
     expect(await publicFeed()).toEqual({
+      showSection: true,
       governmentName: GOVERNMENT,
       showLanguageToggle: true,
       links: [
@@ -139,7 +141,7 @@ describe('Top Bar seed', () => {
     await request(app).delete(`${ADMIN_URL}/${status!.id}`).set(auth(admin.token)).expect(200);
     expect(await seedTopBar(AppDataSource)).toEqual({ created: false, linksCreated: 0 });
     expect(await list()).toEqual([]);
-    expect(await publicFeed()).toEqual({ governmentName: GOVERNMENT, showLanguageToggle: true, links: [] });
+    expect(await publicFeed()).toEqual({ showSection: true, governmentName: GOVERNMENT, showLanguageToggle: true, links: [] });
     /* Put the two links back for the rest of the suite, as new records. */
     await create({ label: VERIFY, link: '/verify' }).expect(201);
     await create({ label: STATUS, link: '/track' }).expect(201);
@@ -438,11 +440,11 @@ describe('Top Bar settings', () => {
     expect(res.body.data).toMatchObject({ governmentName: GOVERNMENT, showLanguageToggle: false });
     const before = await publicLinks();
     const feed = (await publicFeed())!;
-    expect(feed).toEqual({ governmentName: GOVERNMENT, showLanguageToggle: false, links: before });
+    expect(feed).toEqual({ showSection: true, governmentName: GOVERNMENT, showLanguageToggle: false, links: before });
     expect((await list()).length).toBeGreaterThan(1);
 
     await putSettings({ governmentName: GOVERNMENT, showLanguageToggle: true }).expect(200);
-    expect(await publicFeed()).toEqual({ governmentName: GOVERNMENT, showLanguageToggle: true, links: before });
+    expect(await publicFeed()).toEqual({ showSection: true, governmentName: GOVERNMENT, showLanguageToggle: true, links: before });
   });
 
   it('a blank government name (or null) switches the bold text off: the feed says null, the admin form gets blanks', async () => {
@@ -450,7 +452,7 @@ describe('Top Bar settings', () => {
     const blank = await putSettings({ governmentName: BLANK, showLanguageToggle: true });
     expect(blank.status).toBe(200);
     expect(blank.body.data).toMatchObject({ governmentName: BLANK, showLanguageToggle: true });
-    expect(await publicFeed()).toEqual({ governmentName: null, showLanguageToggle: true, links: before });
+    expect(await publicFeed()).toEqual({ showSection: true, governmentName: null, showLanguageToggle: true, links: before });
 
     await putSettings({ governmentName: GOVERNMENT, showLanguageToggle: true }).expect(200);
     const cleared = await putSettings({ governmentName: null, showLanguageToggle: true });
@@ -471,7 +473,7 @@ describe('Top Bar settings', () => {
     const rows = await list();
     for (const r of rows)
       await request(app).patch(`${ADMIN_URL}/${r.id}/status`).set(auth(admin.token)).send({ isActive: false }).expect(200);
-    expect(await publicFeed()).toEqual({ governmentName: GOVERNMENT, showLanguageToggle: true, links: [] });
+    expect(await publicFeed()).toEqual({ showSection: true, governmentName: GOVERNMENT, showLanguageToggle: true, links: [] });
     for (const r of rows)
       await request(app).patch(`${ADMIN_URL}/${r.id}/status`).set(auth(admin.token)).send({ isActive: r.isActive }).expect(200);
     expect((await publicLinks()).length).toBe(rows.filter((r) => r.isActive).length);

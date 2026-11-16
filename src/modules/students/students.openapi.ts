@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { documentEndpoint, envelope, pagedEnvelope, registry } from '../../shared/openapi/registry';
 import {
+  acceptAllSchema,
   batchIdSchema,
   documentsForm,
   rowDocumentSchema,
@@ -34,6 +35,7 @@ const Counts = z.object({
   reconciled: z.number().int(),
   created: z.number().int().optional(),
   linked: z.number().int().optional(),
+  pendingApproval: z.number().int().optional().describe('of created: added as pending approval (not yet approved at the source)'),
 });
 const DocumentsReportDto = z.object({
   zipName: z.string(),
@@ -266,6 +268,20 @@ documentEndpoint({
   status: 200,
   request: { params: reasonSchema.params, body: reasonSchema.body },
   response: envelope(ImportRowDto),
+  errors: [400, 404, 409],
+});
+documentEndpoint({
+  method: 'post',
+  path: '/imports/:id/accept-issues',
+  tag,
+  summary: 'Accept the waivable issues of every exception row with one reason',
+  description:
+    'Accepts the open waivable issues (only those of `code`, when given) on every DATA_EXCEPTION row of a batch under review. ' +
+    'A row with an open issue that cannot be waived is left untouched and counted in `skipped`.',
+  permission: 'imports.update',
+  status: 200,
+  request: { params: acceptAllSchema.params, body: acceptAllSchema.body },
+  response: envelope(z.object({ batch: ImportBatchDto, accepted: z.number().int().describe('rows changed'), skipped: z.number().int() })),
   errors: [400, 404, 409],
 });
 documentEndpoint({

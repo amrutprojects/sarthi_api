@@ -12,6 +12,8 @@ for (const d of MASTER_LIST) {
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join('');
   const mandatory: z.ZodRawShape = d.hasMandatory ? { isMandatory: z.boolean() } : {};
+  const english: z.ZodRawShape = d.hasEnglishName ? { nameEn: z.string().nullable() } : {};
+  const order: z.ZodRawShape = d.ordered ? { displayOrder: z.number().int() } : {};
   const Dto = registry.register(
     schemaName,
     z
@@ -21,6 +23,8 @@ for (const d of MASTER_LIST) {
         name: z.string(),
         description: z.string().nullable(),
         ...mandatory,
+        ...english,
+        ...order,
         isActive: z.boolean(),
         createdAt: z.string().datetime(),
         updatedAt: z.string().datetime(),
@@ -29,7 +33,7 @@ for (const d of MASTER_LIST) {
   );
   const Option = registry.register(
     `${schemaName}Option`,
-    z.object({ id: z.string().uuid(), code: z.string(), name: z.string(), ...mandatory }).strict(),
+    z.object({ id: z.string().uuid(), code: z.string(), name: z.string(), ...mandatory, ...english }).strict(),
   );
   const path = `/${d.path}`;
   const tag = d.plural;
@@ -51,7 +55,9 @@ for (const d of MASTER_LIST) {
     path: `${path}/options`,
     tag,
     summary: `Active ${d.plural.toLowerCase()} for dropdowns`,
-    description: 'Only active, non-deleted records, sorted by name. Used by the public registration form.',
+    description: d.ordered
+      ? 'Only active, non-deleted records, in display order (the official sequence). Used by the public registration form and the website.'
+      : 'Only active, non-deleted records, sorted by name. Used by the public registration form.',
     permission: 'public',
     response: envelope(z.array(Option)),
   });

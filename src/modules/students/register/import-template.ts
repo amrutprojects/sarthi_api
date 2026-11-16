@@ -61,7 +61,8 @@ function sampleRows(): SampleRow[] {
       aadhaar_number: withVerhoeffDigit(`23456789${String(100 + p.n).padStart(3, '0')}`),
       mobile_number: `90000000${String(p.n).padStart(2, '0')}`,
       religion: 'हिंदू',
-      caste: 'मराठी',
+      /* A caste in the official target-group list (CASTE_LIST). */
+      caste: 'ब्राह्मण',
       course_centre: p.centre,
       technology: p.track,
       education_qualification: 'Graduate',
@@ -80,13 +81,16 @@ function sampleRows(): SampleRow[] {
         files.push({ path, data });
       } else values[col] = 'No';
       /* A valid-format sample barcode: 18 digits, distinct per document and row. */
-      if (d.barcode) values[`${col}_barcode`] = d.barcode === 'required' ? `${10 + DOCUMENTS.indexOf(d)}${String(p.n).padStart(16, '0')}` : '';
+      if (d.barcode)
+        values[`${col}_barcode`] = d.barcode === 'required' ? `${10 + DOCUMENTS.indexOf(d)}${String(p.n).padStart(16, '0')}` : '';
     }
     return { values, files };
   });
 }
 
-const header = () => IMPORT_COLUMNS.map((c) => c.field);
+/* The template's own layout: the alternative layouts' columns (Full Name, Primary Mobile Number…) are left out. */
+const TEMPLATE_COLUMNS = IMPORT_COLUMNS.filter((c) => c.template !== false);
+const header = () => TEMPLATE_COLUMNS.map((c) => c.field);
 
 /* CSV template (UTF-8 with BOM so Excel opens Marathi text correctly). */
 export function templateCsv(): string {
@@ -100,17 +104,17 @@ export async function templateXlsx(): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'AMRUT × SUMAGO Admin';
   const ws = wb.addWorksheet('Students', { views: [{ state: 'frozen', ySplit: 1 }] });
-  ws.columns = IMPORT_COLUMNS.map((c) => ({
+  ws.columns = TEMPLATE_COLUMNS.map((c) => ({
     header: c.field,
     key: c.field,
     width: c.field.startsWith('doc_') ? 34 : Math.max(14, c.field.length + 2),
     style: { numFmt: '@' }, // text: keeps leading zeros and stops Excel turning Aadhaar numbers into 2.34E+11
   }));
   ws.getRow(1).font = { bold: true };
-  IMPORT_COLUMNS.forEach((c, i) => {
+  TEMPLATE_COLUMNS.forEach((c, i) => {
     const cell = ws.getRow(1).getCell(i + 1);
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: c.required ? 'FFFDEEDB' : 'FFF2EDE7' } };
-    cell.note = `${c.label}${c.required ? ' (required)' : ''}`;
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: c.required || c.alternative ? 'FFFDEEDB' : 'FFF2EDE7' } };
+    cell.note = `${c.label}${c.required ? ' (required)' : c.alternative ? ` (${c.alternative})` : ''}`;
   });
   for (const r of sampleRows()) ws.addRow(r.values);
 
@@ -133,13 +137,20 @@ export async function templateXlsx(): Promise<Buffer> {
       'You may also write "Yes" and name the files by document type inside the student folder, e.g. MA-0001/AADHAAR_CARD.pdf.',
     ],
     ['Sample', 'Download the sample documents ZIP next to this template: uploading both together shows the expected result.'],
+    [
+      'Approver dashboard export',
+      "The source portal's approver dashboard CSV can be uploaded as it is: its columns (applicationId, Full Name, Adhaar Number, Course Type, District, status, …) are read into the same fields. A row not yet APPROVED at the source can be accepted by a reviewer; that student is added as pending approval.",
+    ],
     ['', ''],
     ['Column', 'Meaning'],
-    ...IMPORT_COLUMNS.map((c): [string, string] => [c.field, `${c.label}${c.required ? ' — required' : ''}`]),
+    ...TEMPLATE_COLUMNS.map((c): [string, string] => [
+      c.field,
+      `${c.label}${c.required ? ' — required' : c.alternative ? ` — ${c.alternative}` : ''}`,
+    ]),
   ];
   rows.forEach((r) => help.addRow(r));
   help.getRow(1).font = { bold: true, size: 13 };
-  help.getRow(9).font = { bold: true };
+  help.getRow(10).font = { bold: true };
   help.getColumn(2).alignment = { wrapText: true, vertical: 'top' };
 
   return Buffer.from(await wb.xlsx.writeBuffer());

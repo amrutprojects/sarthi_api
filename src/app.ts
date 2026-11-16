@@ -66,6 +66,12 @@ export function createApp(): Express {
     }),
     integrationRouter,
   );
+  /*
+   * Also before the general parser, whose limit is far below what the validator allows here: a full
+   * Advisory Committee profile is a few hundred KB (see DATA_FIELD_MAX_BYTES in advisory.photo.ts, the
+   * same limit for multipart). A body parsed here is skipped by the general parser.
+   */
+  app.use(`${appConfig.apiPrefix}/cms/advisory-committee`, express.json({ limit: '512kb' }));
   app.use(express.json({ limit: appConfig.bodyLimit }));
 
   /* API contract (ADR-0004): machine-readable JSON plus Swagger UI, off in production unless enabled. */
