@@ -19,6 +19,7 @@ import { centreService } from '../../../masters/centre/centre.service';
 import type { CreateCentreBody, ListCentresQuery, UpdateCentreBody } from '../../../masters/centre/centre.validator';
 import type {
   FollowUpBody,
+  HelpBody,
   ManageListQuery,
   NewUserBody,
   ResetPasswordBody,
@@ -26,6 +27,7 @@ import type {
   SaveStepBody,
   SignupBody,
   SubmitBody,
+  WelcomeBody,
 } from './edp.validation';
 
 type Email = { email: string };
@@ -142,12 +144,24 @@ export const edpController = {
     zip.outputStream.on('error', (err) => res.destroy(err));
     zip.outputStream.pipe(res);
   }),
-  /* The support contact line: any tracking panel user reads it, an ADMIN saves it. */
+  /* The content the portal shows: any tracking panel user reads it, an ADMIN saves it. */
   manageSupport: asyncHandler(async (_req: Request, res: Response) => {
     ApiResponse.ok(res, await edpSettingsService.supportForAdmin());
   }),
   manageSaveSupport: asyncHandler(async (req: Request, res: Response) => {
     ApiResponse.ok(res, await edpSettingsService.saveSupport(req, edpAdminOf(res), body<SupportBody>(req)), 'Support contact saved');
+  }),
+  manageWelcome: asyncHandler(async (_req: Request, res: Response) => {
+    ApiResponse.ok(res, await edpSettingsService.welcomeForAdmin());
+  }),
+  manageSaveWelcome: asyncHandler(async (req: Request, res: Response) => {
+    ApiResponse.ok(res, await edpSettingsService.saveWelcome(req, edpAdminOf(res), body<WelcomeBody>(req)), 'Welcome message saved');
+  }),
+  manageHelp: asyncHandler(async (_req: Request, res: Response) => {
+    ApiResponse.ok(res, await edpSettingsService.helpForAdmin());
+  }),
+  manageSaveHelp: asyncHandler(async (req: Request, res: Response) => {
+    ApiResponse.ok(res, await edpSettingsService.saveHelp(req, edpAdminOf(res), body<HelpBody>(req)), 'Help contact saved');
   }),
   /* Tracking panel users (ADMIN only). */
   manageUsers: asyncHandler(async (_req: Request, res: Response) => {

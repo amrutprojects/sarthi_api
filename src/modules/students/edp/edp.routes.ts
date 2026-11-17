@@ -22,6 +22,7 @@ import {
   fileDownloadQuery,
   emailBody,
   followUpBody,
+  helpBody,
   loginBody,
   manageListQuery,
   newUserBody,
@@ -34,6 +35,7 @@ import {
   submitBody,
   supportBody,
   userStatusBody,
+  welcomeBody,
 } from './edp.validation';
 
 /* Per-IP limit for sign-up, OTP and sign-in, on top of the global API limit. */
@@ -118,6 +120,14 @@ edpRouter.patch(
   c.manageUserStatus,
 );
 
-/* The support contact line shown to students: every tracking panel user reads it, an ADMIN saves it. */
+/*
+ * The portal's editable content: the support contact line shown to students, the congratulations dialog shown once an
+ * account is created, and the Help button's contact details. Every tracking panel user reads them, an ADMIN saves them.
+ * Students receive all three with GET /edp/options.
+ */
 edpRouter.get('/manage/settings/support', requireEdpAdmin, c.manageSupport);
 edpRouter.put('/manage/settings/support', requireEdpAdmin, requireEdpEditor, validateRequest({ body: supportBody }), c.manageSaveSupport);
+edpRouter.get('/manage/settings/welcome', requireEdpAdmin, c.manageWelcome);
+edpRouter.put('/manage/settings/welcome', requireEdpAdmin, requireEdpEditor, validateRequest({ body: welcomeBody }), c.manageSaveWelcome);
+edpRouter.get('/manage/settings/help', requireEdpAdmin, c.manageHelp);
+edpRouter.put('/manage/settings/help', requireEdpAdmin, requireEdpEditor, validateRequest({ body: helpBody }), c.manageSaveHelp);

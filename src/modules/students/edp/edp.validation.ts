@@ -15,6 +15,7 @@ import {
   EDP_YES_NO,
   EDP_FOLLOW_UP_NOTE_MAX,
   EDP_FOLLOW_UP_STATUS,
+  EDP_HELP_FIELDS,
   EDP_FORM_FIELDS,
   EDP_MAIN_FIELDS,
   EDP_STAGES,
@@ -337,3 +338,61 @@ export const followUpBody = z
   })
   .strict();
 export type FollowUpBody = z.infer<typeof followUpBody>;
+
+/* Text an admin writes for the portal: trimmed, free of characters PostgreSQL cannot store. */
+const content = (label: string, max: number, min = 0) =>
+  z
+    .string({ required_error: `${label} is required`, invalid_type_error: `${label} must be text` })
+    .trim()
+    .min(min, min <= 1 ? `${label} is required` : `${label} must be at least ${min} characters`)
+    .max(max, `${label} must be at most ${max} characters`)
+    .refine((v) => !hasControlChars(v), `${label} contains characters that cannot be saved`);
+
+/*
+ * The congratulations dialog shown once the account is created. `enabled` false keeps the text but stops showing it;
+ * a blank button_label leaves the portal's own (translated) button text in place.
+ */
+export const welcomeBody = z
+  .object({
+    enabled: z.boolean({ invalid_type_error: 'enabled must be true or false' }).optional().default(true),
+    title: content('Title', 120, 3),
+    message: content('Message', 1000, 10),
+    button_label: content('Button label', 60).optional().default(''),
+  })
+  .strict();
+export type WelcomeBody = z.infer<typeof welcomeBody>;
+
+/*
+ * The Help button: a heading, an optional line of introduction and up to EDP_HELP_FIELDS name / value lines (Contact
+ * Number, Email ID, …). A line needs both halves; blank lines are dropped, so the panel is saved with what it shows.
+ */
+const helpField = z
+  .object({ label: content('Field name', 60).optional().default(''), value: content('Value', 200).optional().default('') })
+  .strict();
+export const helpBody = z
+  .object({
+    enabled: z.boolean({ invalid_type_error: 'enabled must be true or false' }).optional().default(true),
+    title: content('Title', 120, 2).optional().default('Need help?'),
+    intro: content('Intro', 300).optional().default(''),
+    fields: z.array(helpField).max(EDP_HELP_FIELDS, `At most ${EDP_HELP_FIELDS} fields can be shown`).optional().default([]),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    v.fields.forEach((f, i) => {
+      if (f.value && !f.label)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fields', i, 'label'],
+          message: 'Field name is required when a value is given',
+        });
+      if (f.label && !f.value)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fields', i, 'value'],
+          message: 'Value is required when a field name is given',
+        });
+    });
+    if (v.enabled && !v.fields.some((f) => f.label && f.value))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fields'], message: 'Add at least one contact detail to show in the Help panel' });
+  });
+export type HelpBody = z.infer<typeof helpBody>;

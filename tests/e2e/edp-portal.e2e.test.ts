@@ -1709,3 +1709,100 @@ describe('EDP support contact line, edited in the tracking panel', () => {
     expect(plain.body.data).toMatchObject({ message: 'Please visit your nearest EDP centre for help.', email: null, mobile: null });
   });
 });
+
+describe('EDP welcome message and Help button, edited in the tracking panel', () => {
+  async function tokenFor(email: string, role: 'ADMIN' | 'VIEWER') {
+    await AppDataSource.query(`INSERT INTO "edp_admins" ("name", "email", "passwordHash", "role") VALUES ($1, $2, $3, $4)`, [
+      role === 'ADMIN' ? 'Content Admin' : 'Content Viewer',
+      email,
+      await bcrypt.hash('Admin-pass-1', 4),
+      role,
+    ]);
+    return (await request(app).post(`${EDP}/manage/auth/login`).send({ email, password: 'Admin-pass-1' })).body.data.token as string;
+  }
+
+  it('lets an ADMIN write the congratulations dialog; students then receive it with the options', async () => {
+    const A = bearer(await tokenFor('welcome.admin@example.invalid', 'ADMIN'));
+    const V = bearer(await tokenFor('welcome.viewer@example.invalid', 'VIEWER'));
+
+    /* The standard text until something is saved. */
+    const first = await request(app).get(`${EDP}/manage/settings/welcome`).set(V);
+    expect(first.status).toBe(HTTP_STATUS.OK);
+    expect(first.body.data).toMatchObject({ enabled: true, title: expect.stringContaining('Congratulations'), updated_at: null });
+
+    const bad = await request(app).put(`${EDP}/manage/settings/welcome`).set(A).send({ title: 'Hi', message: 'too short' });
+    expect(bad.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    expect(bad.body.error.details.map((d: { field: string }) => d.field).sort()).toEqual(['body.message', 'body.title']);
+
+    const body = {
+      enabled: true,
+      title: 'Congratulations, you are registered!',
+      message: 'Your mobile number is verified. Fill in the form in three steps and upload your documents.',
+      button_label: 'Start my form',
+    };
+    const saved = await request(app).put(`${EDP}/manage/settings/welcome`).set(A).send(body);
+    expect(saved.status).toBe(HTTP_STATUS.OK);
+    expect(saved.body.data).toMatchObject({ ...body, updated_by: 'Content Admin' });
+    expect((await request(app).get(`${EDP}/options`)).body.data.welcome).toEqual(body);
+
+    /* A viewer reads it but cannot save. */
+    expect((await request(app).put(`${EDP}/manage/settings/welcome`).set(V).send(body)).status).toBe(HTTP_STATUS.FORBIDDEN);
+
+    /* Switched off: the wording is kept, the portal just does not show the dialog. */
+    const off = await request(app)
+      .put(`${EDP}/manage/settings/welcome`)
+      .set(A)
+      .send({ ...body, enabled: false });
+    expect(off.body.data).toMatchObject({ enabled: false, title: body.title });
+  });
+
+  it('keeps the Help button to complete name and value lines, and sends them to the portal', async () => {
+    const A = bearer(await tokenFor('help.admin@example.invalid', 'ADMIN'));
+    const V = bearer(await tokenFor('help.viewer@example.invalid', 'VIEWER'));
+
+    const first = await request(app).get(`${EDP}/manage/settings/help`).set(V);
+    expect(first.status).toBe(HTTP_STATUS.OK);
+    expect(first.body.data).toMatchObject({ enabled: true, title: 'Need help?', updated_at: null });
+
+    /* A line needs both halves, and something must be left to show. */
+    const half = await request(app)
+      .put(`${EDP}/manage/settings/help`)
+      .set(A)
+      .send({ title: 'Need help?', fields: [{ label: 'Contact Number' }, { value: 'edp.help@example.invalid' }] });
+    expect(half.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+    /* Each half-filled line is named, and with no complete line there is nothing left to show. */
+    expect(half.body.error.details.map((d: { field: string }) => d.field).sort()).toEqual([
+      'body.fields',
+      'body.fields.0.value',
+      'body.fields.1.label',
+    ]);
+    const none = await request(app).put(`${EDP}/manage/settings/help`).set(A).send({ title: 'Need help?', fields: [] });
+    expect(none.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+
+    const fields = [
+      { label: 'Contact Number', value: '8530092236' },
+      { label: 'Email ID', value: 'edp.help@example.invalid' },
+      { label: 'WhatsApp', value: '9876543210' },
+      { label: 'Office hours', value: 'Monday to Friday, 10 am to 6 pm' },
+    ];
+    const body = { enabled: true, title: 'Need any help?', intro: 'The programme office is happy to help.', fields };
+    const saved = await request(app).put(`${EDP}/manage/settings/help`).set(A).send(body);
+    expect(saved.status).toBe(HTTP_STATUS.OK);
+    expect(saved.body.data).toMatchObject({ ...body, updated_by: 'Content Admin' });
+    expect((await request(app).get(`${EDP}/options`)).body.data.help).toEqual(body);
+
+    /* Blank lines are dropped, so what is saved is what the panel shows; a fifth line is refused. */
+    const trimmed = await request(app)
+      .put(`${EDP}/manage/settings/help`)
+      .set(A)
+      .send({ ...body, fields: [fields[0], { label: '', value: '' }, fields[1]] });
+    expect(trimmed.body.data.fields).toEqual([fields[0], fields[1]]);
+    const tooMany = await request(app)
+      .put(`${EDP}/manage/settings/help`)
+      .set(A)
+      .send({ ...body, fields: [...fields, { label: 'Fifth', value: 'line' }] });
+    expect(tooMany.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+
+    expect((await request(app).put(`${EDP}/manage/settings/help`).set(V).send(body)).status).toBe(HTTP_STATUS.FORBIDDEN);
+  });
+});
