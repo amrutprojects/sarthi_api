@@ -55,8 +55,11 @@ export class FooterSettings extends AppBaseEntity {
   @Column({ type: 'varchar', length: 120, name: 'partnerLabelEn' })
   partnerLabelEn!: string;
 
-  @Column({ type: 'varchar', length: 150, name: 'partnerName' })
-  partnerName!: string;
+  @Column({ type: 'varchar', length: 150, name: 'partnerNameMr' })
+  partnerNameMr!: string;
+
+  @Column({ type: 'varchar', length: 150, name: 'partnerNameEn' })
+  partnerNameEn!: string;
 
   /* Column 4 — Contact. */
   @Column({ type: 'varchar', length: 200, name: 'contactHeadingMr' })

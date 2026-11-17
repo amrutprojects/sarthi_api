@@ -95,7 +95,7 @@ export const updateFooterSchema = {
           heading: bilingual(200, 'About heading'),
           body: bilingual(2000, 'About text'),
           partnerLabel: bilingual(120, 'Partner label'),
-          partnerName: z.string().trim().min(1, 'Partner name is required').max(150, 'Partner name must be at most 150 characters'),
+          partnerName: bilingual(150, 'Partner name'),
         })
         .strict(),
 

@@ -97,7 +97,7 @@ export class FooterService {
         heading: { mr: settings.aboutHeadingMr, en: settings.aboutHeadingEn },
         body: { mr: settings.aboutBodyMr, en: settings.aboutBodyEn },
         partnerLabel: { mr: settings.partnerLabelMr, en: settings.partnerLabelEn },
-        partnerName: settings.partnerName,
+        partnerName: { mr: settings.partnerNameMr, en: settings.partnerNameEn },
       },
       linkColumns: columns,
       contact: {
@@ -143,7 +143,7 @@ export class FooterService {
         heading: { mr: settings.aboutHeadingMr, en: settings.aboutHeadingEn },
         body: { mr: settings.aboutBodyMr, en: settings.aboutBodyEn },
         partnerLabel: { mr: settings.partnerLabelMr, en: settings.partnerLabelEn },
-        partnerName: settings.partnerName,
+        partnerName: { mr: settings.partnerNameMr, en: settings.partnerNameEn },
       },
       linkColumns: sections
         .filter((s) => s.kind === 'LINK_COLUMN')
@@ -196,7 +196,8 @@ export class FooterService {
           aboutBodyEn: input.about.body.en,
           partnerLabelMr: input.about.partnerLabel.mr,
           partnerLabelEn: input.about.partnerLabel.en,
-          partnerName: input.about.partnerName,
+          partnerNameMr: input.about.partnerName.mr,
+          partnerNameEn: input.about.partnerName.en,
           contactHeadingMr: input.contact.heading.mr,
           contactHeadingEn: input.contact.heading.en,
           contactAddressMr: input.contact.address.mr,

@@ -31,7 +31,7 @@ export interface AdminFooter {
     heading: Bilingual;
     body: Bilingual;
     partnerLabel: Bilingual;
-    partnerName: string;
+    partnerName: Bilingual;
   };
   linkColumns: AdminFooterColumn[];
   contact: {
@@ -76,7 +76,7 @@ export interface PublicFooter {
     heading: Bilingual;
     body: Bilingual;
     partnerLabel: Bilingual;
-    partnerName: string;
+    partnerName: Bilingual;
   };
   linkColumns: PublicFooterColumn[];
   contact: {
@@ -114,7 +114,7 @@ export interface UpdateFooterInput {
     heading: Bilingual;
     body: Bilingual;
     partnerLabel: Bilingual;
-    partnerName: string;
+    partnerName: Bilingual;
   };
   linkColumns: UpdateFooterColumnInput[];
   contact: {

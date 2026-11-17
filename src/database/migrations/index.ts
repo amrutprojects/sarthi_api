@@ -84,6 +84,7 @@ import { CmsLiveDashboard1797600000000 } from './1797600000000-CmsLiveDashboard'
 import { ProgrammeMonthRanges1797700000000 } from './1797700000000-ProgrammeMonthRanges';
 import { ContactDistrictOfficesSwitch1797800000000 } from './1797800000000-ContactDistrictOfficesSwitch';
 import { RemoveDemoWording1797900000000 } from './1797900000000-RemoveDemoWording';
+import { FooterPartnerNameBilingual1798000000000 } from './1798000000000-FooterPartnerNameBilingual';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -180,4 +181,5 @@ export const MIGRATIONS = [
   ProgrammeMonthRanges1797700000000,
   ContactDistrictOfficesSwitch1797800000000,
   RemoveDemoWording1797900000000,
+  FooterPartnerNameBilingual1798000000000,
 ];
