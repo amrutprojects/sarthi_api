@@ -46,7 +46,7 @@ const KEEP_ON_RESET = new Set([
   /* Website content seeded by the CMS migrations. */
   'programme_module_settings', 'programme_modules', 'programme_elective_domains', 'footer_settings', 'footer_sections', 'footer_links', 'faqs',
   'eligibility_page_settings', 'eligibility_items', 'programme_highlight', 'programme_highlight_objectives',
-  'apply_page_settings', 'apply_page_items',
+  'apply_page_settings', 'apply_page_items', 'nav_menu_items',
 ]);
 
 /* audit_logs is append-only (UPDATE/DELETE blocked by trigger), but TRUNCATE is allowed for tests. */

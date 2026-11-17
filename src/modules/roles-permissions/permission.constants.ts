@@ -58,6 +58,7 @@ export const MENUS = {
   'cms-announcements': 'Announcements',
   'cms-topbar': 'Top Bar',
   'cms-brandbar': 'Brand Bar',
+  'cms-navmenu': 'Navigation Menu',
   'cms-hero': 'Home Hero Section',
   'cms-board': 'Board Members Management',
   'cms-advisory': 'Advisory Committee Management',
@@ -171,6 +172,8 @@ export const PERMISSIONS = {
   CMS_TOPBAR_DELETE: def('cms-topbar.delete', 'Delete Top Bar', 'Delete in the Top Bar menu'),
   CMS_BRANDBAR_VIEW: def('cms-brandbar.view', 'View Brand Bar', 'View in the Brand Bar menu'),
   CMS_BRANDBAR_UPDATE: def('cms-brandbar.update', 'Update Brand Bar', 'Update in the Brand Bar menu'),
+  CMS_NAVMENU_VIEW: def('cms-navmenu.view', 'View Navigation Menu', 'View in the Navigation Menu menu'),
+  CMS_NAVMENU_UPDATE: def('cms-navmenu.update', 'Update Navigation Menu', 'Update in the Navigation Menu menu'),
   CMS_HERO_VIEW: def('cms-hero.view', 'View Home Hero Section', 'View in the Home Hero Section menu'),
   CMS_HERO_UPDATE: def('cms-hero.update', 'Update Home Hero Section', 'Update in the Home Hero Section menu'),
   CMS_BOARD_VIEW: def('cms-board.view', 'View Board Members Management', 'View in the Board Members Management menu'),
@@ -336,8 +339,8 @@ export const LMS_MENUS = [
  * under /cms is not part of the website.
  */
 export const WEBSITE_MENUS = [
-  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-announcements', 'cms-topbar', 'cms-brandbar', 'cms-hero',
-  'cms-highlight', 'cms-board', 'cms-advisory', 'cms-ecosystem', 'cms-schemes', 'cms-impact', 'cms-about', 'cms-programme',
+  'cms-contact', 'cms-footer', 'cms-modules', 'cms-faqs', 'cms-eligibility', 'cms-apply', 'cms-announcements', 'cms-topbar', 'cms-brandbar', 'cms-navmenu',
+  'cms-hero', 'cms-highlight', 'cms-board', 'cms-advisory', 'cms-ecosystem', 'cms-schemes', 'cms-impact', 'cms-about', 'cms-programme',
   'cms-states', 'cms-districts', 'cms-talukas',
 ] as const satisfies readonly MenuKey[];
 
