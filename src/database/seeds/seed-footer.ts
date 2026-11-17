@@ -34,10 +34,10 @@ const SETTINGS = {
   contactEmail: 'info@mahaamrut.org.in',
   contactPhone: '+91 97301 51450',
   /* `{year}` is substituted by the website, so the copyright cannot go stale. */
-  copyrightMr: '© {year} AMRUT × SUMAGO INFOTECH PVT LTD — demonstration portal.',
-  copyrightEn: '© {year} AMRUT × SUMAGO INFOTECH PVT LTD — demonstration portal.',
-  disclaimerMr: 'Illustrative / demo data. No official emblem, seal or government endorsement is reproduced.',
-  disclaimerEn: 'Illustrative / demo data. No official emblem, seal or government endorsement is reproduced.',
+  copyrightMr: '© {year} AMRUT × SUMAGO INFOTECH PVT LTD.',
+  copyrightEn: '© {year} AMRUT × SUMAGO INFOTECH PVT LTD.',
+  disclaimerMr: 'सर्व हक्क राखीव.',
+  disclaimerEn: 'All rights reserved.',
 };
 
 /*

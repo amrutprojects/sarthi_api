@@ -236,6 +236,7 @@ export class ContactService {
       pageTitle: { mr: settings.pageTitleMr, en: settings.pageTitleEn },
       pageSubtitle: { mr: settings.pageSubtitleMr, en: settings.pageSubtitleEn },
       isPublished: settings.isPublished,
+      showDistrictOffices: settings.showDistrictOffices,
       whatsappNumber: settings.whatsappNumber,
       whatsappMessage: { mr: settings.whatsappMessageMr, en: settings.whatsappMessageEn },
       createdAt: settings.createdAt,
@@ -266,6 +267,7 @@ export class ContactService {
       coordinators: coordinators.map(toPublicCoordinator),
       districtOffices: offices.map(toPublicDistrictOffice),
       whatsapp: toPublicWhatsApp(settings),
+      showDistrictOffices: settings.showDistrictOffices,
     };
   }
 
@@ -436,6 +438,24 @@ export class ContactService {
         resource: 'contact-page',
         resourceId: settings.id,
         details: { isPublished },
+      });
+    });
+    return this.getForAdmin();
+  }
+
+  /*
+   * Shows or hides the Contact page's "District offices" section on the website. Only this flag is written, so the
+   * page's banner, cards and lists cannot change here, and the page's own form never flips it.
+   */
+  async setDistrictOfficesSection(show: boolean, req?: Request): Promise<AdminContactPage> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await contactRepository.update(settings.id, { showDistrictOffices: show }, m);
+      await auditService.recordInTx(m, req, {
+        action: AUDIT_ACTIONS.CONTACT_DISTRICT_OFFICES_SECTION,
+        resource: 'contact-page',
+        resourceId: settings.id,
+        details: { showDistrictOffices: show },
       });
     });
     return this.getForAdmin();

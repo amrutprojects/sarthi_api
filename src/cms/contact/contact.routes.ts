@@ -9,6 +9,7 @@ import {
   contactStatusSchema,
   createCoordinatorSchema,
   createDistrictOfficeSchema,
+  districtOfficesSectionSchema,
   listCoordinatorsSchema,
   listDistrictOfficesSchema,
   updateContactPageSchema,
@@ -41,6 +42,13 @@ contactRouter.patch(
   authorizePermission(P.CMS_CONTACT_UPDATE),
   validateRequest(contactStatusSchema),
   contactController.setPublished,
+);
+/* The "District offices" section's "Show on website" switch: only that flag changes. */
+contactRouter.patch(
+  '/district-offices-section',
+  authorizePermission(P.CMS_CONTACT_UPDATE),
+  validateRequest(districtOfficesSectionSchema),
+  contactController.setDistrictOfficesSection,
 );
 
 const view = authorizePermission(P.CMS_CONTACT_VIEW);

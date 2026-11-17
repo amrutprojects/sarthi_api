@@ -11,6 +11,7 @@ import {
   type TestActor,
 } from '../../helpers/test-app';
 import { CmsLiveDashboard1797600000000 } from '../../../src/database/migrations/1797600000000-CmsLiveDashboard';
+import { RemoveDemoWording1797900000000 } from '../../../src/database/migrations/1797900000000-RemoveDemoWording';
 import { auditService } from '../../../src/modules/audit/audit.service';
 
 const ADMIN_URL = `${API}/cms/live-dashboard`;
@@ -77,10 +78,8 @@ const SUBTITLE = pair(
   'अमृत कलश अंतर्गत महाराष्ट्रातील ३६ जिल्ह्यांमधील प्रशिक्षण प्रगतीचा सार्वजनिक आढावा.',
   'Public view of AMRUT Kalash training progress across all 36 districts of Maharashtra.',
 );
-const DISCLAIMER = pair(
-  'प्रात्यक्षिक आवृत्ती - नमुना माहिती. ही वास्तविक शासकीय आकडेवारी नाही.',
-  'DEMO ENVIRONMENT - SAMPLE DATA. Not actual government programme performance.',
-);
+/* The note under the section: blank in both languages, since RemoveDemoWording cleared the one the migration inserted. */
+const DISCLAIMER = pair('', '');
 const CARDS = [
   { label: pair('एकूण लक्ष्य', 'Total target'), value: '2,000', detail: pair('विद्यार्थी', 'students'), link: '/programme', tone: 'blue' },
   {
@@ -184,6 +183,8 @@ async function rebuild(): Promise<void> {
     const migration = new CmsLiveDashboard1797600000000();
     await migration.down(qr);
     await migration.up(qr);
+    /* ...then what a later migration did to its rows: RemoveDemoWording cleared the seeded note. */
+    await new RemoveDemoWording1797900000000().up(qr);
   } finally {
     await qr.release();
   }
@@ -207,7 +208,8 @@ describe('The dashboard the migration creates', () => {
     expect(res.body.message).toBe('Live dashboard retrieved successfully');
     const data = res.body.data as Feed;
     expect(Object.keys(data).sort()).toEqual(['cards', 'disclaimer', 'heading', 'map', 'modes', 'showSection', 'subtitle']);
-    expect(data).toMatchObject({ showSection: true, heading: HEADING, subtitle: SUBTITLE, disclaimer: DISCLAIMER });
+    /* No note: the seeded "DEMO ENVIRONMENT - SAMPLE DATA" note was cleared by RemoveDemoWording. */
+    expect(data).toMatchObject({ showSection: true, heading: HEADING, subtitle: SUBTITLE, disclaimer: null });
     expect(data.cards.map(({ id: _id, ...c }) => c)).toEqual(CARDS);
     expect(data.map!.title).toEqual(MAP_TITLE);
     expect(data.map!.districts.map((d) => d.code)).toEqual(CODES);

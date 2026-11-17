@@ -48,11 +48,8 @@ interface Detail {
 const pair = (mr: string, en: string): Pair => ({ mr, en });
 const BLANK = pair('', '');
 const LABEL = pair('सूचना', 'Announcements');
-/* The fixed notice the website's strip carried before it was managed (STR.demoBanner), word for word. */
-const DEMO = pair(
-  'प्रात्यक्षिक आवृत्ती - नमुना माहिती. ही वास्तविक शासकीय आकडेवारी नाही.',
-  'DEMO ENVIRONMENT - SAMPLE DATA. Not actual government programme performance.',
-);
+/* One announcement the rest of the suite builds on (the seed itself creates none). */
+const EXISTING = pair('विद्यमान सूचना', 'Existing announcement');
 
 const announcement = (n: number, extra: Record<string, unknown> = {}) => ({
   title: pair(`चाचणी सूचना ${n}`, `Test announcement ${n}`),
@@ -101,28 +98,24 @@ describe('Announcements — before the seed', () => {
 });
 
 describe('Announcements seed', () => {
-  it('seeds the label and exactly the demo notice the strip showed, with no detail and no link', async () => {
-    expect(await seedAnnouncements(AppDataSource)).toEqual({ created: true, announcementsCreated: 1 });
-    const rows = await list();
-    expect(rows.map(({ title, detail, link, displayOrder, isActive }) => ({ title, detail, link, displayOrder, isActive }))).toEqual([
-      { title: DEMO, detail: null, link: null, displayOrder: 1, isActive: true },
-    ]);
+  it('seeds the label and no announcement, so the website shows no strip', async () => {
+    expect(await seedAnnouncements(AppDataSource)).toEqual({ created: true, announcementsCreated: 0 });
+    expect(await list()).toEqual([]);
 
     const settings = (await request(app).get(`${ADMIN_URL}/settings`).set(auth(admin.token)).expect(200)).body.data;
     expect(settings).toMatchObject({ label: LABEL, showSection: true });
 
-    /* The optional parts are left out of the feed, not sent empty. */
-    expect(await publicFeed()).toEqual({ showSection: true, label: LABEL, items: [{ title: DEMO }] });
+    expect(await publicFeed()).toEqual({ showSection: true, label: LABEL, items: [] });
   });
 
   it('is idempotent and never brings back a deleted announcement', async () => {
-    const [demo] = await list();
-    await request(app).delete(`${ADMIN_URL}/${demo!.id}`).set(auth(admin.token)).expect(200);
+    const added = await create({ title: EXISTING }).expect(201);
+    await request(app).delete(`${ADMIN_URL}/${added.body.data.id}`).set(auth(admin.token)).expect(200);
     expect(await seedAnnouncements(AppDataSource)).toEqual({ created: false, announcementsCreated: 0 });
     expect(await list()).toEqual([]);
     expect(await publicFeed()).toEqual({ showSection: true, label: LABEL, items: [] });
-    /* Put the notice back for the rest of the suite, as a new record. */
-    await create({ title: DEMO }).expect(201);
+    /* One announcement for the rest of the suite. */
+    await create({ title: EXISTING }).expect(201);
   });
 });
 

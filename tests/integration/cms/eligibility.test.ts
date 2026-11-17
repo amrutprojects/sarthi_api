@@ -21,9 +21,10 @@ const SEEDED_TEXT = {
   criteriaHeading: { mr: 'पात्रता निकष', en: 'Eligibility criteria' },
   documentsHeading: { mr: 'आवश्यक कागदपत्रे', en: 'Required documents' },
   noteTitle: { mr: 'सूचना', en: 'Note' },
+  /* The seeded note without its "in this demo" clause, as RemoveDemoWording rewrote it. */
   noteBody: {
-    mr: 'वरील निकष प्रसिद्ध योजना रचनेवर आधारित असून प्रात्यक्षिक आवृत्तीत ते बदलण्यायोग्य प्रणाली-मापदंड म्हणून ठेवले आहेत. अंतिम निकष अमृतच्या मान्यतेनुसार लागू होतील.',
-    en: 'These criteria follow the published scheme structure and are held as configurable system parameters in this demo. Final criteria apply as approved by AMRUT.',
+    mr: 'वरील निकष प्रसिद्ध योजना रचनेवर आधारित आहेत. अंतिम निकष अमृतच्या मान्यतेनुसार लागू होतील.',
+    en: 'These criteria follow the published scheme structure. Final criteria apply as approved by AMRUT.',
   },
   /* The seeded note is switched off by the EligibilityNoteSwitch migration: the website no longer shows it. */
   showNote: false,

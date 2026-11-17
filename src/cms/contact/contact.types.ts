@@ -72,6 +72,8 @@ export interface AdminContactPage {
   pageTitle: Bilingual;
   pageSubtitle: Bilingual;
   isPublished: boolean;
+  /* The "District offices" section's switch; read-only here — PATCH /district-offices-section is its one writer. */
+  showDistrictOffices: boolean;
   /* The WhatsApp button's number, digits only; '' when the website uses the AMRUT card's phone. */
   whatsappNumber: string;
   /* Its pre-filled message; both halves '' when the website uses its default message. */
@@ -139,6 +141,8 @@ export interface PublicContactPage {
   coordinators: PublicCoordinator[];
   districtOffices: PublicDistrictOffice[];
   whatsapp: PublicWhatsApp;
+  /* false: the website leaves out the Contact page's "District offices" section (heading and list). */
+  showDistrictOffices: boolean;
 }
 
 /* ---------------- write shapes ---------------- */

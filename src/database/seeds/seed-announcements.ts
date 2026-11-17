@@ -7,12 +7,8 @@ export interface AnnouncementsSeedSummary {
 }
 
 /*
- * The announcement ticker, exactly as the website showed the strip.
- *
- * The one announcement is the demo notice the strip carried before it was managed — taken VERBATIM
- * from the website's global strings (demoBanner) — with no detail and no link, so seeding changes
- * nothing a visitor reads; it only moves the source of truth into the database. The label is the
- * ticker's new pill ("सूचना" / "Announcements").
+ * The announcement ticker: its label ("सूचना" / "Announcements") and no announcements, so the
+ * website shows no strip until an administrator adds one in the admin panel.
  */
 const SETTINGS = {
   labelMr: 'सूचना',
@@ -20,12 +16,7 @@ const SETTINGS = {
   showSection: true,
 };
 
-const ANNOUNCEMENTS = [
-  {
-    titleMr: 'प्रात्यक्षिक आवृत्ती - नमुना माहिती. ही वास्तविक शासकीय आकडेवारी नाही.',
-    titleEn: 'DEMO ENVIRONMENT - SAMPLE DATA. Not actual government programme performance.',
-  },
-];
+const ANNOUNCEMENTS: { titleMr: string; titleEn: string }[] = [];
 
 /*
  * Idempotent, and deliberately all-or-nothing about it: if the ticker's settings row already exists
@@ -41,15 +32,17 @@ export async function seedAnnouncements(ds: DataSource): Promise<AnnouncementsSe
     if (await settings.findOne({ where: { isDelete: false } })) return { created: false, announcementsCreated: 0 };
 
     await settings.save(settings.create(SETTINGS));
-    await m.getRepository(Announcement).insert(
-      ANNOUNCEMENTS.map((a, i) => ({
-        detailMr: '',
-        detailEn: '',
-        link: null,
-        ...a,
-        displayOrder: i + 1,
-      })),
-    );
+    if (ANNOUNCEMENTS.length > 0) {
+      await m.getRepository(Announcement).insert(
+        ANNOUNCEMENTS.map((a, i) => ({
+          detailMr: '',
+          detailEn: '',
+          link: null,
+          ...a,
+          displayOrder: i + 1,
+        })),
+      );
+    }
     return { created: true, announcementsCreated: ANNOUNCEMENTS.length };
   });
 }

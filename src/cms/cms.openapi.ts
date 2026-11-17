@@ -117,6 +117,8 @@ documentEndpoint({
           /* The message typed into the chat; null: the website's default message. */
           message: Bilingual.nullable(),
         }),
+        /* false: the website leaves out the "District offices" section (heading and list of every district). */
+        showDistrictOffices: z.boolean(),
       })
       .nullable(),
   ),

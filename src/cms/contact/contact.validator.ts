@@ -160,6 +160,12 @@ export const contactStatusSchema = {
   body: z.object({ isPublished: z.boolean() }).strict(),
 };
 
+/* The "District offices" section's "Show on website" switch, on its own like publishing. */
+export const districtOfficesSectionSchema = {
+  body: z.object({ show: z.boolean({ required_error: 'show is required', invalid_type_error: 'show must be true or false' }) }).strict(),
+};
+export type DistrictOfficesSectionBody = z.infer<typeof districtOfficesSectionSchema.body>;
+
 /*
  * The coordinator and district office sections, one entry at a time. Each entry takes exactly the
  * fields of a list entry of the PUT; an update carries any subset of them.

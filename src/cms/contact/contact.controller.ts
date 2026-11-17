@@ -7,6 +7,7 @@ import type {
   ContactStatusBody,
   CreateCoordinatorBody,
   CreateDistrictOfficeBody,
+  DistrictOfficesSectionBody,
   ListCoordinatorsQuery,
   ListDistrictOfficesQuery,
   UpdateContactPageBody,
@@ -31,6 +32,12 @@ export const contactController = {
     const { isPublished } = body<ContactStatusBody>(req);
     const data = await contactService.setPublished(isPublished, req);
     ApiResponse.ok(res, data, isPublished ? 'Contact page published' : 'Contact page unpublished');
+  }),
+
+  setDistrictOfficesSection: asyncHandler(async (req: Request, res: Response) => {
+    const { show } = body<DistrictOfficesSectionBody>(req);
+    const data = await contactService.setDistrictOfficesSection(show, req);
+    ApiResponse.ok(res, data, show ? 'District offices shown on the website' : 'District offices hidden from the website');
   }),
 
   /* ---- District / cluster coordinators ---- */

@@ -33,6 +33,14 @@ export class ContactPageSettings extends AppBaseEntity {
   isPublished!: boolean;
 
   /*
+   * The Contact page's "District offices" section (every district, each linking to its own page). false: the website
+   * leaves its heading and list out; the District Office pages themselves still open. Written only by
+   * PATCH /cms/contact/district-offices-section, so saving the page's form can never flip it.
+   */
+  @Column({ type: 'boolean', name: 'showDistrictOffices', default: true })
+  showDistrictOffices!: boolean;
+
+  /*
    * The website's WhatsApp button. Digits only, country code included; blank: the website uses the AMRUT
    * card's phone (CHK_contact_page_settings_whatsapp_number).
    */

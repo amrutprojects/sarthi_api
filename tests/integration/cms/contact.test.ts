@@ -247,6 +247,59 @@ describe('Contact page publication', () => {
   });
 });
 
+describe('Contact page — District offices section switch', () => {
+  const SECTION_URL = `${ADMIN_URL}/district-offices-section`;
+
+  afterEach(async () => {
+    await request(app).patch(SECTION_URL).set(auth(admin.token)).send({ show: true });
+  });
+
+  it('is shown by default, in the admin read and the public feed', async () => {
+    expect((await request(app).get(ADMIN_URL).set(auth(admin.token))).body.data.showDistrictOffices).toBe(true);
+    expect((await request(app).get(PUBLIC_URL)).body.data.showDistrictOffices).toBe(true);
+  });
+
+  it('hides and shows the section, changing nothing else on the page', async () => {
+    const before = (await request(app).get(ADMIN_URL).set(auth(admin.token))).body.data;
+    const publicBefore = (await request(app).get(PUBLIC_URL)).body.data;
+
+    const off = await request(app).patch(SECTION_URL).set(auth(admin.token)).send({ show: false });
+    expect(off.status).toBe(200);
+    expect(off.body.data.showDistrictOffices).toBe(false);
+    expect(off.body.data.pageTitle).toEqual(before.pageTitle);
+    expect(off.body.data.isPublished).toBe(before.isPublished);
+    expect(off.body.data.districtOffices).toHaveLength(before.districtOffices.length);
+
+    const hidden = (await request(app).get(PUBLIC_URL)).body.data;
+    expect(hidden.showDistrictOffices).toBe(false);
+    /* Only the Contact page's list goes: the offices' own details still reach each District Office page. */
+    expect(hidden.districtOffices).toEqual(publicBefore.districtOffices);
+    expect(hidden.coordinators).toEqual(publicBefore.coordinators);
+
+    const on = await request(app).patch(SECTION_URL).set(auth(admin.token)).send({ show: true });
+    expect(on.body.data.showDistrictOffices).toBe(true);
+    expect((await request(app).get(PUBLIC_URL)).body.data.showDistrictOffices).toBe(true);
+  });
+
+  it('is not changed by saving the page form', async () => {
+    await request(app).patch(SECTION_URL).set(auth(admin.token)).send({ show: false }).expect(200);
+    await request(app).put(ADMIN_URL).set(auth(admin.token)).send(validPayload()).expect(200);
+    expect((await request(app).get(ADMIN_URL).set(auth(admin.token))).body.data.showDistrictOffices).toBe(false);
+  });
+
+  it('refuses a missing or non-boolean value, or any other key (422)', async () => {
+    for (const body of [{}, { show: 'no' }, { show: false, isPublished: false }]) {
+      expect((await request(app).patch(SECTION_URL).set(auth(admin.token)).send(body)).status).toBe(422);
+    }
+  });
+
+  it('needs a session and cms-contact.update', async () => {
+    expect((await request(app).patch(SECTION_URL).send({ show: false })).status).toBe(401);
+    const viewer = await actorWith(['cms-contact.view']);
+    expect((await request(app).patch(SECTION_URL).set(auth(viewer.token)).send({ show: false })).status).toBe(403);
+  });
+});
+
 describe('public Contact endpoint', () => {
   it('serves the page without a session, in both languages', async () => {
     const res = await request(app).get(PUBLIC_URL);
