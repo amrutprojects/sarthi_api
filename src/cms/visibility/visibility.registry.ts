@@ -11,7 +11,9 @@ import {
   EcosystemSection,
   HomeHero,
   ImpactSection,
+  LiveDashboardSettings,
   ProgrammeHighlight,
+  QuickActionSettings,
   TopBarSettings,
 } from '../cms.entities';
 import { SingletonRepository } from './visibility.repository';
@@ -70,6 +72,8 @@ const REGISTRY: Record<SectionKey, Omit<SectionDefinition, 'key'>> = {
   announcements: flag('cms-announcements', AnnouncementSettings, 'showSection'),
   hero: flag('cms-hero', HomeHero, 'isPublished'),
   glance: flag('cms-hero', HomeHero, 'showGlance'),
+  'quick-actions': flag('cms-quickactions', QuickActionSettings, 'showSection'),
+  'live-dashboard': flag('cms-livedashboard', LiveDashboardSettings, 'showSection'),
   diploma: flag('cms-highlight', ProgrammeHighlight, 'isPublished'),
   board: flag('cms-board', BoardSection, 'showSection'),
   impact: flag('cms-impact', ImpactSection, 'showSection'),

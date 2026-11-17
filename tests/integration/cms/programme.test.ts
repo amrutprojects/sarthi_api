@@ -10,7 +10,9 @@ import {
   teardownTestApp,
   type TestActor,
 } from '../../helpers/test-app';
+import type { QueryRunner } from 'typeorm';
 import { seedProgrammePage } from '../../../src/database/seeds/seed-programme-page';
+import { ProgrammeMonthRanges1797700000000 } from '../../../src/database/migrations/1797700000000-ProgrammeMonthRanges';
 
 const ADMIN_URL = `${API}/cms/programme`;
 const PUBLIC_URL = `${API}/public/programme`;
@@ -34,12 +36,12 @@ const validPayload = () => ({
     modes: [{ name: pair('ऑफलाइन', 'OFFLINE'), description: pair('केंद्रावर', 'At a centre') }],
     note: pair('एकच', 'Exactly one'),
   },
-  facts: { idealMonths: 8, validityMonths: 18, securityDeposit: 2500, applyLeadDays: 45, partnerName: 'Partner Pvt Ltd' },
+  facts: { idealMonths: '8', validityMonths: '12-18', securityDeposit: 2500, applyLeadDays: 45, partnerName: 'Partner Pvt Ltd' },
 });
 /* The fact sheet the seed writes, which is what the website showed before it was managed. */
 const SEEDED_FACTS = {
-  idealMonths: 6,
-  validityMonths: 12,
+  idealMonths: '6',
+  validityMonths: '12',
   securityDeposit: 2000,
   applyLeadDays: 30,
   partnerName: 'SUMAGO INFOTECH PVT LTD',
@@ -126,7 +128,13 @@ describe('Programme page management', () => {
   });
 
   it('stores the fact sheet, returns it to the admin screen and serves it publicly', async () => {
-    const facts = { idealMonths: 7, validityMonths: 24, securityDeposit: 3000, applyLeadDays: 15, partnerName: '  Another Partner  ' };
+    const facts = {
+      idealMonths: '4-6',
+      validityMonths: '24',
+      securityDeposit: 3000,
+      applyLeadDays: 15,
+      partnerName: '  Another Partner  ',
+    };
     const res = await request(app)
       .put(ADMIN_URL)
       .set(auth(admin.token))
@@ -175,6 +183,141 @@ describe('Programme page management', () => {
     expect((await request(app).get(ADMIN_URL).set(auth(viewer.token))).status).toBe(200);
     expect((await request(app).put(ADMIN_URL).set(auth(viewer.token)).send(validPayload())).status).toBe(403);
     expect((await request(app).get(ADMIN_URL)).status).toBe(401);
+  });
+});
+
+describe('Fact sheet durations (a number of months or a range)', () => {
+  const putFacts = (facts: Record<string, unknown>) =>
+    request(app)
+      .put(ADMIN_URL)
+      .set(auth(admin.token))
+      .send({ ...validPayload(), facts: { ...validPayload().facts, ...facts } });
+  /* The stored pair, as the admin screen and the public feed both return it. */
+  const stored = async () => {
+    const adminFacts = (await request(app).get(ADMIN_URL).set(auth(admin.token))).body.data.facts;
+    const publicFacts = (await request(app).get(PUBLIC_URL)).body.data.facts;
+    expect(publicFacts).toEqual(adminFacts);
+    return [adminFacts.idealMonths, adminFacts.validityMonths];
+  };
+  /* The 422's messages for the two fields, after checking nothing was written. */
+  const rejected = async (facts: Record<string, unknown>) => {
+    const before = await stored();
+    const res = await putFacts(facts);
+    expect(res.status).toBe(422);
+    expect(await stored()).toEqual(before);
+    return (res.body.error.details as { field: string; message: string }[])
+      .filter((d) => d.field === 'body.facts.idealMonths' || d.field === 'body.facts.validityMonths')
+      .map((d) => `${d.field.slice('body.facts.'.length)}: ${d.message}`);
+  };
+  const INVALID_IDEAL = 'idealMonths: Ideal duration must be a number of months or a range such as 4-6';
+
+  it('stores a single number and a range as given', async () => {
+    const res = await putFacts({ idealMonths: '6', validityMonths: '6-12' });
+    expect(res.status).toBe(200);
+    expect([res.body.data.facts.idealMonths, res.body.data.facts.validityMonths]).toEqual(['6', '6-12']);
+    expect(await stored()).toEqual(['6', '6-12']);
+
+    await putFacts({ idealMonths: '4-6', validityMonths: '12' }).expect(200);
+    expect(await stored()).toEqual(['4-6', '12']);
+  });
+
+  it('normalises spaces and an en or em dash to "N-M"', async () => {
+    const cases: [string, string][] = [
+      ['4 - 6', '4-6'],
+      [' 4–6 ', '4-6'],
+      ['4 – 6', '4-6'],
+      ['10—12', '10-12'],
+      ['  7  ', '7'],
+    ];
+    for (const [given, normalised] of cases) {
+      const res = await putFacts({ idealMonths: given, validityMonths: given });
+      expect(res.status).toBe(200);
+      expect([res.body.data.facts.idealMonths, res.body.data.facts.validityMonths]).toEqual([normalised, normalised]);
+      expect(await stored()).toEqual([normalised, normalised]);
+    }
+  });
+
+  it('accepts the bounds of each field', async () => {
+    await putFacts({ idealMonths: '0', validityMonths: '0' }).expect(200);
+    expect(await stored()).toEqual(['0', '0']);
+    await putFacts({ idealMonths: '0-120', validityMonths: '239-240' }).expect(200);
+    expect(await stored()).toEqual(['0-120', '239-240']);
+    await putFacts({ idealMonths: '120', validityMonths: '240' }).expect(200);
+    expect(await stored()).toEqual(['120', '240']);
+  });
+
+  it('still accepts a JSON number from an older admin screen, as its string form', async () => {
+    const res = await putFacts({ idealMonths: 5, validityMonths: 18 });
+    expect(res.status).toBe(200);
+    expect(res.body.data.facts).toEqual(expect.objectContaining({ idealMonths: '5', validityMonths: '18' }));
+    expect(await stored()).toEqual(['5', '18']);
+    expect(await rejected({ idealMonths: 121, validityMonths: 241 })).toEqual([
+      'idealMonths: Ideal duration is too large',
+      'validityMonths: Validity is too large',
+    ]);
+    expect(await rejected({ idealMonths: 4.5, validityMonths: -1 })).toEqual([
+      INVALID_IDEAL,
+      'validityMonths: Validity must be a number of months or a range such as 4-6',
+    ]);
+  });
+
+  it('rejects a range written larger number first, or from a number to itself', async () => {
+    await putFacts({ idealMonths: '6', validityMonths: '12' }).expect(200);
+    expect(await rejected({ idealMonths: '6-4', validityMonths: '12-12' })).toEqual([
+      'idealMonths: Ideal duration: enter the smaller number first, e.g. 4-6',
+      'validityMonths: Validity: enter the smaller number first, e.g. 4-6',
+    ]);
+    expect(await rejected({ idealMonths: '4–4' })).toEqual(['idealMonths: Ideal duration: enter the smaller number first, e.g. 4-6']);
+  });
+
+  it('rejects a number over the field maximum, on either side of a range', async () => {
+    expect(await rejected({ idealMonths: '121', validityMonths: '241' })).toEqual([
+      'idealMonths: Ideal duration is too large',
+      'validityMonths: Validity is too large',
+    ]);
+    expect(await rejected({ idealMonths: '4-121', validityMonths: '241-300' })).toEqual([
+      'idealMonths: Ideal duration is too large',
+      'validityMonths: Validity is too large',
+    ]);
+    expect(await rejected({ idealMonths: '99999999999999999999' })).toEqual(['idealMonths: Ideal duration is too large']);
+  });
+
+  it('rejects leading zeros (other than 0 itself)', async () => {
+    for (const value of ['04-6', '4-06', '06', '00', ' 04-6 ']) {
+      expect(await rejected({ idealMonths: value })).toEqual([INVALID_IDEAL]);
+    }
+  });
+
+  it('rejects anything else that is not a number of months or a range', async () => {
+    const notMonths = ['', '   ', 'six', '4-', '-4', '4--6', '4-6-8', '4.5', '4 to 6', '4~6', '4/6', '+4', '٤-٦', null, true, ['4', '6']];
+    for (const value of notMonths) {
+      expect(await rejected({ idealMonths: value })).toEqual([INVALID_IDEAL]);
+    }
+    const { idealMonths: _omitted, ...withoutIdeal } = validPayload().facts;
+    const missing = await request(app)
+      .put(ADMIN_URL)
+      .set(auth(admin.token))
+      .send({ ...validPayload(), facts: withoutIdeal });
+    expect(missing.status).toBe(422);
+    expect(missing.body.error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'body.facts.idealMonths', message: 'Ideal duration is required' })]),
+    );
+  });
+
+  it('the database admits only the normalised form', async () => {
+    for (const value of ['4 - 6', '4–6', '04', '4-06', '', '1000', 'six']) {
+      await expect(AppDataSource.query(`UPDATE "programme_page_settings" SET "idealMonths" = $1`, [value])).rejects.toThrow(
+        /CHK_programme_page_settings_ideal_months/,
+      );
+      await expect(AppDataSource.query(`UPDATE "programme_page_settings" SET "validityMonths" = $1`, [value])).rejects.toThrow(
+        /CHK_programme_page_settings_validity_months/,
+      );
+    }
+    await expect(AppDataSource.query(`UPDATE "programme_page_settings" SET "securityDeposit" = -1`)).rejects.toThrow(
+      /CHK_programme_page_settings_facts/,
+    );
+    await AppDataSource.query(`UPDATE "programme_page_settings" SET "idealMonths" = '4-6', "validityMonths" = '12'`);
+    expect(await stored()).toEqual(['4-6', '12']);
   });
 });
 
@@ -298,5 +441,70 @@ describe('Fact sheet row switches', () => {
     await expect(AppDataSource.query(`UPDATE "programme_page_settings" SET "hiddenFacts" = ARRAY['partner', NULL]`)).rejects.toThrow(
       /CHK_programme_page_settings_hidden_facts/,
     );
+  });
+});
+
+describe('migration 1797700000000', () => {
+  /* Runs one statement under a savepoint and reports the PostgreSQL error code, or null when it succeeded. */
+  const attempt = async (qr: QueryRunner, sql: string): Promise<string | null> => {
+    await qr.query('SAVEPOINT attempt');
+    try {
+      await qr.query(sql);
+      return null;
+    } catch (e) {
+      const err = e as { code?: string; driverError?: { code?: string } };
+      return err.driverError?.code ?? err.code ?? 'unknown';
+    } finally {
+      await qr.query('ROLLBACK TO SAVEPOINT attempt');
+    }
+  };
+  const columns = (qr: QueryRunner) =>
+    qr.query(
+      `SELECT "column_name", "data_type", "character_maximum_length" AS "length", "column_default" AS "default"
+         FROM information_schema.columns
+        WHERE table_name = 'programme_page_settings' AND column_name IN ('idealMonths', 'validityMonths')
+        ORDER BY column_name`,
+    );
+  const values = async (qr: QueryRunner) =>
+    (await qr.query(`SELECT "idealMonths", "validityMonths" FROM "programme_page_settings" WHERE "isDelete" = false`))[0];
+
+  /*
+   * Runs down() then up() inside a transaction that is always rolled back, so the shared test
+   * schema is left exactly as the migrations built it whatever happens here.
+   */
+  it('turns the months into text and back (down keeps the first number of a range)', async () => {
+    const migration = new ProgrammeMonthRanges1797700000000();
+    const qr = AppDataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      await qr.query(`UPDATE "programme_page_settings" SET "idealMonths" = '4-6', "validityMonths" = '12'`);
+
+      await migration.down(qr);
+      expect(await columns(qr)).toEqual([
+        { column_name: 'idealMonths', data_type: 'integer', length: null, default: '6' },
+        { column_name: 'validityMonths', data_type: 'integer', length: null, default: '12' },
+      ]);
+      /* Lossy by design: "4-6" became 4. */
+      expect(await values(qr)).toEqual({ idealMonths: 4, validityMonths: 12 });
+      expect(await attempt(qr, `UPDATE "programme_page_settings" SET "idealMonths" = -1`)).toBe('23514');
+      expect(await attempt(qr, `UPDATE "programme_page_settings" SET "securityDeposit" = -1`)).toBe('23514');
+
+      await qr.query(`UPDATE "programme_page_settings" SET "idealMonths" = 8, "validityMonths" = 18`);
+      await migration.up(qr);
+      expect(await columns(qr)).toEqual([
+        { column_name: 'idealMonths', data_type: 'character varying', length: 7, default: "'6'::character varying" },
+        { column_name: 'validityMonths', data_type: 'character varying', length: 7, default: "'12'::character varying" },
+      ]);
+      /* Each number carried over as its text. */
+      expect(await values(qr)).toEqual({ idealMonths: '8', validityMonths: '18' });
+      expect(await attempt(qr, `UPDATE "programme_page_settings" SET "idealMonths" = '4-6', "validityMonths" = '240-240'`)).toBeNull();
+      expect(await attempt(qr, `UPDATE "programme_page_settings" SET "idealMonths" = '4 - 6'`)).toBe('23514');
+      expect(await attempt(qr, `UPDATE "programme_page_settings" SET "validityMonths" = '012'`)).toBe('23514');
+      expect(await attempt(qr, `UPDATE "programme_page_settings" SET "applyLeadDays" = -1`)).toBe('23514');
+    } finally {
+      await qr.rollbackTransaction();
+      await qr.release();
+    }
   });
 });

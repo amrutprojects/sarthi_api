@@ -8,6 +8,8 @@ export const SECTION_KEYS = [
   'announcements',
   'hero',
   'glance',
+  'quick-actions',
+  'live-dashboard',
   'diploma',
   'board',
   'impact',

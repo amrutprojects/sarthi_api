@@ -34,6 +34,7 @@ import type {
   PublicCoordinator,
   PublicDistrictOffice,
   PublicOrganization,
+  PublicWhatsApp,
   UpdateContactPageInput,
   UpdateCoordinatorInput,
   UpdateDistrictOfficeInput,
@@ -98,6 +99,20 @@ const toColumns = (input: UpdateOrganizationInput) => ({
   helpdeskHoursEn: input.helpdeskHours?.en ?? null,
   displayOrder: input.displayOrder ?? 0,
   isActive: input.isActive ?? true,
+});
+
+/* Blank reads as null, so the website falls back to the AMRUT phone / its default message. */
+const toPublicWhatsApp = (s: ContactPageSettings): PublicWhatsApp => ({
+  number: s.whatsappNumber || null,
+  message: s.whatsappMessageMr.trim() && s.whatsappMessageEn.trim() ? { mr: s.whatsappMessageMr, en: s.whatsappMessageEn } : null,
+});
+
+/* The WhatsApp columns an update carries: only the keys it sent. A message that is null or blank is stored blank. */
+const whatsappColumns = (input: UpdateContactPageInput) => ({
+  ...(input.whatsappNumber === undefined ? {} : { whatsappNumber: input.whatsappNumber }),
+  ...(input.whatsappMessage === undefined
+    ? {}
+    : { whatsappMessageMr: input.whatsappMessage?.mr ?? '', whatsappMessageEn: input.whatsappMessage?.en ?? '' }),
 });
 
 const districtRef = (d: District): DistrictRef => ({ id: d.id, name: d.name, code: d.code });
@@ -221,6 +236,8 @@ export class ContactService {
       pageTitle: { mr: settings.pageTitleMr, en: settings.pageTitleEn },
       pageSubtitle: { mr: settings.pageSubtitleMr, en: settings.pageSubtitleEn },
       isPublished: settings.isPublished,
+      whatsappNumber: settings.whatsappNumber,
+      whatsappMessage: { mr: settings.whatsappMessageMr, en: settings.whatsappMessageEn },
       createdAt: settings.createdAt,
       updatedAt: settings.updatedAt,
       organizations: organizations.map(toAdminOrganization),
@@ -248,6 +265,7 @@ export class ContactService {
       organizations: organizations.map(toPublicOrganization),
       coordinators: coordinators.map(toPublicCoordinator),
       districtOffices: offices.map(toPublicDistrictOffice),
+      whatsapp: toPublicWhatsApp(settings),
     };
   }
 
@@ -281,6 +299,7 @@ export class ContactService {
           pageSubtitleMr: input.pageSubtitle.mr,
           pageSubtitleEn: input.pageSubtitle.en,
           ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished }),
+          ...whatsappColumns(input),
         },
         m,
       );
@@ -312,6 +331,8 @@ export class ContactService {
           removed: removed.map((o) => o.orgType),
           ...(input.coordinators ? { coordinators: input.coordinators.length } : {}),
           ...(input.districtOffices ? { districtOffices: input.districtOffices.length } : {}),
+          ...(input.whatsappNumber === undefined ? {} : { whatsappNumber: input.whatsappNumber }),
+          ...(input.whatsappMessage === undefined ? {} : { whatsappMessage: input.whatsappMessage?.mr ? input.whatsappMessage : null }),
         },
       });
     });

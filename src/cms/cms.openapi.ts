@@ -2,8 +2,10 @@ import { z } from 'zod';
 import { documentEndpoint, envelope } from '../shared/openapi/registry';
 import { parentIdParams } from '../shared/validation/common.validation';
 import { NAV_MENU_KEYS } from './navmenu/navmenu.types';
+import { PAGE_BANNER_KEYS } from './pagebanners/pagebanners.types';
 import { PROGRAMME_FACT_KEYS } from './programme/programme.model';
 import { HIGHLIGHT_ROW_KEYS } from './highlight/highlight.model';
+import { DISTRICT_PROGRESS_STATUSES, LIVE_DASHBOARD_TONES } from './livedashboard/livedashboard.types';
 
 /*
  * API contract for the CMS read feeds the public website consumes.
@@ -68,7 +70,8 @@ documentEndpoint({
   summary: 'Published Contact page content',
   description:
     'The banner, the organisation cards, the district / cluster coordinators and the per-district office ' +
-    '(Collectorate) details shown on the public Contact pages, in Marathi and English. ' +
+    '(Collectorate) details shown on the public Contact pages, in Marathi and English, and the number and pre-filled ' +
+    "message of the website's WhatsApp button (`whatsapp`). " +
     '`data` is null when the page is unpublished or has not been configured — a normal state, not an ' +
     'error: the website then renders its own bundled copy.',
   permission: 'public',
@@ -107,6 +110,13 @@ documentEndpoint({
             officeHours: Bilingual.optional(),
           }),
         ),
+        /* The WhatsApp button (and, with the AMRUT card's phone and email and the partner's hours and name, the Helpline popup). */
+        whatsapp: z.object({
+          /* Digits only, country code included, e.g. 919730151450; null: the website uses the AMRUT card's phone. */
+          number: z.string().nullable(),
+          /* The message typed into the chat; null: the website's default message. */
+          message: Bilingual.nullable(),
+        }),
       })
       .nullable(),
   ),
@@ -414,8 +424,9 @@ const ProgrammePage = z.object({
   }),
   /* The entered figures only; total hours, the module line and the elective count are summed from /public/modules. */
   facts: z.object({
-    idealMonths: z.number().int(),
-    validityMonths: z.number().int(),
+    /* A number of months or a range of them, normalised: "6" or "4-6" (ASCII hyphen, no spaces). */
+    idealMonths: z.string().describe('Months: "N" or a range "N-M", e.g. "6" or "4-6"'),
+    validityMonths: z.string().describe('Months: "N" or a range "N-M", e.g. "12" or "6-12"'),
     securityDeposit: z.number().int(),
     applyLeadDays: z.number().int(),
     partnerName: z.string(),
@@ -678,4 +689,134 @@ documentEndpoint({
     'is shown, and an item with no custom name (`label: null`) keeps the website\'s default name.',
   permission: 'public',
   response: envelope(NavMenu),
+});
+
+const QuickActions = z.object({
+  /* false: the website leaves the whole strip out (actions is then empty). */
+  showSection: z.boolean(),
+  /* Active tiles only, already in display order. */
+  actions: z.array(
+    z.object({
+      /* The bold text of the tile, e.g. "आता अर्ज करा" / "Apply Now". */
+      title: Bilingual,
+      /* The small line under the title, e.g. "नवीन नोंदणी करा" / "Register as a new candidate". Null when it is blank: the website then shows none. */
+      subtitle: Bilingual.nullable(),
+      /* An identifier from the website's icon set, one of the Quick Actions icon list, e.g. "plus". */
+      icon: z.string(),
+      /* A page of this site ("/apply") or an https:// address; an address typed as "www." is already stored with https://. */
+      link: z.string(),
+    }),
+  ),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/quick-actions',
+  tag,
+  summary: 'Quick actions (tiles under the home page hero)',
+  description:
+    'The strip of tiles under the home page hero (e.g. Apply Now, Check Application Status, Verify Certificate, Training ' +
+    "centres): each tile's title, subtitle, icon and link, in display order, in Marathi and English. Managed in the admin panel " +
+    'under CMS → Home Page Management → Quick Actions; the whole strip is shown or hidden by the "Show on website" switch on ' +
+    'that tab. `data` is null when the strip has not been configured (the website then shows its own bundled tiles).',
+  permission: 'public',
+  response: envelope(QuickActions.nullable()),
+});
+
+const PageBanners = z.object({
+  /* Every page, always all five and in this order: about, faq, programme, track, verify. */
+  items: z.array(
+    z.object({
+      key: z.enum(PAGE_BANNER_KEYS),
+      /* The custom banner title in both languages; null: the website uses its own default title. */
+      title: Bilingual.nullable(),
+      /* The custom banner subtitle in both languages; null: the website uses its own default subtitle. */
+      subtitle: Bilingual.nullable(),
+    }),
+  ),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/page-banners',
+  tag,
+  summary: 'Page Banners (title and subtitle of the banner at the top of five pages)',
+  description:
+    'The custom title and subtitle of the banner at the top of the About, FAQ, Programme, Track application and Verify ' +
+    'certificate pages, in Marathi and English. Every page comes back, in that order. Managed in the admin panel under ' +
+    'CMS → Page Banners. Never null: a page with no custom title or subtitle (`null`) keeps the website\'s default words.',
+  permission: 'public',
+  response: envelope(PageBanners),
+});
+
+const LiveDashboard = z.object({
+  /* false: the website leaves the whole section out (cards is then empty, map and modes null). */
+  showSection: z.boolean(),
+  /* e.g. "कार्यक्रम प्रगती - थेट माहितीफलक" / "Programme Progress - Live Dashboard". */
+  heading: Bilingual,
+  /* The line under the heading; null when blank. */
+  subtitle: Bilingual.nullable(),
+  /* The note under the section; null when it is switched off or blank. */
+  disclaimer: Bilingual.nullable(),
+  /* The KPI cards: active only, already in display order. */
+  cards: z.array(
+    z.object({
+      id: z.string().uuid(),
+      label: Bilingual,
+      /* The figure as printed, e.g. "2,000" or "87%". */
+      value: z.string(),
+      /* The small line under the figure; null when blank. */
+      detail: Bilingual.nullable(),
+      /* A page of this site ("/programme"); null: the card is not a link. */
+      link: z.string().nullable(),
+      tone: z.enum(LIVE_DASHBOARD_TONES),
+    }),
+  ),
+  /* The district map card; null when it is switched off. */
+  map: z
+    .object({
+      title: Bilingual,
+      /* Every district, in display order; the website joins its map tiles on `code` (e.g. "PUN"). */
+      districts: z.array(
+        z.object({
+          code: z.string(),
+          name: Bilingual,
+          status: z.enum(DISTRICT_PROGRESS_STATUSES),
+          target: z.number().int(),
+          enrolled: z.number().int(),
+          trainingActive: z.number().int(),
+          completed: z.number().int(),
+          certified: z.number().int(),
+          /* 0–100. */
+          attendancePct: z.number().int(),
+        }),
+      ),
+    })
+    .nullable(),
+  /* The training-modes card (donut and the figures beside it); null when it is switched off. */
+  modes: z
+    .object({
+      title: Bilingual,
+      offline: z.object({ label: Bilingual, count: z.number().int() }),
+      online: z.object({ label: Bilingual, count: z.number().int() }),
+      /* The words under the donut's centre figure (offline + online). */
+      centerLabel: Bilingual,
+      /* Active figures only, already in display order, e.g. "Approved centres" / "10". */
+      stats: z.array(z.object({ id: z.string().uuid(), label: Bilingual, value: z.string() })),
+    })
+    .nullable(),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/live-dashboard',
+  tag,
+  summary: 'Live Dashboard (the home page\'s "Programme Progress – Live Dashboard")',
+  description:
+    "The home page's programme progress section: its heading, KPI cards, district map figures, training-mode totals and the " +
+    'figures beside the donut, in Marathi and English, and which of those parts are shown. Managed in the admin panel under ' +
+    'CMS → Home Page Management → Live Dashboard; the whole section is shown or hidden by the "Show on website" switch on that ' +
+    'tab. `data` is null when the dashboard has not been configured (the website then shows its own bundled figures).',
+  permission: 'public',
+  response: envelope(LiveDashboard.nullable()),
 });

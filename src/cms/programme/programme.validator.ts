@@ -15,11 +15,51 @@ const score = z.number().int('Must be a whole number').min(0).max(1000);
 const count = (label: string, max: number) =>
   z.coerce.number().int().min(0, `${label} cannot be negative`).max(max, `${label} is too large`);
 
+/*
+ * A whole number of months, or two joined by a hyphen, en dash or em dash with optional spaces around it ("4-6",
+ * "4 – 6"). No leading zeros, except 0 itself. ASCII digits only.
+ */
+const MONTHS = /^(0|[1-9][0-9]*)(?:\s*[-–—]\s*(0|[1-9][0-9]*))?$/;
+
+/*
+ * A number of months or a range of them (Ideal duration, Validity). Each number runs 0 to max, and a range must run
+ * from the smaller to the larger ("6-4" and "4-4" are refused). Normalised to "N" or "N-M" (ASCII hyphen, no spaces):
+ * the form stored, returned, and admitted by the columns' CHECKs (ProgrammeMonthRanges migration). A JSON number, as an
+ * older admin screen sends, is taken as its string form (6 -> "6") and checked the same way.
+ */
+const months = (label: string, max: number) => {
+  const invalid = `${label} must be a number of months or a range such as 4-6`;
+  return z.preprocess(
+    (v) => (typeof v === 'number' ? String(v) : v),
+    z
+      .string({ required_error: `${label} is required`, invalid_type_error: invalid })
+      .trim()
+      .transform((v, ctx) => {
+        const m = MONTHS.exec(v);
+        if (!m) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: invalid });
+          return z.NEVER;
+        }
+        const from = Number(m[1]);
+        const to = m[2] === undefined ? undefined : Number(m[2]);
+        if (from > max || (to !== undefined && to > max)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${label} is too large` });
+          return z.NEVER;
+        }
+        if (to !== undefined && from >= to) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${label}: enter the smaller number first, e.g. 4-6` });
+          return z.NEVER;
+        }
+        return to === undefined ? `${from}` : `${from}-${to}`;
+      }),
+  );
+};
+
 /* The fact sheet. Total hours, the module line and the elective count are summed from the modules, never entered. */
 const facts = z
   .object({
-    idealMonths: count('Ideal duration', 120),
-    validityMonths: count('Validity', 240),
+    idealMonths: months('Ideal duration', 120),
+    validityMonths: months('Validity', 240),
     securityDeposit: count('Security deposit', 10_000_000),
     applyLeadDays: count('Apply before', 365),
     partnerName: z.string().trim().min(1, 'Partner name is required').max(150, 'Partner name must be at most 150 characters'),

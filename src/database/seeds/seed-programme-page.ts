@@ -116,10 +116,11 @@ const PAGE = {
   },
   /*
    * The fact sheet's entered figures. Total hours, the module line and the elective count are NOT seeded: the site
-   * sums them from the modules, so they cannot contradict them.
+   * sums them from the modules, so they cannot contradict them. The two durations are text: a number of months or a range
+   * such as "4-6", in normalised form.
    */
-  idealMonths: 6,
-  validityMonths: 12,
+  idealMonths: '6',
+  validityMonths: '12',
   securityDeposit: 2000,
   applyLeadDays: 30,
   partnerName: 'SUMAGO INFOTECH PVT LTD',

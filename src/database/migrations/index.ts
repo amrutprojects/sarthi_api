@@ -77,6 +77,11 @@ import { ProgrammeHiddenFacts1796900000000 } from './1796900000000-ProgrammeHidd
 import { NavMenuLabels1797000000000 } from './1797000000000-NavMenuLabels';
 import { HighlightHiddenRows1797100000000 } from './1797100000000-HighlightHiddenRows';
 import { HighlightRowLabels1797200000000 } from './1797200000000-HighlightRowLabels';
+import { CmsQuickActions1797300000000 } from './1797300000000-CmsQuickActions';
+import { ContactWhatsApp1797400000000 } from './1797400000000-ContactWhatsApp';
+import { CmsPageBanners1797500000000 } from './1797500000000-CmsPageBanners';
+import { CmsLiveDashboard1797600000000 } from './1797600000000-CmsLiveDashboard';
+import { ProgrammeMonthRanges1797700000000 } from './1797700000000-ProgrammeMonthRanges';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -166,4 +171,9 @@ export const MIGRATIONS = [
   NavMenuLabels1797000000000,
   HighlightHiddenRows1797100000000,
   HighlightRowLabels1797200000000,
+  CmsQuickActions1797300000000,
+  ContactWhatsApp1797400000000,
+  CmsPageBanners1797500000000,
+  CmsLiveDashboard1797600000000,
+  ProgrammeMonthRanges1797700000000,
 ];

@@ -32,6 +32,20 @@ export class ContactPageSettings extends AppBaseEntity {
   @Column({ type: 'boolean', name: 'isPublished', default: true })
   isPublished!: boolean;
 
+  /*
+   * The website's WhatsApp button. Digits only, country code included; blank: the website uses the AMRUT
+   * card's phone (CHK_contact_page_settings_whatsapp_number).
+   */
+  @Column({ type: 'varchar', length: 15, name: 'whatsappNumber', default: '' })
+  whatsappNumber!: string;
+
+  /* The message typed into the chat for the visitor. Both blank: the website's default (CHECK: both or neither). */
+  @Column({ type: 'varchar', length: 500, name: 'whatsappMessageMr', default: '' })
+  whatsappMessageMr!: string;
+
+  @Column({ type: 'varchar', length: 500, name: 'whatsappMessageEn', default: '' })
+  whatsappMessageEn!: string;
+
   @OneToMany('ContactOrganization', (o: ContactOrganization) => o.settings)
   organizations!: ContactOrganization[];
 }

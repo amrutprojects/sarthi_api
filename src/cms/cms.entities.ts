@@ -18,6 +18,9 @@ import { ANNOUNCEMENT_ENTITIES } from './announcements/announcements.entities';
 import { TOPBAR_ENTITIES } from './topbar/topbar.entities';
 import { BRANDBAR_ENTITIES } from './brandbar/brandbar.entities';
 import { NAVMENU_ENTITIES } from './navmenu/navmenu.entities';
+import { QUICKACTIONS_ENTITIES } from './quickactions/quickactions.entities';
+import { PAGEBANNERS_ENTITIES } from './pagebanners/pagebanners.entities';
+import { LIVEDASHBOARD_ENTITIES } from './livedashboard/livedashboard.entities';
 
 export { ContactOrganization, ContactPageSettings } from './contact/contact.entities';
 export { District, State, Taluka } from './masters/masters.entities';
@@ -39,6 +42,14 @@ export { Announcement, AnnouncementSettings } from './announcements/announcement
 export { TopBarLink, TopBarSettings } from './topbar/topbar.entities';
 export { BrandBarSettings } from './brandbar/brandbar.entities';
 export { NavMenuItem } from './navmenu/navmenu.entities';
+export { QuickAction, QuickActionSettings } from './quickactions/quickactions.entities';
+export { PageBanner } from './pagebanners/pagebanners.entities';
+export {
+  LiveDashboardCard,
+  LiveDashboardDistrict,
+  LiveDashboardSettings,
+  LiveDashboardStat,
+} from './livedashboard/livedashboard.entities';
 
 /*
  * Every model the CMS contributes to the DataSource, picked up by src/entities/index.ts.
@@ -69,4 +80,7 @@ export const CMS_ENTITIES = [
   ...TOPBAR_ENTITIES,
   ...BRANDBAR_ENTITIES,
   ...NAVMENU_ENTITIES,
+  ...QUICKACTIONS_ENTITIES,
+  ...PAGEBANNERS_ENTITIES,
+  ...LIVEDASHBOARD_ENTITIES,
 ];

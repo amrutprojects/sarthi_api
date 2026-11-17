@@ -21,7 +21,10 @@ import { announcementsRouter } from './announcements/announcements.routes';
 import { topBarRouter } from './topbar/topbar.routes';
 import { brandBarRouter } from './brandbar/brandbar.routes';
 import { navMenuRouter } from './navmenu/navmenu.routes';
+import { quickActionsRouter } from './quickactions/quickactions.routes';
 import { visibilityRouter } from './visibility/visibility.routes';
+import { pageBannersRouter } from './pagebanners/pagebanners.routes';
+import { liveDashboardRouter } from './livedashboard/livedashboard.routes';
 
 export {
   ApplyPageItem,
@@ -59,6 +62,9 @@ export { publicAnnouncementsRouter } from './announcements/announcements.public.
 export { publicTopBarRouter } from './topbar/topbar.public.routes';
 export { publicBrandBarRouter } from './brandbar/brandbar.public.routes';
 export { publicNavMenuRouter } from './navmenu/navmenu.public.routes';
+export { publicQuickActionsRouter } from './quickactions/quickactions.public.routes';
+export { publicPageBannersRouter } from './pagebanners/pagebanners.public.routes';
+export { publicLiveDashboardRouter } from './livedashboard/livedashboard.public.routes';
 
 /*
  * /api/v1/cms — the whole CMS: the geography masters, the Masters sidebar group (src/masters) and the
@@ -90,7 +96,10 @@ cmsRouter.use('/announcements', announcementsRouter);
 cmsRouter.use('/top-bar', topBarRouter);
 cmsRouter.use('/brand-bar', brandBarRouter);
 cmsRouter.use('/nav-menu', navMenuRouter);
+cmsRouter.use('/quick-actions', quickActionsRouter);
 cmsRouter.use('/section-visibility', visibilityRouter);
+cmsRouter.use('/page-banners', pageBannersRouter);
+cmsRouter.use('/live-dashboard', liveDashboardRouter);
 /* Mounted at the root: the masters router carries its own /states, /districts and /talukas paths. */
 cmsRouter.use('/', mastersRouter);
 /* The Masters sidebar group (src/masters): /departments, /colleges, /training-centres, /batches, /documents … */

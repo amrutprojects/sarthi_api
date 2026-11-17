@@ -38,6 +38,7 @@ const WEBSITE_PAGES: MenuKey[] = [
   'cms-hero',
   'cms-highlight',
   'cms-programme',
+  'cms-pagebanners',
 ];
 const WEBSITE_LISTS: MenuKey[] = WEBSITE_MENUS.filter((m) => !WEBSITE_PAGES.includes(m));
 

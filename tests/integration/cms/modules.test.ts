@@ -226,7 +226,7 @@ describe('Modules page visibility', () => {
   });
 
   it('rejects the programme fact sheet in the PUT body (it belongs to the Programme page)', async () => {
-    const facts = { idealMonths: 6, validityMonths: 12, securityDeposit: 2000, applyLeadDays: 30, partnerName: 'Partner' };
+    const facts = { idealMonths: '4-6', validityMonths: '12', securityDeposit: 2000, applyLeadDays: 30, partnerName: 'Partner' };
     const res = await request(app)
       .put(ADMIN_URL)
       .set(auth(admin.token))

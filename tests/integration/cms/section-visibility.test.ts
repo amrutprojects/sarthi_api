@@ -40,7 +40,21 @@ interface Detail {
 }
 
 /* The admin panel's HOME_PAGE_TABS order. */
-const KEYS = ['top-bar', 'brand-bar', 'announcements', 'hero', 'glance', 'diploma', 'board', 'impact', 'ecosystem', 'schemes', 'about'];
+const KEYS = [
+  'top-bar',
+  'brand-bar',
+  'announcements',
+  'hero',
+  'glance',
+  'quick-actions',
+  'live-dashboard',
+  'diploma',
+  'board',
+  'impact',
+  'ecosystem',
+  'schemes',
+  'about',
+];
 
 /* Each switch: its menu, the column it drives, and where the website reads it. */
 const SECTIONS: Record<string, { menu: string; table: string; column: string; feed: string; flag: string }> = {
@@ -55,6 +69,20 @@ const SECTIONS: Record<string, { menu: string; table: string; column: string; fe
   },
   hero: { menu: 'cms-hero', table: 'home_hero', column: 'isPublished', feed: '/public/hero', flag: 'showSection' },
   glance: { menu: 'cms-hero', table: 'home_hero', column: 'showGlance', feed: '/public/hero', flag: 'showGlance' },
+  'quick-actions': {
+    menu: 'cms-quickactions',
+    table: 'quick_action_settings',
+    column: 'showSection',
+    feed: '/public/quick-actions',
+    flag: 'showSection',
+  },
+  'live-dashboard': {
+    menu: 'cms-livedashboard',
+    table: 'live_dashboard_settings',
+    column: 'showSection',
+    feed: '/public/live-dashboard',
+    flag: 'showSection',
+  },
   diploma: { menu: 'cms-highlight', table: 'programme_highlight', column: 'isPublished', feed: '/public/highlight', flag: 'showSection' },
   board: { menu: 'cms-board', table: 'board_section', column: 'showSection', feed: '/public/board-members', flag: 'showSection' },
   impact: { menu: 'cms-impact', table: 'impact_section', column: 'showSection', feed: '/public/impact', flag: 'showSection' },
@@ -68,6 +96,8 @@ const HIDDEN_LISTS: Record<string, string> = {
   'top-bar': 'links',
   announcements: 'items',
   hero: 'slides',
+  'quick-actions': 'actions',
+  'live-dashboard': 'cards',
   diploma: 'objectives',
   board: 'members',
   impact: 'stats',
@@ -90,7 +120,10 @@ const auditCount = async () =>
   (await AppDataSource.query(`SELECT count(*)::int AS n FROM "audit_logs" WHERE "action" = 'cms.section-visibility.update'`))[0]
     .n as number;
 
-/* resetData() empties most section tables, so every section this file switches is seeded here. */
+/*
+ * resetData() empties most section tables, so every section this file switches is seeded here. The Quick Actions
+ * and Live Dashboard rows come from their migrations and survive resetData(), like the programme band's.
+ */
 beforeAll(async () => {
   app = await setupTestApp();
   for (const seed of [
@@ -109,9 +142,14 @@ beforeAll(async () => {
   }
   admin = await superAdmin();
 });
-/* programme_highlight survives resetData() for the other test files, so it is left shown. */
+/*
+ * programme_highlight, quick_action_settings and live_dashboard_settings survive resetData() for the other test
+ * files, so they are left shown.
+ */
 afterAll(async () => {
   await AppDataSource.query(`UPDATE "programme_highlight" SET "isPublished" = true WHERE "isDelete" = false`);
+  await AppDataSource.query(`UPDATE "quick_action_settings" SET "showSection" = true WHERE "isDelete" = false`);
+  await AppDataSource.query(`UPDATE "live_dashboard_settings" SET "showSection" = true WHERE "isDelete" = false`);
   await teardownTestApp();
 });
 afterEach(() => jest.restoreAllMocks());

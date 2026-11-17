@@ -37,6 +37,9 @@ import {
   publicTopBarRouter,
   publicBrandBarRouter,
   publicNavMenuRouter,
+  publicQuickActionsRouter,
+  publicPageBannersRouter,
+  publicLiveDashboardRouter,
 } from './cms';
 import { lmsRouter } from './lms';
 
@@ -91,6 +94,9 @@ apiRouter.use('/public/announcements', publicAnnouncementsRouter);
 apiRouter.use('/public/top-bar', publicTopBarRouter);
 apiRouter.use('/public/brand-bar', publicBrandBarRouter);
 apiRouter.use('/public/nav-menu', publicNavMenuRouter);
+apiRouter.use('/public/quick-actions', publicQuickActionsRouter);
+apiRouter.use('/public/page-banners', publicPageBannersRouter);
+apiRouter.use('/public/live-dashboard', publicLiveDashboardRouter);
 
 /* ENTREPRENEURSHIP DEVELOPMENT PROGRAM portal (edp.sumago.ai) and its tracking panel; own tokens, see the route file. */
 apiRouter.use('/edp', edpRouter);

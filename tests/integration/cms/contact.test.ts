@@ -287,6 +287,143 @@ describe('public Contact endpoint', () => {
   });
 });
 
+describe('Contact page Helpline and WhatsApp details', () => {
+  const MESSAGE = { mr: 'नमस्कार! मला माहिती हवी आहे.', en: 'Hello! I would like to know more.' };
+  const put = (extra: object) =>
+    request(app)
+      .put(ADMIN_URL)
+      .set(auth(admin.token))
+      .send({ ...validPayload(), ...extra });
+  const adminPage = async () => (await request(app).get(ADMIN_URL).set(auth(admin.token)).expect(200)).body.data;
+  const publicPage = async () => (await request(app).get(PUBLIC_URL).expect(200)).body.data;
+  const stored = async () =>
+    (
+      await AppDataSource.query(
+        `SELECT "whatsappNumber" AS number, "whatsappMessageMr" AS mr, "whatsappMessageEn" AS en
+           FROM "contact_page_settings" WHERE "isDelete" = false`,
+      )
+    )[0] as { number: string; mr: string; en: string };
+  const reset = () => put({ whatsappNumber: '', whatsappMessage: null }).expect(200);
+
+  beforeEach(reset);
+  afterAll(reset);
+
+  it('defaults to blank: the admin reads empty values and the public feed reads null for both', async () => {
+    const page = await adminPage();
+    expect(page.whatsappNumber).toBe('');
+    expect(page.whatsappMessage).toEqual({ mr: '', en: '' });
+    expect((await publicPage()).whatsapp).toEqual({ number: null, message: null });
+  });
+
+  it('the public feed carries what the Helpline popup prints: AMRUT phone and email, partner name and helpdesk hours', async () => {
+    const orgs = (await publicPage()).organizations as Record<string, unknown>[];
+    const amrut = orgs.find((o) => o.orgType === 'AMRUT')!;
+    const partner = orgs.find((o) => o.orgType === 'IMPLEMENTATION_PARTNER')!;
+    expect(amrut).toMatchObject({ phone: '+91 97301 51450', email: 'info@mahaamrut.org.in', name: { mr: 'AMRUT', en: 'AMRUT' } });
+    expect(partner).toMatchObject({
+      name: { mr: 'SUMAGO INFOTECH PVT LTD', en: 'SUMAGO INFOTECH PVT LTD' },
+      helpdeskHours: { mr: 'सोम–शनि', en: 'Mon–Sat, 10:00 – 18:00' },
+      email: 'programme@sumago.demo',
+    });
+  });
+
+  it('saves the number as digits (spaces, + and hyphens stripped) and the message on one line; both feeds carry them', async () => {
+    const res = await put({
+      whatsappNumber: ' +91 97301-51450 ',
+      whatsappMessage: { mr: `  ${MESSAGE.mr}\n`, en: 'Hello!\r\n  I would like to know more.' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.whatsappNumber).toBe('919730151450');
+    expect(res.body.data.whatsappMessage).toEqual(MESSAGE);
+    expect(await stored()).toEqual({ number: '919730151450', ...MESSAGE });
+    expect(await adminPage()).toMatchObject({ whatsappNumber: '919730151450', whatsappMessage: MESSAGE });
+    expect((await publicPage()).whatsapp).toEqual({ number: '919730151450', message: MESSAGE });
+  });
+
+  it('takes 10 and 15 digits, and a 500-character message', async () => {
+    await put({ whatsappNumber: '9730151450' }).expect(200);
+    expect((await stored()).number).toBe('9730151450');
+    await put({ whatsappNumber: '123456789012345' }).expect(200);
+    expect((await stored()).number).toBe('123456789012345');
+    const longest = { mr: 'अ'.repeat(500), en: 'x'.repeat(500) };
+    expect((await put({ whatsappMessage: longest }).expect(200)).body.data.whatsappMessage).toEqual(longest);
+  });
+
+  it('leaves both as they are when a save does not send them, and sets one without the other', async () => {
+    await put({ whatsappNumber: '919876543210', whatsappMessage: MESSAGE }).expect(200);
+    await put({}).expect(200);
+    expect(await stored()).toEqual({ number: '919876543210', ...MESSAGE });
+
+    await put({ whatsappNumber: '' }).expect(200);
+    expect(await stored()).toEqual({ number: '', ...MESSAGE });
+    expect((await publicPage()).whatsapp).toEqual({ number: null, message: MESSAGE });
+
+    await put({ whatsappNumber: '919876543210', whatsappMessage: null }).expect(200);
+    expect(await stored()).toEqual({ number: '919876543210', mr: '', en: '' });
+    expect((await publicPage()).whatsapp).toEqual({ number: '919876543210', message: null });
+  });
+
+  it('resets the message with null or with both halves blank', async () => {
+    await put({ whatsappMessage: MESSAGE }).expect(200);
+    const blank = await put({ whatsappMessage: { mr: '  ', en: '' } });
+    expect(blank.status).toBe(200);
+    expect(blank.body.data.whatsappMessage).toEqual({ mr: '', en: '' });
+    expect((await publicPage()).whatsapp.message).toBeNull();
+  });
+
+  it('refuses a bad number or a half-translated, too long or malformed message (422 naming the field), and changes nothing', async () => {
+    await put({ whatsappNumber: '919730151450', whatsappMessage: MESSAGE }).expect(200);
+    const fieldsOf = (res: { body: { error: { details: { field: string; message: string }[] } } }) => res.body.error.details;
+    const NUMBER_RULE = 'WhatsApp number must be 10 to 15 digits, including the country code';
+
+    for (const bad of ['973015145', '1234567890123456', '+91 97301 5145O', '(91) 9730151450', '91.9730151450']) {
+      const res = await put({ whatsappNumber: bad });
+      expect([bad, res.status]).toEqual([bad, 422]);
+      expect(fieldsOf(res)).toEqual([{ field: 'body.whatsappNumber', message: NUMBER_RULE }]);
+    }
+    const notText = await put({ whatsappNumber: 919730151450 });
+    expect(notText.status).toBe(422);
+    expect(fieldsOf(notText)).toEqual([{ field: 'body.whatsappNumber', message: 'WhatsApp number must be text' }]);
+
+    const enMissing = await put({ whatsappMessage: { mr: MESSAGE.mr, en: ' ' } });
+    expect(enMissing.status).toBe(422);
+    expect(fieldsOf(enMissing)).toEqual([
+      { field: 'body.whatsappMessage.en', message: 'WhatsApp message (English) is required when the Marathi text is filled in' },
+    ]);
+
+    const tooLong = await put({ whatsappMessage: { mr: 'अ'.repeat(501), en: 'Hello' } });
+    expect(tooLong.status).toBe(422);
+    expect(fieldsOf(tooLong)).toEqual([{ field: 'body.whatsappMessage.mr', message: 'WhatsApp message (Marathi) must be at most 500 characters' }]);
+
+    const notPair = await put({ whatsappMessage: 'Hello' });
+    expect(notPair.status).toBe(422);
+    expect(fieldsOf(notPair).map((d) => d.field)).toEqual(['body.whatsappMessage']);
+
+    expect(await stored()).toEqual({ number: '919730151450', ...MESSAGE });
+  });
+
+  it('records the WhatsApp change in the audit entry of the save', async () => {
+    await put({ whatsappNumber: '919730151450', whatsappMessage: MESSAGE }).expect(200);
+    const [entry] = await AppDataSource.query(
+      `SELECT "details" FROM "audit_logs" WHERE "action" = 'cms.contact-page.update' ORDER BY "createdAt" DESC LIMIT 1`,
+    );
+    expect(entry.details).toMatchObject({ whatsappNumber: '919730151450', whatsappMessage: MESSAGE });
+  });
+
+  it('the database refuses a number that is not 10–15 digits or a message in one language only, even past the API', async () => {
+    await expect(AppDataSource.query(`UPDATE "contact_page_settings" SET "whatsappNumber" = '+919730151450'`)).rejects.toThrow(
+      /CHK_contact_page_settings_whatsapp_number/,
+    );
+    await expect(AppDataSource.query(`UPDATE "contact_page_settings" SET "whatsappNumber" = '123456789'`)).rejects.toThrow(
+      /CHK_contact_page_settings_whatsapp_number/,
+    );
+    await expect(AppDataSource.query(`UPDATE "contact_page_settings" SET "whatsappMessageMr" = 'नमस्कार'`)).rejects.toThrow(
+      /CHK_contact_page_settings_whatsapp_message_pair/,
+    );
+    expect(await stored()).toEqual({ number: '', mr: '', en: '' });
+  });
+});
+
 describe('Contact page authorisation', () => {
   it('needs a session', async () => {
     expect((await request(app).get(ADMIN_URL)).status).toBe(401);

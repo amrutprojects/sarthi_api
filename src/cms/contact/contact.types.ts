@@ -72,6 +72,10 @@ export interface AdminContactPage {
   pageTitle: Bilingual;
   pageSubtitle: Bilingual;
   isPublished: boolean;
+  /* The WhatsApp button's number, digits only; '' when the website uses the AMRUT card's phone. */
+  whatsappNumber: string;
+  /* Its pre-filled message; both halves '' when the website uses its default message. */
+  whatsappMessage: Bilingual;
   createdAt: Date;
   updatedAt: Date;
   organizations: AdminOrganization[];
@@ -119,12 +123,22 @@ export interface PublicDistrictOffice {
   officeHours?: Bilingual;
 }
 
+/*
+ * The WhatsApp button. Unlike the other public fields, blanks are sent as null rather than omitted:
+ * number null → the website dials the AMRUT card's phone; message null → its default message.
+ */
+export interface PublicWhatsApp {
+  number: string | null;
+  message: Bilingual | null;
+}
+
 export interface PublicContactPage {
   pageTitle: Bilingual;
   pageSubtitle: Bilingual;
   organizations: PublicOrganization[];
   coordinators: PublicCoordinator[];
   districtOffices: PublicDistrictOffice[];
+  whatsapp: PublicWhatsApp;
 }
 
 /* ---------------- write shapes ---------------- */
@@ -182,6 +196,9 @@ export interface UpdateContactPageInput {
   pageTitle: Bilingual;
   pageSubtitle: Bilingual;
   isPublished?: boolean;
+  /* Optional like the sections below: absent leaves the stored value as it is. '' / null resets to the default. */
+  whatsappNumber?: string;
+  whatsappMessage?: Bilingual | null;
   organizations: UpdateOrganizationInput[];
   coordinators?: UpdateCoordinatorInput[];
   districtOffices?: UpdateDistrictOfficeInput[];

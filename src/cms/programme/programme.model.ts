@@ -25,10 +25,13 @@ export interface TrainingModes {
   modes: TrainingMode[];
   note: BilingualText;
 }
-/* The programme fact sheet. Total hours, the module line and the elective count are absent: the site sums them from the modules. */
+/*
+ * The programme fact sheet. Total hours, the module line and the elective count are absent: the site sums them from the modules.
+ * The two durations are a number of months or a range of them, always in the normalised form "N" or "N-M" ("6", "4-6").
+ */
 export interface ProgrammeFacts {
-  idealMonths: number;
-  validityMonths: number;
+  idealMonths: string;
+  validityMonths: string;
   securityDeposit: number;
   applyLeadDays: number;
   partnerName: string;
@@ -73,10 +76,13 @@ export class ProgrammePageSettings extends AppBaseEntity {
   /*
    * The programme fact sheet: the figures that are entered rather than derived. Total hours, the module line and the
    * elective count are NOT stored: the site sums them from the modules, so they cannot contradict them.
-   * CHK_programme_page_settings_facts keeps the numbers non-negative; CHK_programme_page_settings_partner the name non-blank.
+   * The two durations are text, a number of months or a range ("6", "4-6"), stored in the normalised form the validator
+   * produces; CHK_programme_page_settings_ideal_months / _validity_months admit only that form (ProgrammeMonthRanges
+   * migration). CHK_programme_page_settings_facts keeps the other two numbers non-negative; CHK_programme_page_settings_partner
+   * the name non-blank.
    */
-  @Column({ type: 'integer', name: 'idealMonths', default: 6 }) idealMonths!: number;
-  @Column({ type: 'integer', name: 'validityMonths', default: 12 }) validityMonths!: number;
+  @Column({ type: 'varchar', length: 7, name: 'idealMonths', default: '6' }) idealMonths!: string;
+  @Column({ type: 'varchar', length: 7, name: 'validityMonths', default: '12' }) validityMonths!: string;
   @Column({ type: 'integer', name: 'securityDeposit', default: 2000 }) securityDeposit!: number;
   @Column({ type: 'integer', name: 'applyLeadDays', default: 30 }) applyLeadDays!: number;
   @Column({ type: 'varchar', length: 150, name: 'partnerName', default: 'SUMAGO INFOTECH PVT LTD' }) partnerName!: string;

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { idParams, statusBody } from '../../shared/validation/common.validation';
 import { listQueryAscSchema } from '../../shared/utils/pagination';
+import { optionalPair } from '../cms.text.validation';
 import { ORG_TYPES } from './contact.model';
 
 /*
@@ -127,12 +128,25 @@ const districtOffice = z
   })
   .strict();
 
+/*
+ * The WhatsApp button's number, stored as digits only (wa.me takes no '+' or separators). Spaces, '+' and
+ * hyphens are stripped so "+91 97301-51450" is accepted as typed; blank means "use the AMRUT phone".
+ */
+const whatsappNumber = z
+  .string({ invalid_type_error: 'WhatsApp number must be text' })
+  .transform((v) => v.replace(/[\s+-]/g, ''))
+  .refine((v) => v === '' || /^[0-9]{10,15}$/.test(v), 'WhatsApp number must be 10 to 15 digits, including the country code');
+
 export const updateContactPageSchema = {
   body: z
     .object({
       pageTitle: bilingual(150, 'Page title'),
       pageSubtitle: bilingual(300, 'Page subtitle'),
       isPublished: z.boolean().optional(),
+      /* Optional so a client that does not edit them cannot clear them; absent leaves them as they are. */
+      whatsappNumber: whatsappNumber.optional(),
+      /* One paragraph (line breaks collapse), both languages or neither; null or both blank: the default message. */
+      whatsappMessage: optionalPair('WhatsApp message', 500).nullable().optional(),
       /* Both cards are expected; the cap leaves room for the extra cards the brief anticipates. */
       organizations: z.array(organization).min(1, 'At least one organisation is required').max(ORG_TYPES.length),
       coordinators: z.array(coordinator).max(100).optional(),

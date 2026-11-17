@@ -65,13 +65,25 @@ beforeAll(async () => {
 afterAll(teardownTestApp);
 
 /* The seeded grant: singleton pages are viewed and edited, list pages and geography masters also add and delete. */
-const PAGES = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-brandbar', 'cms-navmenu', 'cms-hero', 'cms-highlight', 'cms-programme'];
+const PAGES = [
+  'cms-contact',
+  'cms-footer',
+  'cms-modules',
+  'cms-brandbar',
+  'cms-navmenu',
+  'cms-hero',
+  'cms-highlight',
+  'cms-programme',
+  'cms-pagebanners',
+];
 const LISTS = [
   'cms-faqs',
   'cms-eligibility',
   'cms-apply',
   'cms-announcements',
   'cms-topbar',
+  'cms-quickactions',
+  'cms-livedashboard',
   'cms-board',
   'cms-advisory',
   'cms-ecosystem',
@@ -219,6 +231,12 @@ describe('CMS operations as a Website Admin', () => {
       '/cms/top-bar/settings',
       '/cms/brand-bar',
       '/cms/nav-menu',
+      '/cms/quick-actions',
+      '/cms/live-dashboard/settings',
+      '/cms/live-dashboard/cards',
+      '/cms/live-dashboard/stats',
+      '/cms/live-dashboard/districts',
+      '/cms/page-banners',
       '/cms/states',
       '/cms/districts',
       '/cms/talukas',
@@ -288,11 +306,90 @@ describe('CMS operations as a Website Admin', () => {
     expect((await request(app).delete(`${API}/cms/top-bar/${id}`).set(auth(wa.token))).status).toBe(200);
   });
 
+  it('adds, edits, hides, reorders and deletes a quick action, and switches the strip', async () => {
+    const created = await request(app)
+      .post(`${API}/cms/quick-actions`)
+      .set(auth(wa.token))
+      .send({ title: { mr: 'वेबसाइट कृती', en: 'Website action' }, icon: 'globe', link: '/apply' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.id as string;
+    const updated = await request(app)
+      .patch(`${API}/cms/quick-actions/${id}`)
+      .set(auth(wa.token))
+      .send({ subtitle: { mr: 'ओळ', en: 'Line' }, link: 'www.example.gov.in' });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data).toMatchObject({ subtitle: { mr: 'ओळ', en: 'Line' }, link: 'https://www.example.gov.in' });
+    const hidden = await request(app).patch(`${API}/cms/quick-actions/${id}/status`).set(auth(wa.token)).send({ isActive: false });
+    expect(hidden.status).toBe(200);
+    const ids = ((await request(app).get(`${API}/cms/quick-actions`).set(auth(wa.token))).body.data as { id: string }[]).map((a) => a.id);
+    const reordered = await request(app)
+      .put(`${API}/cms/quick-actions/order`)
+      .set(auth(wa.token))
+      .send({ ids: [id, ...ids.filter((x) => x !== id)] });
+    expect(reordered.status).toBe(200);
+    const toggle = `${API}/cms/section-visibility/quick-actions`;
+    expect((await request(app).put(toggle).set(auth(wa.token)).send({ visible: false })).status).toBe(200);
+    expect((await request(app).put(toggle).set(auth(wa.token)).send({ visible: true })).status).toBe(200);
+    expect((await request(app).delete(`${API}/cms/quick-actions/${id}`).set(auth(wa.token))).status).toBe(200);
+    /* The tiles come from the migration and outlive this file: put them back in their order. */
+    const restored = await request(app)
+      .put(`${API}/cms/quick-actions/order`)
+      .set(auth(wa.token))
+      .send({ ids: ids.filter((x) => x !== id) });
+    expect(restored.status).toBe(200);
+  });
+
+  it('manages the Live Dashboard: settings, cards, figures and districts, and switches the section', async () => {
+    const base = `${API}/cms/live-dashboard`;
+    const settings = (await request(app).get(`${base}/settings`).set(auth(wa.token))).body.data;
+    const { id: _id, showSection: _shown, createdAt: _c, updatedAt, ...fields } = settings;
+    const saved = await request(app)
+      .put(`${base}/settings`)
+      .set(auth(wa.token))
+      .send({ ...fields, expectedUpdatedAt: updatedAt });
+    expect(saved.status).toBe(200);
+
+    const created = await request(app)
+      .post(`${base}/cards`)
+      .set(auth(wa.token))
+      .send({ label: { mr: 'वेबसाइट कार्ड', en: 'Website card' }, value: '7', link: '/apply', tone: 'green' });
+    expect(created.status).toBe(201);
+    const id = created.body.data.id as string;
+    expect((await request(app).patch(`${base}/cards/${id}`).set(auth(wa.token)).send({ value: '8' })).status).toBe(200);
+    expect((await request(app).patch(`${base}/cards/${id}/status`).set(auth(wa.token)).send({ isActive: false })).status).toBe(200);
+    expect((await request(app).delete(`${base}/cards/${id}`).set(auth(wa.token))).status).toBe(200);
+
+    const stat = await request(app)
+      .post(`${base}/stats`)
+      .set(auth(wa.token))
+      .send({ label: { mr: 'आकडा', en: 'Figure' }, value: '1' });
+    expect(stat.status).toBe(201);
+    expect((await request(app).delete(`${base}/stats/${stat.body.data.id}`).set(auth(wa.token))).status).toBe(200);
+
+    /* The district rows come from the migration and outlive this file: the change is put back. */
+    const pune = ((await request(app).get(`${base}/districts`).set(auth(wa.token))).body.data as { code: string; target: number }[]).find(
+      (d) => d.code === 'PUN',
+    )!;
+    expect((await request(app).patch(`${base}/districts/PUN`).set(auth(wa.token)).send({ target: pune.target + 1 })).status).toBe(200);
+    expect((await request(app).patch(`${base}/districts/PUN`).set(auth(wa.token)).send({ target: pune.target })).status).toBe(200);
+
+    const toggle = `${API}/cms/section-visibility/live-dashboard`;
+    expect((await request(app).put(toggle).set(auth(wa.token)).send({ visible: false })).status).toBe(200);
+    expect((await request(app).put(toggle).set(auth(wa.token)).send({ visible: true })).status).toBe(200);
+  });
+
   it('edits the singleton pages', async () => {
     const hero = await request(app).patch(`${API}/cms/hero/status`).set(auth(wa.token)).send({ isPublished: true });
     expect(hero.status).toBe(200);
     const contact = await request(app).patch(`${API}/cms/contact/status`).set(auth(wa.token)).send({ isPublished: true });
     expect(contact.status).toBe(200);
+    /* The page banners come from the migration and outlive this file: the change is put back. */
+    const banner = await request(app)
+      .put(`${API}/cms/page-banners/faq`)
+      .set(auth(wa.token))
+      .send({ title: { mr: 'प्रश्न', en: 'Questions' } });
+    expect(banner.status).toBe(200);
+    expect((await request(app).put(`${API}/cms/page-banners/faq`).set(auth(wa.token)).send({ title: null })).status).toBe(200);
   });
 
   it('manages the geography masters', async () => {
