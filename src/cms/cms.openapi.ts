@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { documentEndpoint, envelope } from '../shared/openapi/registry';
 import { parentIdParams } from '../shared/validation/common.validation';
 import { NAV_MENU_KEYS } from './navmenu/navmenu.types';
+import { PROGRAMME_FACT_KEYS } from './programme/programme.model';
 
 /*
  * API contract for the CMS read feeds the public website consumes.
@@ -411,6 +412,8 @@ const ProgrammePage = z.object({
     applyLeadDays: z.number().int(),
     partnerName: z.string(),
   }),
+  /* The fact sheet rows to leave out, in display order. */
+  hiddenFacts: z.array(z.enum(PROGRAMME_FACT_KEYS)),
 });
 
 documentEndpoint({
@@ -421,7 +424,8 @@ documentEndpoint({
   description:
     'Introduction, objectives, learning methodology, assessment criteria, certification and the programme fact sheet ' +
     'for the public /programme page, ' +
-    'in Marathi and English. `data` is null when unpublished; the website then renders its bundled copy.',
+    'in Marathi and English. `data` is null when unpublished; the website then renders its bundled copy. ' +
+    '`hiddenFacts` lists the fact sheet rows hidden under CMS → Programme Page Management (empty: every row is shown).',
   permission: 'public',
   response: envelope(ProgrammePage.nullable()),
 });

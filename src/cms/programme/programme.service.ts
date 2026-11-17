@@ -4,10 +4,12 @@ import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { auditService } from '../../modules/audit/audit.service';
 import { AppError } from '../../shared/errors/app-error';
 import {
+  PROGRAMME_FACT_KEYS,
   ProgrammePageSettings,
   type AssessmentRow,
   type BilingualText,
   type MethodologyRow,
+  type ProgrammeFactKey,
   type ProgrammeFacts,
   type TrainingModes,
 } from './programme.model';
@@ -28,6 +30,8 @@ export interface PublicProgrammePage {
   certification: BilingualText[];
   trainingModes: TrainingModes;
   facts: ProgrammeFacts;
+  /* The fact sheet rows the website leaves out, as keys in display order. Empty: every row is shown. */
+  hiddenFacts: ProgrammeFactKey[];
 }
 export interface AdminProgrammePage extends PublicProgrammePage {
   id: string;
@@ -37,6 +41,9 @@ export interface AdminProgrammePage extends PublicProgrammePage {
 
 const repo = () => AppDataSource.getRepository(ProgrammePageSettings);
 const current = () => repo().findOne({ where: { isDelete: false } });
+
+/* Known keys only, once each, in display order, whatever order the column holds them in. */
+const orderedHidden = (hidden: readonly string[]): ProgrammeFactKey[] => PROGRAMME_FACT_KEYS.filter((k) => hidden.includes(k));
 
 const toPublic = (s: ProgrammePageSettings): PublicProgrammePage => ({
   intro: { mr: s.introMr, en: s.introEn },
@@ -53,6 +60,7 @@ const toPublic = (s: ProgrammePageSettings): PublicProgrammePage => ({
     applyLeadDays: s.applyLeadDays,
     partnerName: s.partnerName,
   },
+  hiddenFacts: orderedHidden(s.hiddenFacts),
 });
 const toAdmin = (s: ProgrammePageSettings): AdminProgrammePage => ({
   id: s.id,
@@ -119,6 +127,31 @@ export const programmeService = {
         resource: 'programme-page',
         resourceId: s.id,
         details: { isPublished },
+      });
+    });
+    return this.getForAdmin();
+  },
+
+  /*
+   * Shows or hides one fact sheet row, in one transaction with its audit entry. The row is locked first, so two
+   * switches flipped at once cannot overwrite each other's change to the list. Only "hiddenFacts" is written, so the
+   * figures cannot change here. Setting the current value writes nothing but is still audited, as the
+   * administrator's action it was.
+   */
+  async setFactVisibility(key: ProgrammeFactKey, show: boolean, req: Request): Promise<AdminProgrammePage> {
+    await AppDataSource.transaction(async (m) => {
+      const s = await m.getRepository(ProgrammePageSettings).findOne({ where: { isDelete: false }, lock: { mode: 'pessimistic_write' } });
+      if (!s) throw AppError.notFound(NOT_CONFIGURED);
+      const hide = !show;
+      if (s.hiddenFacts.includes(key) !== hide) {
+        const next = PROGRAMME_FACT_KEYS.filter((k) => (k === key ? hide : s.hiddenFacts.includes(k)));
+        await m.getRepository(ProgrammePageSettings).update(s.id, { hiddenFacts: next });
+      }
+      await auditService.recordInTx(m, req, {
+        action: AUDIT_ACTIONS.PROGRAMME_FACT_VISIBILITY,
+        resource: 'programme-page',
+        resourceId: s.id,
+        details: { key, show },
       });
     });
     return this.getForAdmin();

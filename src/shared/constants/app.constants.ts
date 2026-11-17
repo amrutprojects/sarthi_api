@@ -202,6 +202,7 @@ export const AUDIT_ACTIONS = {
   ABOUT_CARDS_REORDER: 'cms.about-cards.reorder',
   PROGRAMME_PAGE_UPDATE: 'cms.programme-page.update',
   PROGRAMME_PAGE_STATUS: 'cms.programme-page.status',
+  PROGRAMME_FACT_VISIBILITY: 'cms.programme.fact-visibility',
   FAQ_CREATE: 'cms.faq.create',
   FAQ_UPDATE: 'cms.faq.update',
   FAQ_STATUS: 'cms.faq.status',

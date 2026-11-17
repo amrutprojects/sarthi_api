@@ -33,6 +33,22 @@ export interface ProgrammeFacts {
   applyLeadDays: number;
   partnerName: string;
 }
+/*
+ * The rows of the fact sheet's box on the website, in display order, each of which the admin can hide. Fixed: the
+ * website owns the labels and works out the first three from the modules, so a key is all the CMS stores. The same
+ * list is CHK_programme_page_settings_hidden_facts (ProgrammeHiddenFacts migration).
+ */
+export const PROGRAMME_FACT_KEYS = [
+  'totalHours',
+  'modules',
+  'electives',
+  'idealDuration',
+  'validity',
+  'securityDeposit',
+  'applyBefore',
+  'partner',
+] as const;
+export type ProgrammeFactKey = (typeof PROGRAMME_FACT_KEYS)[number];
 
 /*
  * Programme page content (public site /programme): the introduction, objectives, learning methodology, assessment
@@ -64,6 +80,11 @@ export class ProgrammePageSettings extends AppBaseEntity {
   @Column({ type: 'integer', name: 'securityDeposit', default: 2000 }) securityDeposit!: number;
   @Column({ type: 'integer', name: 'applyLeadDays', default: 30 }) applyLeadDays!: number;
   @Column({ type: 'varchar', length: 150, name: 'partnerName', default: 'SUMAGO INFOTECH PVT LTD' }) partnerName!: string;
+  /*
+   * The fact sheet rows the website leaves out. Written only by the per-row switch (PATCH /facts/:key), never by the
+   * full-page PUT, so saving the edit form cannot bring a hidden row back. Empty: every row is shown.
+   */
+  @Column({ type: 'text', array: true, name: 'hiddenFacts', default: () => "'{}'" }) hiddenFacts!: ProgrammeFactKey[];
   /* Unpublishing hides the managed content from the public API; the website then shows its own copy. */
   @Column({ type: 'boolean', name: 'isPublished', default: true }) isPublished!: boolean;
 }

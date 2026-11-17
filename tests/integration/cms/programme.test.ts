@@ -98,7 +98,7 @@ describe('Programme page management', () => {
     expect(res.status).toBe(200);
     const pub = await request(app).get(PUBLIC_URL);
     expect(pub.status).toBe(200);
-    expect(pub.body.data).toEqual(validPayload());
+    expect(pub.body.data).toEqual({ ...validPayload(), hiddenFacts: [] });
     const [row] = await AppDataSource.query(`SELECT count(*)::int AS n FROM "audit_logs" WHERE "action" = 'cms.programme-page.update'`);
     expect(row.n).toBeGreaterThan(0);
   });
@@ -175,5 +175,128 @@ describe('Programme page management', () => {
     expect((await request(app).get(ADMIN_URL).set(auth(viewer.token))).status).toBe(200);
     expect((await request(app).put(ADMIN_URL).set(auth(viewer.token)).send(validPayload())).status).toBe(403);
     expect((await request(app).get(ADMIN_URL)).status).toBe(401);
+  });
+});
+
+describe('Fact sheet row switches', () => {
+  /* Display order on the website. */
+  const FACT_KEYS = ['totalHours', 'modules', 'electives', 'idealDuration', 'validity', 'securityDeposit', 'applyBefore', 'partner'];
+  const setFact = (key: string, payload: unknown, token = admin.token) =>
+    request(app)
+      .patch(`${ADMIN_URL}/facts/${key}`)
+      .set(auth(token))
+      .send(payload as object);
+  const adminHidden = async () => (await request(app).get(ADMIN_URL).set(auth(admin.token))).body.data.hiddenFacts;
+  const publicHidden = async () => (await request(app).get(PUBLIC_URL)).body.data.hiddenFacts;
+  const auditCount = async () =>
+    (await AppDataSource.query(`SELECT count(*)::int AS n FROM "audit_logs" WHERE "action" = 'cms.programme.fact-visibility'`))[0]
+      .n as number;
+
+  it('starts with every row shown', async () => {
+    expect(await adminHidden()).toEqual([]);
+    expect(await publicHidden()).toEqual([]);
+  });
+
+  it('hides and shows each row, returns the admin page, and the public feed follows', async () => {
+    /* Hidden back to front, still listed in display order. */
+    for (const key of [...FACT_KEYS].reverse()) {
+      const res = await setFact(key, { show: false });
+      expect(res.status).toBe(200);
+      expect(res.body.data.hiddenFacts).toContain(key);
+      expect(res.body.data.facts).toBeDefined();
+      expect(await publicHidden()).toContain(key);
+    }
+    expect(await adminHidden()).toEqual(FACT_KEYS);
+    expect(await publicHidden()).toEqual(FACT_KEYS);
+
+    for (const key of FACT_KEYS) {
+      const res = await setFact(key, { show: true });
+      expect(res.status).toBe(200);
+      expect(res.body.data.hiddenFacts).not.toContain(key);
+      expect(await publicHidden()).not.toContain(key);
+    }
+    expect(await publicHidden()).toEqual([]);
+  });
+
+  it('is idempotent, and audits every switch with the key and the value', async () => {
+    const before = await auditCount();
+    await setFact('partner', { show: false }).expect(200);
+    const again = await setFact('partner', { show: false });
+    expect(again.status).toBe(200);
+    expect(again.body.data.hiddenFacts).toEqual(['partner']);
+    expect(await auditCount()).toBe(before + 2);
+    const [entry] = await AppDataSource.query(
+      `SELECT "resource", "details", "actorUserId" FROM "audit_logs"
+        WHERE "action" = 'cms.programme.fact-visibility' ORDER BY "createdAt" DESC LIMIT 1`,
+    );
+    expect(entry).toEqual({ resource: 'programme-page', actorUserId: admin.user.id, details: { key: 'partner', show: false } });
+
+    await setFact('partner', { show: true }).expect(200);
+    expect((await setFact('partner', { show: true })).body.data.hiddenFacts).toEqual([]);
+  });
+
+  it('is kept by the full-page save, which cannot set it', async () => {
+    await setFact('validity', { show: false }).expect(200);
+    const saved = await request(app).put(ADMIN_URL).set(auth(admin.token)).send(validPayload());
+    expect(saved.status).toBe(200);
+    expect(saved.body.data.hiddenFacts).toEqual(['validity']);
+    expect(await publicHidden()).toEqual(['validity']);
+
+    const smuggled = await request(app)
+      .put(ADMIN_URL)
+      .set(auth(admin.token))
+      .send({ ...validPayload(), hiddenFacts: [] });
+    expect(smuggled.status).toBe(422);
+    expect(await adminHidden()).toEqual(['validity']);
+
+    await setFact('validity', { show: true }).expect(200);
+  });
+
+  it('needs cms-programme.update', async () => {
+    const viewer = await actorWith(['cms-programme.view']);
+    expect((await setFact('partner', { show: false }, viewer.token)).status).toBe(403);
+    expect((await request(app).patch(`${ADMIN_URL}/facts/partner`).send({ show: false })).status).toBe(401);
+    expect(await adminHidden()).toEqual([]);
+
+    const editor = await actorWith(['cms-programme.view', 'cms-programme.update']);
+    expect((await setFact('partner', { show: false }, editor.token)).status).toBe(200);
+    await setFact('partner', { show: true }).expect(200);
+  });
+
+  it('rejects an unknown row and a bad body with 422', async () => {
+    const fields = async (key: string, payload: unknown) => {
+      const res = await setFact(key, payload);
+      expect(res.status).toBe(422);
+      return res.body.error.details.map((d: { field: string }) => d.field);
+    };
+    expect(await fields('bogus', { show: false })).toEqual(['params.key']);
+    expect(await fields('partner', {})).toEqual(['body.show']);
+    expect(await fields('partner', { show: 'no' })).toEqual(['body.show']);
+    expect(await fields('partner', { show: false, key: 'modules' })).toEqual(['body']);
+    expect(await adminHidden()).toEqual([]);
+  });
+
+  it('is a 404 while the page is not configured', async () => {
+    await AppDataSource.query(`UPDATE "programme_page_settings" SET "isDelete" = true WHERE "isDelete" = false`);
+    try {
+      const res = await setFact('partner', { show: false });
+      expect(res.status).toBe(404);
+      expect(res.body.message).toBe('The Programme page has not been configured yet. Run the database seed to create it.');
+    } finally {
+      await AppDataSource.query(
+        `UPDATE "programme_page_settings" SET "isDelete" = false
+          WHERE "id" = (SELECT "id" FROM "programme_page_settings" ORDER BY "createdAt" DESC LIMIT 1)`,
+      );
+    }
+    expect(await adminHidden()).toEqual([]);
+  });
+
+  it('the database admits only the row keys', async () => {
+    await expect(AppDataSource.query(`UPDATE "programme_page_settings" SET "hiddenFacts" = ARRAY['bogus']`)).rejects.toThrow(
+      /CHK_programme_page_settings_hidden_facts/,
+    );
+    await expect(AppDataSource.query(`UPDATE "programme_page_settings" SET "hiddenFacts" = ARRAY['partner', NULL]`)).rejects.toThrow(
+      /CHK_programme_page_settings_hidden_facts/,
+    );
   });
 });

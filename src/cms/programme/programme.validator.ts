@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PROGRAMME_FACT_KEYS, type ProgrammeFactKey } from './programme.model';
 
 const bilingual = (max: number, label: string) =>
   z
@@ -66,5 +67,18 @@ export const updateProgrammePageSchema = {
 
 export const programmeStatusSchema = { body: z.object({ isPublished: z.boolean() }).strict() };
 
+/* One fact sheet row's show/hide switch. An unknown row key is a 422 naming the field, like any other bad input. */
+export const programmeFactVisibilitySchema = {
+  params: z
+    .object({
+      key: z.enum(PROGRAMME_FACT_KEYS, { errorMap: () => ({ message: `Fact must be one of: ${PROGRAMME_FACT_KEYS.join(', ')}` }) }),
+    })
+    .strict(),
+  /* Strict: this endpoint writes the switch and nothing else. */
+  body: z.object({ show: z.boolean({ required_error: 'show is required', invalid_type_error: 'show must be true or false' }) }).strict(),
+};
+
 export type UpdateProgrammePageBody = z.infer<typeof updateProgrammePageSchema.body>;
 export type ProgrammeStatusBody = z.infer<typeof programmeStatusSchema.body>;
+export type ProgrammeFactParams = { key: ProgrammeFactKey };
+export type ProgrammeFactVisibilityBody = z.infer<typeof programmeFactVisibilitySchema.body>;

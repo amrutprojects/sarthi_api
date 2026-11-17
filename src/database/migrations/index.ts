@@ -73,6 +73,7 @@ import { BrandBarShowPartner1796500000000 } from './1796500000000-BrandBarShowPa
 import { CasteOfficialList1796600000000 } from './1796600000000-CasteOfficialList';
 import { AdvisoryGroups1796700000000 } from './1796700000000-AdvisoryGroups';
 import { CmsNavMenu1796800000000 } from './1796800000000-CmsNavMenu';
+import { ProgrammeHiddenFacts1796900000000 } from './1796900000000-ProgrammeHiddenFacts';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -158,4 +159,5 @@ export const MIGRATIONS = [
   CasteOfficialList1796600000000,
   AdvisoryGroups1796700000000,
   CmsNavMenu1796800000000,
+  ProgrammeHiddenFacts1796900000000,
 ];
