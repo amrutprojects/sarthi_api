@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { documentEndpoint, envelope } from '../shared/openapi/registry';
 import { parentIdParams } from '../shared/validation/common.validation';
+import { NAV_MENU_KEYS } from './navmenu/navmenu.types';
 
 /*
  * API contract for the CMS read feeds the public website consumes.
@@ -638,4 +639,28 @@ documentEndpoint({
     'is blank or the implementation partner box is switched off (its label and name are kept in the admin panel).',
   permission: 'public',
   response: envelope(BrandBar.nullable()),
+});
+
+const NavMenu = z.object({
+  /* Every item of the menu bar, always all ten and in menu order. An item that was never switched is shown. */
+  items: z.array(
+    z.object({
+      key: z.enum(NAV_MENU_KEYS),
+      /* false: the website leaves the item out of the menu bar and the mobile menu (for `login`, the Login / Register button). */
+      show: z.boolean(),
+    }),
+  ),
+});
+
+documentEndpoint({
+  method: 'get',
+  path: '/public/nav-menu',
+  tag,
+  summary: 'Navigation Menu (which menu bar items are shown)',
+  description:
+    'Whether each item of the menu bar under the Brand Bar, and its Login / Register button, is shown on the website. Every item ' +
+    'comes back, in menu order; the page of a hidden item still opens by its address. Managed in the admin panel under CMS → ' +
+    'Home Page Management → Navigation Menu. Never null: an item that was never switched is shown.',
+  permission: 'public',
+  response: envelope(NavMenu),
 });

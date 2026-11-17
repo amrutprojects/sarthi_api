@@ -242,6 +242,7 @@ export const AUDIT_ACTIONS = {
   TOPBAR_SETTINGS_UPDATE: 'cms.top-bar-settings.update',
   BRANDBAR_UPDATE: 'cms.brand-bar.update',
   SECTION_VISIBILITY_UPDATE: 'cms.section-visibility.update',
+  NAV_MENU_UPDATE: 'cms.nav-menu.update',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

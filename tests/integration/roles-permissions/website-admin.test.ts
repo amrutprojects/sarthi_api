@@ -65,7 +65,7 @@ beforeAll(async () => {
 afterAll(teardownTestApp);
 
 /* The seeded grant: singleton pages are viewed and edited, list pages and geography masters also add and delete. */
-const PAGES = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-brandbar', 'cms-hero', 'cms-highlight', 'cms-programme'];
+const PAGES = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-brandbar', 'cms-navmenu', 'cms-hero', 'cms-highlight', 'cms-programme'];
 const LISTS = [
   'cms-faqs',
   'cms-eligibility',
@@ -218,6 +218,7 @@ describe('CMS operations as a Website Admin', () => {
       '/cms/top-bar',
       '/cms/top-bar/settings',
       '/cms/brand-bar',
+      '/cms/nav-menu',
       '/cms/states',
       '/cms/districts',
       '/cms/talukas',

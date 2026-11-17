@@ -29,7 +29,16 @@ export const ROLE_CODES = {
 } as const;
 
 /* The website's singleton pages are viewed and edited; its list pages and the geography masters also add and delete. */
-const WEBSITE_PAGES: MenuKey[] = ['cms-contact', 'cms-footer', 'cms-modules', 'cms-brandbar', 'cms-hero', 'cms-highlight', 'cms-programme'];
+const WEBSITE_PAGES: MenuKey[] = [
+  'cms-contact',
+  'cms-footer',
+  'cms-modules',
+  'cms-brandbar',
+  'cms-navmenu',
+  'cms-hero',
+  'cms-highlight',
+  'cms-programme',
+];
 const WEBSITE_LISTS: MenuKey[] = WEBSITE_MENUS.filter((m) => !WEBSITE_PAGES.includes(m));
 
 const view = (...menus: MenuKey[]) => menuCodes(menus, ['view']);
