@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { documentEndpoint, envelope, pagedEnvelope } from '../../../shared/openapi/registry';
-import { EDP_FOLLOW_UP_STATUS, EDP_STAGES } from './edp.constants';
+import { EDP_FOLLOW_UP_STATUS, EDP_HELP_FIELDS, EDP_STAGES } from './edp.constants';
 import { parentIdParams } from '../../../shared/validation/common.validation';
 import {
   centreIdSchema,
@@ -15,6 +15,7 @@ import {
   fileDownloadQuery,
   emailBody,
   followUpBody,
+  helpBody,
   loginBody,
   manageListQuery,
   newUserBody,
@@ -27,6 +28,7 @@ import {
   submitBody,
   supportBody,
   userStatusBody,
+  welcomeBody,
 } from './edp.validation';
 
 /*
@@ -49,7 +51,12 @@ const Account = z.object({
   email_verified: z.boolean(),
 });
 const Session = z.object({ token: z.string(), expires_at: z.string(), account: Account });
-const OtpTiming = z.object({ email: z.string(), mobile_masked: z.string().nullable().describe('The mobile number the OTP was texted to, masked: +91XXXXXX1234'), otp_expires_in: z.number().int(), resend_after: z.number().int() });
+const OtpTiming = z.object({
+  email: z.string(),
+  mobile_masked: z.string().nullable().describe('The mobile number the OTP was texted to, masked: +91XXXXXX1234'),
+  otp_expires_in: z.number().int(),
+  resend_after: z.number().int(),
+});
 const Ref = z.object({ id: z.string().uuid(), code: z.string(), name: z.string() });
 const Options = z.object({
   regions: z.array(Ref),
@@ -630,5 +637,64 @@ documentEndpoint({
   permission: null,
   request: { body: supportBody },
   response: envelope(Support),
+  errors: [403],
+});
+
+const saved = { updated_at: z.string().nullable(), updated_by: z.string().nullable() };
+const Welcome = z.object({
+  enabled: z.boolean(),
+  title: z.string(),
+  message: z.string(),
+  button_label: z.string().describe('Blank: the portal uses its own translated button text'),
+  ...saved,
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/settings/welcome',
+  tag: manageTag,
+  summary: 'The congratulations dialog shown once a student account is created',
+  description: adminAuth,
+  permission: null,
+  response: envelope(Welcome),
+});
+documentEndpoint({
+  method: 'put',
+  path: '/edp/manage/settings/welcome',
+  tag: manageTag,
+  summary: 'Save the congratulations dialog shown after the mobile OTP is verified',
+  description: `${adminAuth} ADMIN role only (a VIEWER gets 403).`,
+  permission: null,
+  request: { body: welcomeBody },
+  response: envelope(Welcome),
+  errors: [403],
+});
+
+const Help = z.object({
+  enabled: z.boolean(),
+  title: z.string(),
+  intro: z.string(),
+  fields: z
+    .array(z.object({ label: z.string(), value: z.string() }))
+    .describe(`Up to ${EDP_HELP_FIELDS} name / value lines; an email address or phone number is shown as a link`),
+  ...saved,
+});
+documentEndpoint({
+  method: 'get',
+  path: '/edp/manage/settings/help',
+  tag: manageTag,
+  summary: "The Help button's contact details, shown in the portal's bottom-right corner",
+  description: adminAuth,
+  permission: null,
+  response: envelope(Help),
+});
+documentEndpoint({
+  method: 'put',
+  path: '/edp/manage/settings/help',
+  tag: manageTag,
+  summary: "Save the Help button's contact details",
+  description: `${adminAuth} ADMIN role only (a VIEWER gets 403).`,
+  permission: null,
+  request: { body: helpBody },
+  response: envelope(Help),
   errors: [403],
 });

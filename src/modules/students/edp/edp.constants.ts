@@ -159,6 +159,9 @@ export const EDP_RESET_LINK_MINUTES = 30;
 export const EDP_RESET_RESEND_SECONDS = 60;
 export const EDP_RESET_MAX_PER_HOUR = 5;
 
+/* The portal's Help button (edp_settings "help"): how many name / value lines the tracking panel can set. */
+export const EDP_HELP_FIELDS = 4;
+
 export const EDP_MESSAGES = {
   OTP_SENT: 'An OTP has been sent to your mobile number',
   OTP_INCORRECT: 'Incorrect OTP',

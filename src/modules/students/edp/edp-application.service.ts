@@ -285,8 +285,9 @@ function checkStoredTypes(files: EdpApplicationFile[], masters: MasterLookup, er
 
 export const edpApplicationService = {
   /*
-   * Dropdown values: active, non-deleted master records only (as the admin form), plus the constant lists, and the contact
-   * shown after submitting (edited in the tracking panel; EDP_SUPPORT_EMAIL / EDP_SUPPORT_MOBILE until then).
+   * Dropdown values: active, non-deleted master records only (as the admin form), plus the constant lists, and the
+   * content the tracking panel edits (EDP_SUPPORT_EMAIL / EDP_SUPPORT_MOBILE and the standard text until then): the
+   * contact shown after submitting, the congratulations dialog, and the Help button's details.
    */
   async options() {
     const masters = await mastersService.loadLookup();
@@ -302,6 +303,8 @@ export const edpApplicationService = {
       religions: RELIGIONS,
       tracks: TRACKS.map((t) => ({ code: t.code, name: t.name })),
       support: await edpSettingsService.support(),
+      welcome: await edpSettingsService.welcome(),
+      help: await edpSettingsService.help(),
       genders: EDP_GENDERS,
       marital_statuses: EDP_MARITAL_STATUSES,
       districts,
