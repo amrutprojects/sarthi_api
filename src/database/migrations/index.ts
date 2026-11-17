@@ -74,6 +74,9 @@ import { CasteOfficialList1796600000000 } from './1796600000000-CasteOfficialLis
 import { AdvisoryGroups1796700000000 } from './1796700000000-AdvisoryGroups';
 import { CmsNavMenu1796800000000 } from './1796800000000-CmsNavMenu';
 import { ProgrammeHiddenFacts1796900000000 } from './1796900000000-ProgrammeHiddenFacts';
+import { NavMenuLabels1797000000000 } from './1797000000000-NavMenuLabels';
+import { HighlightHiddenRows1797100000000 } from './1797100000000-HighlightHiddenRows';
+import { HighlightRowLabels1797200000000 } from './1797200000000-HighlightRowLabels';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -160,4 +163,7 @@ export const MIGRATIONS = [
   AdvisoryGroups1796700000000,
   CmsNavMenu1796800000000,
   ProgrammeHiddenFacts1796900000000,
+  NavMenuLabels1797000000000,
+  HighlightHiddenRows1797100000000,
+  HighlightRowLabels1797200000000,
 ];

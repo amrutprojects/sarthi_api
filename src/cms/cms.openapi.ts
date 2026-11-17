@@ -3,6 +3,7 @@ import { documentEndpoint, envelope } from '../shared/openapi/registry';
 import { parentIdParams } from '../shared/validation/common.validation';
 import { NAV_MENU_KEYS } from './navmenu/navmenu.types';
 import { PROGRAMME_FACT_KEYS } from './programme/programme.model';
+import { HIGHLIGHT_ROW_KEYS } from './highlight/highlight.model';
 
 /*
  * API contract for the CMS read feeds the public website consumes.
@@ -155,7 +156,10 @@ documentEndpoint({
   description:
     'Heading, subheading, tagline, certification line and objectives of the home page programme band, in Marathi and English. ' +
     'Only active objectives, in display order. `data` is null only when the section has not been configured; the website then ' +
-    'renders its bundled copy. An unpublished section is not null: `showSection` is false and the website leaves the band out.',
+    'renders its bundled copy. An unpublished section is not null: `showSection` is false and the website leaves the band out. ' +
+    '`hiddenRows` lists the fact table rows hidden under CMS → Home Page Management → Skill Development Diploma (empty: every row is shown). ' +
+    '`rowLabels` holds the custom names of the fact table rows renamed there, by row key, in both languages (a row that is absent keeps ' +
+    'the website\'s default name).',
   permission: 'public',
   response: envelope(
     z
@@ -167,6 +171,10 @@ documentEndpoint({
         tagline: Bilingual,
         certification: Bilingual,
         objectives: z.array(Bilingual),
+        /* The fact table rows to leave out, in display order. */
+        hiddenRows: z.array(z.enum(HIGHLIGHT_ROW_KEYS)),
+        /* The custom row names, by row key; only renamed rows are present. */
+        rowLabels: z.record(z.enum(HIGHLIGHT_ROW_KEYS), Bilingual),
       })
       .nullable(),
   ),
@@ -652,6 +660,8 @@ const NavMenu = z.object({
       key: z.enum(NAV_MENU_KEYS),
       /* false: the website leaves the item out of the menu bar and the mobile menu (for `login`, the Login / Register button). */
       show: z.boolean(),
+      /* The item's custom name in both languages; null: the website uses its own default name. */
+      label: z.object({ mr: z.string(), en: z.string() }).nullable(),
     }),
   ),
 });
@@ -660,11 +670,12 @@ documentEndpoint({
   method: 'get',
   path: '/public/nav-menu',
   tag,
-  summary: 'Navigation Menu (which menu bar items are shown)',
+  summary: 'Navigation Menu (which menu bar items are shown, and their names)',
   description:
-    'Whether each item of the menu bar under the Brand Bar, and its Login / Register button, is shown on the website. Every item ' +
-    'comes back, in menu order; the page of a hidden item still opens by its address. Managed in the admin panel under CMS → ' +
-    'Home Page Management → Navigation Menu. Never null: an item that was never switched is shown.',
+    'Whether each item of the menu bar under the Brand Bar, and its Login / Register button, is shown on the website, and its ' +
+    'custom name if one is set. Every item comes back, in menu order; the page of a hidden item still opens by its address. ' +
+    'Managed in the admin panel under CMS → Home Page Management → Navigation Menu. Never null: an item that was never switched ' +
+    'is shown, and an item with no custom name (`label: null`) keeps the website\'s default name.',
   permission: 'public',
   response: envelope(NavMenu),
 });

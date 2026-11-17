@@ -11,8 +11,11 @@ export class HighlightRepository extends BaseRepository<ProgrammeHighlight> {
     super(ProgrammeHighlight);
   }
 
-  findSettings(manager?: EntityManager): Promise<ProgrammeHighlight | null> {
-    return this.query('h', manager).orderBy('h.createdAt', 'ASC').getOne();
+  /* `lock` (inside a transaction): holds the row until it commits, so concurrent writers queue instead of overwriting. */
+  findSettings(manager?: EntityManager, opts: { lock?: boolean } = {}): Promise<ProgrammeHighlight | null> {
+    const qb = this.query('h', manager).orderBy('h.createdAt', 'ASC');
+    if (opts.lock) qb.setLock('pessimistic_write');
+    return qb.getOne();
   }
 
   /*

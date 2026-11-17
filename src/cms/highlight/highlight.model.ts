@@ -2,6 +2,32 @@ import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm
 import { AppBaseEntity } from '../../database/base.entity';
 
 /*
+ * The rows of the fact table beside the band, in display order, each of which the admin can hide or rename. Fixed:
+ * the website owns the default labels and reads the values from the Modules and Programme content, so the CMS
+ * stores a key, its switch and an optional custom name. The same list is CHK_programme_highlight_hidden_rows
+ * (HighlightHiddenRows migration).
+ */
+export const HIGHLIGHT_ROW_KEYS = [
+  'totalDuration',
+  'idealCompletion',
+  'candidatureValidity',
+  'perModule',
+  'schedule',
+  'securityDeposit',
+  'certification',
+] as const;
+export type HighlightRowKey = (typeof HIGHLIGHT_ROW_KEYS)[number];
+
+/* A row's custom name, in both languages. */
+export interface HighlightRowLabel {
+  mr: string;
+  en: string;
+}
+
+/* The customised row names, by row key. A row that is absent keeps the website's default name. */
+export type HighlightRowLabels = Partial<Record<HighlightRowKey, HighlightRowLabel>>;
+
+/*
  * The home page's programme section: the band headed "AMRUT KALASH — Skill Development Diploma",
  * its tagline, its objectives and the certification line.
  *
@@ -37,6 +63,20 @@ export class ProgrammeHighlight extends AppBaseEntity {
 
   @Column({ type: 'varchar', length: 300, name: 'certificationEn' })
   certificationEn!: string;
+
+  /*
+   * The fact table rows the website leaves out. Written only by the per-row switch (PATCH /rows/:key), never by
+   * the full-section PUT, so saving the edit form cannot bring a hidden row back. Empty: every row is shown.
+   */
+  @Column({ type: 'text', array: true, name: 'hiddenRows', default: () => "'{}'" })
+  hiddenRows!: HighlightRowKey[];
+
+  /*
+   * The fact table rows renamed in the CMS, `{ "<rowKey>": { mr, en } }`; only customised rows are present. Written
+   * only by the per-row PATCH /rows/:key, never by the full-section PUT. Empty: every row keeps its default name.
+   */
+  @Column({ type: 'jsonb', name: 'rowLabels', default: () => "'{}'::jsonb" })
+  rowLabels!: HighlightRowLabels;
 
   @Column({ type: 'boolean', name: 'isPublished', default: true })
   isPublished!: boolean;

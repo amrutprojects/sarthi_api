@@ -158,6 +158,7 @@ export const AUDIT_ACTIONS = {
   MODULES_PAGE_UPDATE: 'cms.modules-page.update',
   HIGHLIGHT_UPDATE: 'cms.programme-highlight.update',
   HIGHLIGHT_STATUS: 'cms.programme-highlight.status',
+  HIGHLIGHT_ROW_VISIBILITY: 'cms.highlight.row-visibility',
   HERO_UPDATE: 'cms.home-hero.update',
   HERO_STATUS: 'cms.home-hero.status',
   BOARD_MEMBER_CREATE: 'cms.board-member.create',

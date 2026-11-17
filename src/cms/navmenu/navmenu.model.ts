@@ -13,4 +13,11 @@ export class NavMenuItem extends AppBaseEntity {
 
   @Column({ type: 'boolean', name: 'showOnWebsite', default: true })
   showOnWebsite!: boolean;
+
+  /* The item's custom name. Both blank: the website uses its own default name (CHECK: both or neither). */
+  @Column({ type: 'varchar', length: 40, name: 'labelMr', default: '' })
+  labelMr!: string;
+
+  @Column({ type: 'varchar', length: 40, name: 'labelEn', default: '' })
+  labelEn!: string;
 }

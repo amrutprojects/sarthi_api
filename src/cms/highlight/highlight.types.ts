@@ -1,3 +1,5 @@
+import type { HighlightRowKey, HighlightRowLabel, HighlightRowLabels } from './highlight.model';
+
 /* A Marathi/English pair, matching the website's Bilingual type. */
 export interface Bilingual {
   mr: string;
@@ -18,6 +20,10 @@ export interface AdminProgrammeHighlight {
   tagline: Bilingual;
   certification: Bilingual;
   objectives: AdminObjective[];
+  /* The fact table rows the website leaves out, as keys in display order. Empty: every row is shown. */
+  hiddenRows: HighlightRowKey[];
+  /* The custom row names, by row key (known keys with both languages filled in only). Absent: the default name. */
+  rowLabels: HighlightRowLabels;
   isPublished: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -35,6 +41,16 @@ export interface PublicProgrammeHighlight {
   tagline: Bilingual;
   certification: Bilingual;
   objectives: Bilingual[];
+  /* The fact table rows to leave out, in display order (sent also when the band is hidden). Empty: every row is shown. */
+  hiddenRows: HighlightRowKey[];
+  /* The custom row names, by row key (sent also when the band is hidden). Absent: the website's default name. */
+  rowLabels: HighlightRowLabels;
+}
+
+/* A change to one fact table row: its switch, its custom name (null: back to the default name), or both. */
+export interface HighlightRowChange {
+  show?: boolean;
+  label?: HighlightRowLabel | null;
 }
 
 export interface UpdateObjectiveInput {

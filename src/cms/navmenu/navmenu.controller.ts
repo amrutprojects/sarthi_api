@@ -11,9 +11,19 @@ export const navMenuController = {
   }),
 
   update: asyncHandler(async (req: Request, res: Response) => {
-    const { show } = body<UpdateNavMenuItemBody>(req);
-    const data = await navMenuService.set(params<NavMenuKeyParams>(req).key, show, req);
-    ApiResponse.ok(res, data, show ? 'Menu item shown on the website' : 'Menu item hidden from the website');
+    const { show, label } = body<UpdateNavMenuItemBody>(req);
+    const data = await navMenuService.set(params<NavMenuKeyParams>(req).key, { show, label }, req);
+    const message =
+      label === undefined
+        ? show
+          ? 'Menu item shown on the website'
+          : 'Menu item hidden from the website'
+        : show === undefined
+          ? data.label
+            ? 'Menu item name saved'
+            : 'Menu item name reset to the default'
+          : 'Menu item updated';
+    ApiResponse.ok(res, data, message);
   }),
 
   public: asyncHandler(async (_req: Request, res: Response) => {

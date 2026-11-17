@@ -1,9 +1,14 @@
 import type { Request, Response } from 'express';
-import { body } from '../../middleware/validate-request.middleware';
+import { body, params } from '../../middleware/validate-request.middleware';
 import { ApiResponse } from '../../utils/api-response';
 import { asyncHandler } from '../../shared/http/async-handler';
 import { highlightService } from './highlight.service';
-import type { HighlightStatusBody, UpdateHighlightBody } from './highlight.validator';
+import type {
+  HighlightRowParams,
+  HighlightStatusBody,
+  UpdateHighlightBody,
+  UpdateHighlightRowBody,
+} from './highlight.validator';
 
 export const highlightController = {
   get: asyncHandler(async (_req: Request, res: Response) => {
@@ -27,6 +32,24 @@ export const highlightController = {
       data,
       isPublished ? 'Programme section published' : 'Programme section unpublished',
     );
+  }),
+
+  /* One fact table row's switch and/or name. Returns the whole admin section, so the screen refreshes from the response. */
+  setRow: asyncHandler(async (req: Request, res: Response) => {
+    const { show, label } = body<UpdateHighlightRowBody>(req);
+    const { key } = params<HighlightRowParams>(req);
+    const data = await highlightService.setRow(key, { show, label }, req);
+    const message =
+      label === undefined
+        ? show
+          ? 'Row shown on the home page'
+          : 'Row hidden from the home page'
+        : show === undefined
+          ? data.rowLabels[key]
+            ? 'Row name saved'
+            : 'Row name reset to the default'
+          : 'Row updated';
+    ApiResponse.ok(res, data, message);
   }),
 
   /*
