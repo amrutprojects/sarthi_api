@@ -395,7 +395,7 @@ documentEndpoint({
   errors: [404],
 });
 
-/* Dependent dropdowns of the form, and the Center Master of the tracking panel (same centres as /cms/centres). */
+/* The form's Technology dropdown, the Taluka master feed, and the Center Master of the tracking panel (same centres as /cms/centres). */
 const Option = z.object({ id: z.string().uuid(), name: z.string(), code: z.string().nullable() });
 const TechnologyOption = z.object({ code: z.string().describe('Track code, T01–T12'), name: z.string() });
 const Centre = z.object({
@@ -422,7 +422,7 @@ documentEndpoint({
   method: 'get',
   path: '/edp/districts/:districtId/talukas',
   tag,
-  summary: 'Active talukas of a district (Basic Details: Taluka dropdown)',
+  summary: "Active talukas of a district (the Taluka master; the form's own taluka field is typed, not selected)",
   permission: 'public',
   request: { params: parentIdParams('districtId') },
   response: envelope(z.array(Option)),

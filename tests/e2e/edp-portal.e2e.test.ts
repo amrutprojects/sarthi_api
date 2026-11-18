@@ -146,7 +146,7 @@ async function basic(over: Record<string, string> = {}) {
     permanent_address: 'Kothrud, Pune',
     landmark: 'Near the bus stand',
     district_id: fx.districtId,
-    taluka_id: fx.talukaId,
+    taluka: 'Haveli',
     pin_code: '411038',
     alternate_mobile_number: '',
     alternate_email: '',
@@ -1157,7 +1157,7 @@ type ErrorBody = { body: { error: { details: { field: string }[] } } };
 const fieldsOf = (res: ErrorBody) => res.body.error.details.map((d) => d.field);
 
 describe('EDP Basic Details: address, contact and disability rules', () => {
-  it('checks the PIN code, the dependent taluka and optional alternate contacts', async () => {
+  it('checks the PIN code and the optional taluka and alternate contacts', async () => {
     const token = await verifiedToken();
     const bad = await step(
       token,
@@ -1168,10 +1168,14 @@ describe('EDP Basic Details: address, contact and disability rules', () => {
     expect(fieldsOf(bad)).toEqual(
       expect.arrayContaining(['body.pin_code', 'body.alternate_mobile_number', 'body.alternate_email', 'body.gender']),
     );
-    /* A taluka of another district is refused. */
-    const wrongTaluka = await step(token, 1, await basic({ taluka_id: fx.otherTalukaId }));
-    expect(wrongTaluka.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
-    expect(wrongTaluka.body.error.details).toEqual([{ field: 'body.taluka_id', message: 'Select a taluka of the selected district' }]);
+    /* The taluka is typed and optional: blank passes, any name is kept as given (no master, no district cascade). */
+    const blankTaluka = await step(token, 1, await basic({ taluka: '' }));
+    expect(blankTaluka.status).toBe(HTTP_STATUS.OK);
+    expect(blankTaluka.body.data.form.taluka).toBe('');
+    const typedTaluka = await step(token, 1, await basic({ taluka: 'Niphad' }));
+    expect(typedTaluka.status).toBe(HTTP_STATUS.OK);
+    expect(typedTaluka.body.data.form.taluka).toBe('Niphad');
+    expect(fieldsOf(await step(token, 1, await basic({ taluka: 'N'.repeat(101) })))).toEqual(['body.taluka']);
     /* The alternate contacts are optional, but must differ from the primary ones. */
     const b = await basic();
     expect(fieldsOf(await step(token, 1, { ...b, alternate_mobile_number: b.mobile_number }))).toEqual(['body.alternate_mobile_number']);
@@ -1197,7 +1201,7 @@ describe('EDP Basic Details: address, contact and disability rules', () => {
     expect(no.body.data.form).toMatchObject({ disability_type: '', disability_certificate_number: '' });
   });
 
-  it('lists the talukas of a district for the dependent dropdown', async () => {
+  it('lists the talukas of a district from the Taluka master', async () => {
     const res = await request(app).get(`${EDP}/districts/${fx.districtId}/talukas`);
     expect(res.status).toBe(HTTP_STATUS.OK);
     expect(res.body.data).toEqual([{ id: fx.talukaId, name: 'Haveli', code: 'HAV' }]);
@@ -1269,7 +1273,7 @@ describe('EDP Main Form: centre, its technologies and qualification', () => {
       centre_id: fx.centreId,
       technology: 'T03',
       district_id: fx.districtId,
-      taluka_id: fx.talukaId,
+      taluka: 'Haveli',
       pin_code: '411038',
       gender: 'Female',
       score: '72.5',

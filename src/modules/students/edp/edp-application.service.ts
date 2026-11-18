@@ -43,16 +43,13 @@ import { edpSettingsService } from './edp-settings.service';
 type Form = Record<EdpFormField, string>;
 type FieldError = { field: string; message: string };
 
-/* The district must be active, and the taluka an active one of that district. */
-async function checkGeography(districtId: string, talukaId: string): Promise<FieldError[]> {
-  const [row]: { district: boolean; taluka: boolean }[] = await AppDataSource.query(
-    `SELECT
-       EXISTS (SELECT 1 FROM "districts" WHERE "id" = $1 AND "isActive" AND NOT "isDelete") AS "district",
-       EXISTS (SELECT 1 FROM "talukas" WHERE "id" = $2 AND "districtId" = $1 AND "isActive" AND NOT "isDelete") AS "taluka"`,
-    [districtId, talukaId],
+/* The district must be active. The taluka is typed, not selected, so there is nothing to check it against. */
+async function checkDistrict(districtId: string): Promise<FieldError[]> {
+  const [row]: { district: boolean }[] = await AppDataSource.query(
+    `SELECT EXISTS (SELECT 1 FROM "districts" WHERE "id" = $1 AND "isActive" AND NOT "isDelete") AS "district"`,
+    [districtId],
   );
   if (!row.district) return [{ field: 'body.district_id', message: 'District not found or inactive' }];
-  if (!row.taluka) return [{ field: 'body.taluka_id', message: 'Select a taluka of the selected district' }];
   return [];
 }
 
@@ -118,7 +115,7 @@ function studentForm(s: Student): Form {
     permanent_address: s.permanentAddress ?? '',
     landmark: s.landmark ?? '',
     district_id: s.districtId ?? '',
-    taluka_id: s.talukaId ?? '',
+    taluka: s.talukaName ?? '',
     pin_code: s.pinCode ?? '',
     alternate_mobile_number: s.alternateMobile ?? '',
     alternate_email: s.alternateEmail ?? '',
@@ -187,9 +184,8 @@ async function referenceNames(form: Partial<Form>) {
             (SELECT "name" FROM "regions" WHERE "id" = $2) AS "region",
             (SELECT "name" FROM "educations" WHERE "id" = $3) AS "education",
             (SELECT "name" FROM "edp_centres" WHERE "id" = $4) AS "centre",
-            (SELECT "name" FROM "districts" WHERE "id" = $5) AS "district",
-            (SELECT "name" FROM "talukas" WHERE "id" = $6) AS "taluka"`,
-    [id(form.caste_id), id(form.region_id), id(form.education_id), id(form.centre_id), id(form.district_id), id(form.taluka_id)],
+            (SELECT "name" FROM "districts" WHERE "id" = $5) AS "district"`,
+    [id(form.caste_id), id(form.region_id), id(form.education_id), id(form.centre_id), id(form.district_id)],
   );
   return {
     caste: row.caste,
@@ -197,7 +193,8 @@ async function referenceNames(form: Partial<Form>) {
     education: row.education,
     centre: row.centre,
     district: row.district,
-    taluka: row.taluka,
+    /* Typed, not a reference: shown as given. */
+    taluka: form.taluka || null,
     religion: form.religion || null,
     technology: TRACKS.find((t) => t.code === form.technology)?.name ?? (form.technology || null),
     gender: form.gender || null,
@@ -466,7 +463,7 @@ export const edpApplicationService = {
       const bidx = aadhaarBlindIndex(digitsOnly(values.aadhaar_number!));
       if (await aadhaarTaken(AppDataSource, bidx, p.id))
         errors.push({ field: 'body.aadhaar_number', message: 'A registration with this Aadhaar number already exists' });
-      errors.push(...(await checkGeography(values.district_id!, values.taluka_id!)));
+      errors.push(...(await checkDistrict(values.district_id!)));
     }
     if (parsed.success && step === 2) {
       if (!masters.byId('region', values.region_id!))
@@ -570,7 +567,7 @@ export const edpApplicationService = {
       if (!parsed.success) errors.push(...zodErrors(parsed.error.issues));
       else {
         /* The references are checked as they stand now: a centre or allocation may have been deactivated since step 2. */
-        errors.push(...(await checkGeography(parsed.data.district_id, parsed.data.taluka_id)));
+        errors.push(...(await checkDistrict(parsed.data.district_id)));
         errors.push(...(await centreService.checkStudentChoice(parsed.data.centre_id, parsed.data.technology)));
       }
       const masters = await mastersService.loadLookup();
