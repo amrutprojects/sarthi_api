@@ -95,7 +95,7 @@ edpRouter.post(
   c.manageAddFollowUp,
 );
 
-/* Dependent dropdowns of the form (public, like /options): talukas of a district, technologies of a centre. */
+/* Public geography and dropdown feeds (like /options): talukas of a district, technologies of a centre (step 2's dependent dropdown). */
 edpRouter.get('/districts/:districtId/talukas', validateRequest({ params: parentIdParams('districtId') }), c.districtTalukas);
 edpRouter.get('/centres/:centreId/technologies', validateRequest({ params: parentIdParams('centreId') }), c.centreTechnologies);
 /* State → District → Taluka for the tracking panel's Center Master form: the public geography feed. */

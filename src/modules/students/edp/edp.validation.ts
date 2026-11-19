@@ -145,7 +145,8 @@ const basicExtra = z.object({
   permanent_address: text('Permanent address', 500),
   landmark: optionalString('Landmark', 150),
   district_id: id('District'),
-  taluka_id: id('Taluka'),
+  /* Typed, not selected: optional, and no longer checked against the Taluka master. */
+  taluka: optionalString('Taluka', 100),
   pin_code: z
     .string(req('PIN code'))
     .trim()

@@ -85,10 +85,14 @@ import { ProgrammeMonthRanges1797700000000 } from './1797700000000-ProgrammeMont
 import { ContactDistrictOfficesSwitch1797800000000 } from './1797800000000-ContactDistrictOfficesSwitch';
 import { RemoveDemoWording1797900000000 } from './1797900000000-RemoveDemoWording';
 import { FooterPartnerNameBilingual1798000000000 } from './1798000000000-FooterPartnerNameBilingual';
+<<<<<<< HEAD
 import { TopBarMarathiNumerals1798100000000 } from './1798100000000-TopBarMarathiNumerals';
 import { ApplyGlanceHeading1798200000000 } from './1798200000000-ApplyGlanceHeading';
 import { ContactTrainingCentres1798300000000 } from './1798300000000-ContactTrainingCentres';
 import { DistrictOfficeCoordinatorNameBilingual1798400000000 } from './1798400000000-DistrictOfficeCoordinatorNameBilingual';
+=======
+import { EdpTalukaFreeText1798100000000 } from './1798100000000-EdpTalukaFreeText';
+>>>>>>> 680c6204c657f7c5f317beeda1fbbe06412d340c
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -186,8 +190,12 @@ export const MIGRATIONS = [
   ContactDistrictOfficesSwitch1797800000000,
   RemoveDemoWording1797900000000,
   FooterPartnerNameBilingual1798000000000,
+<<<<<<< HEAD
   TopBarMarathiNumerals1798100000000,
   ApplyGlanceHeading1798200000000,
   ContactTrainingCentres1798300000000,
   DistrictOfficeCoordinatorNameBilingual1798400000000,
+=======
+  EdpTalukaFreeText1798100000000,
+>>>>>>> 680c6204c657f7c5f317beeda1fbbe06412d340c
 ];

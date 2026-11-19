@@ -91,6 +91,7 @@ export class Student extends AppBaseEntity {
    * submission and last-update date-times and remarks, and the file's other columns as supplied (sourceExtra).
    */
   @Column({ type: 'varchar', length: 100, name: 'districtName', nullable: true }) districtName!: string | null;
+  /* Also an EDP portal record's taluka, which is typed rather than selected (backfilled by migration 1798100000000). */
   @Column({ type: 'varchar', length: 100, name: 'talukaName', nullable: true }) talukaName!: string | null;
   @Column({ type: 'varchar', length: 100, nullable: true }) division!: string | null;
   @Column({ type: 'varchar', length: 150, name: 'schemeName', nullable: true }) schemeName!: string | null;

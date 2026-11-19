@@ -183,7 +183,7 @@ export const edpController = {
     ApiResponse.created(res, history, 'Follow-up saved');
   }),
 
-  /* Step 1's dependent Taluka dropdown and step 2's Technology dropdown (the centre's technologies). */
+  /* The Taluka master of a district (step 1's taluka is typed, not selected) and step 2's Technology dropdown (the centre's technologies). */
   districtTalukas: asyncHandler(async (req: Request, res: Response) => {
     const rows = await geographyService.talukasOfDistrict(params<{ districtId: string }>(req).districtId);
     ApiResponse.ok(

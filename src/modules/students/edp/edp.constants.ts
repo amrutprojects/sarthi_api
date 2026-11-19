@@ -65,7 +65,8 @@ export const EDP_BASIC_EXTRA_FIELDS = [
   'permanent_address',
   'landmark',
   'district_id',
-  'taluka_id',
+  /* Free text, optional: the taluka is typed, not chosen from the Taluka master (no id, no district cascade). */
+  'taluka',
   'pin_code',
   'alternate_mobile_number',
   'alternate_email',
