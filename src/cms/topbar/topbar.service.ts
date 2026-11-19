@@ -45,6 +45,7 @@ const toAdminSettings = (s: TopBarSettings): AdminTopBarSettings => ({
   id: s.id,
   governmentName: pair(s.governmentNameMr, s.governmentNameEn),
   showLanguageToggle: s.showLanguageToggle,
+  marathiNumerals: s.marathiNumerals,
   showSection: s.showSection,
   createdAt: s.createdAt,
   updatedAt: s.updatedAt,
@@ -181,17 +182,23 @@ export class TopBarService {
     return toAdminSettings(s);
   }
 
+  /*
+   * Replaces the settings. `marathiNumerals` is the one optional key: absent, the digits stay as they are,
+   * so an admin build that does not send it can never reset the switch.
+   */
   async updateSettings(input: UpdateTopBarSettingsInput, req?: Request): Promise<AdminTopBarSettings> {
     await AppDataSource.transaction(async (m) => {
       const s = await topBarSettingsRepository.findForUpdate(m);
       if (!s) throw AppError.notFound(NOT_CONFIGURED);
       if (isStale(input.expectedUpdatedAt, s.updatedAt)) throw AppError.conflict(STALE_SETTINGS);
+      const marathiNumerals = input.marathiNumerals ?? s.marathiNumerals;
       await topBarSettingsRepository.updateWhere(
         { id: s.id },
         {
           governmentNameMr: input.governmentName.mr,
           governmentNameEn: input.governmentName.en,
           showLanguageToggle: input.showLanguageToggle,
+          marathiNumerals,
         },
         m,
       );
@@ -199,7 +206,7 @@ export class TopBarService {
         action: AUDIT_ACTIONS.TOPBAR_SETTINGS_UPDATE,
         resource: 'top-bar-settings',
         resourceId: s.id,
-        details: { governmentName: input.governmentName.en, showLanguageToggle: input.showLanguageToggle },
+        details: { governmentName: input.governmentName.en, showLanguageToggle: input.showLanguageToggle, marathiNumerals },
       });
     });
     return this.getSettings();
@@ -209,7 +216,8 @@ export class TopBarService {
    * What the website reads. Null — not an error — when the Top Bar has never been configured, so the
    * site keeps its own bundled strip. A hidden strip comes back with `showSection: false` and no
    * links, never as null, so the site leaves it out instead of falling back. A blank government name
-   * comes back as null, and the site then leaves the bold text out.
+   * comes back as null, and the site then leaves the bold text out. `marathiNumerals` is site-wide, not
+   * part of the strip, so it is sent whether the strip is shown or not.
    */
   async getPublic(): Promise<PublicTopBar | null> {
     const s = await topBarSettingsRepository.find();
@@ -219,6 +227,7 @@ export class TopBarService {
       showSection: s.showSection,
       governmentName: nameOf(s),
       showLanguageToggle: s.showLanguageToggle,
+      marathiNumerals: s.marathiNumerals,
       links: links.map(toPublicLink),
     };
   }

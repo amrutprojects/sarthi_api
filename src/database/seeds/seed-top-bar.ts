@@ -12,12 +12,13 @@ export interface TopBarSeedSummary {
  * The government name and the two links are taken VERBATIM from the website's global strings (STR.govt,
  * STR.verifyCert -> /verify, STR.checkStatus -> /track), in the order the strip printed them, and the
  * language switch is on, so seeding changes nothing a visitor sees; it only moves the source of truth
- * into the database.
+ * into the database. Marathi numerals are on too: the website prints Devanagari digits in Marathi by default.
  */
 const SETTINGS = {
   governmentNameMr: 'महाराष्ट्र शासन',
   governmentNameEn: 'Government of Maharashtra',
   showLanguageToggle: true,
+  marathiNumerals: true,
 };
 
 const LINKS = [

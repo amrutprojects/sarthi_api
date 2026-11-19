@@ -3,8 +3,9 @@ import { AppBaseEntity } from '../../database/base.entity';
 
 /*
  * The strip at the very top of every website page (the "Top Bar"): the bold government name on the
- * left, and whether the language switch on the right is shown. A singleton — the links beside the
- * name are rows of TopBarLink, so the name is edited without touching any.
+ * left, and whether the language switch on the right is shown — plus the site's other language option,
+ * Marathi numerals. A singleton — the links beside the name are rows of TopBarLink, so the name is
+ * edited without touching any.
  *
  * The government name is optional: blank in both languages means the bold text is not shown.
  */
@@ -18,6 +19,13 @@ export class TopBarSettings extends AppBaseEntity {
 
   @Column({ type: 'boolean', name: 'showLanguageToggle', default: true })
   showLanguageToggle!: boolean;
+
+  /*
+   * Site-wide, not just the strip: on, the website prints every figure in Devanagari digits (०१२३) while it
+   * is read in Marathi; off, no conversion: figures print exactly as written. Lives here with the other language option.
+   */
+  @Column({ type: 'boolean', name: 'marathiNumerals', default: true })
+  marathiNumerals!: boolean;
 
   /* The whole strip (the language switch included). Written only by the "Show on website" switch (src/cms/visibility). */
   @Column({ type: 'boolean', name: 'showSection', default: true })

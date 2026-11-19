@@ -49,7 +49,8 @@ export interface AdminCoordinator {
 export interface AdminDistrictOffice {
   id: string;
   district: DistrictRef;
-  collectorName: string | null;
+  /* The District Coordinator's name, in both languages; null while it is not supplied. */
+  collectorName: Bilingual | null;
   address: Bilingual | null;
   phone: string | null;
   email: string | null;
@@ -63,9 +64,28 @@ export interface AdminDistrictOffice {
 export type CoordinatorSortField = 'displayOrder' | 'name' | 'createdAt' | 'updatedAt';
 export type CoordinatorListQuery = ListQuery<CoordinatorSortField>;
 
-/* `district` sorts by the district's name, the order the website lists the offices in. */
+/* `district` sorts by the district's name, the order the website lists the offices in; `collectorName` by the English name. */
 export type DistrictOfficeSortField = 'district' | 'collectorName' | 'createdAt' | 'updatedAt';
 export type DistrictOfficeListQuery = ListQuery<DistrictOfficeSortField>;
+
+export interface AdminTrainingCentre {
+  id: string;
+  district: DistrictRef;
+  name: Bilingual;
+  address: Bilingual | null;
+  managerName: Bilingual | null;
+  phone: string | null;
+  email: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/* `district` sorts by the district's name, then the centres' own order — the order each district page lists them in. */
+export type TrainingCentreSortField = 'district' | 'name' | 'displayOrder' | 'createdAt' | 'updatedAt';
+/* `districtId` narrows the list to one district's centres. */
+export type TrainingCentreListQuery = ListQuery<TrainingCentreSortField> & { districtId?: string };
 
 export interface AdminContactPage {
   id: string;
@@ -74,6 +94,8 @@ export interface AdminContactPage {
   isPublished: boolean;
   /* The "District offices" section's switch; read-only here — PATCH /district-offices-section is its one writer. */
   showDistrictOffices: boolean;
+  /* The District Office pages' "Approved training centres" card; PATCH /training-centres-section is its one writer. */
+  showTrainingCentres: boolean;
   /* The WhatsApp button's number, digits only; '' when the website uses the AMRUT card's phone. */
   whatsappNumber: string;
   /* Its pre-filled message; both halves '' when the website uses its default message. */
@@ -118,11 +140,21 @@ export interface PublicCoordinator {
 
 export interface PublicDistrictOffice {
   district: PublicDistrictRef;
-  collectorName?: string;
+  collectorName?: Bilingual;
   address?: Bilingual;
   phone?: string;
   email?: string;
   officeHours?: Bilingual;
+}
+
+/* One active training centre; the website lists a district's centres in the order they arrive. */
+export interface PublicTrainingCentre {
+  district: PublicDistrictRef;
+  name: Bilingual;
+  address?: Bilingual;
+  managerName?: Bilingual;
+  phone?: string;
+  email?: string;
 }
 
 /*
@@ -143,6 +175,10 @@ export interface PublicContactPage {
   whatsapp: PublicWhatsApp;
   /* false: the website leaves out the Contact page's "District offices" section (heading and list). */
   showDistrictOffices: boolean;
+  /* Every active centre, by district name and then each district's own order. */
+  trainingCentres: PublicTrainingCentre[];
+  /* false: the District Office pages leave out the "Approved training centres" card. */
+  showTrainingCentres: boolean;
 }
 
 /* ---------------- write shapes ---------------- */
@@ -171,7 +207,7 @@ export interface UpdateCoordinatorInput {
 
 export interface UpdateDistrictOfficeInput {
   districtId: string;
-  collectorName?: string | null;
+  collectorName?: Bilingual | null;
   address?: Bilingual | null;
   phone?: string | null;
   email?: string | null;
@@ -207,3 +243,16 @@ export interface UpdateContactPageInput {
   coordinators?: UpdateCoordinatorInput[];
   districtOffices?: UpdateDistrictOfficeInput[];
 }
+
+/* A training centre, one at a time (/training-centres). An update carries any subset; null clears an optional field. */
+export interface CreateTrainingCentreInput {
+  districtId: string;
+  name: Bilingual;
+  address?: Bilingual | null;
+  managerName?: Bilingual | null;
+  phone?: string | null;
+  email?: string | null;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+export type PatchTrainingCentreInput = Partial<CreateTrainingCentreInput>;

@@ -20,6 +20,8 @@ export interface AdminTopBarSettings {
   id: string;
   governmentName: Bilingual;
   showLanguageToggle: boolean;
+  /* Site-wide: whether the website prints figures in Devanagari digits (०१२३) while it is read in Marathi. */
+  marathiNumerals: boolean;
   /* Read-only here: the "Show on website" switch (/cms/section-visibility) is its one writer. */
   showSection: boolean;
   createdAt: Date;
@@ -38,6 +40,11 @@ export interface PublicTopBar {
   /* null when the name is blank: the website then leaves the bold text out. */
   governmentName: Bilingual | null;
   showLanguageToggle: boolean;
+  /*
+   * Site-wide, not part of the strip: true, the website prints figures in Devanagari digits (०१२३) while it
+   * is read in Marathi. Always sent, also while `showSection` is false.
+   */
+  marathiNumerals: boolean;
   /* Active links only, in display order. */
   links: PublicTopBarLink[];
 }
@@ -58,5 +65,7 @@ export interface UpdateTopBarSettingsInput {
   /* Blank in both languages: no government name. */
   governmentName: Bilingual;
   showLanguageToggle: boolean;
+  /* Absent: left as it is, so a client that does not know the switch can never reset it. */
+  marathiNumerals?: boolean;
   expectedUpdatedAt?: string;
 }

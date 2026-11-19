@@ -38,7 +38,7 @@ const SEEDED_TEXT = {
     mr: 'इच्छित बॅच सुरू होण्याच्या किमान 30 दिवस आधी अर्ज करावा.',
     en: 'Apply at least 30 days before the commencement of your desired batch.',
   },
-  glanceHeading: { mr: 'लक्षात ठेवा', en: 'At a glance' },
+  glanceHeading: { mr: 'तुमच्या माहितीसाठी', en: 'For Your Information' },
   documentsHeading: { mr: 'आवश्यक कागदपत्रे', en: 'Documents to keep ready' },
   ctaText: {
     mr: 'अर्ज अधिकृत अमृत पोर्टलवर स्वीकारले जातात. नोंदणी करण्यासाठी खालील बटणावर क्लिक करा.',

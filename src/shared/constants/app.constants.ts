@@ -154,6 +154,7 @@ export const AUDIT_ACTIONS = {
   CONTACT_PAGE_UPDATE: 'cms.contact-page.update',
   CONTACT_PAGE_STATUS: 'cms.contact-page.status',
   CONTACT_DISTRICT_OFFICES_SECTION: 'cms.contact-page.district-offices-section',
+  CONTACT_TRAINING_CENTRES_SECTION: 'cms.contact-page.training-centres-section',
   FOOTER_UPDATE: 'cms.footer.update',
   FOOTER_STATUS: 'cms.footer.status',
   MODULES_PAGE_UPDATE: 'cms.modules-page.update',

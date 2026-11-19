@@ -65,6 +65,9 @@ export const reorderSchema = {
  * The government name is sent on every save — a PUT replaces the settings — and is blank in both
  * languages to switch the bold text off. A missing key is refused rather than read as "blank", so a
  * stale client can never wipe the name by omission; null is the same as blank.
+ *
+ * The one optional key is the Marathi numerals switch (`marathiNumerals`), which came later: absent, it is
+ * left as it is, so an admin build that predates it can never switch the digits back on or off by omission.
  */
 const governmentName = z
   .unknown()
@@ -80,6 +83,7 @@ export const updateSettingsSchema = {
         required_error: 'showLanguageToggle is required',
         invalid_type_error: 'showLanguageToggle must be true or false',
       }),
+      marathiNumerals: z.boolean({ invalid_type_error: 'marathiNumerals must be true or false' }).optional(),
       expectedUpdatedAt: expectedUpdatedAt.optional(),
     })
     .strict(),

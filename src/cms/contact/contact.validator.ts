@@ -115,11 +115,14 @@ const coordinator = z
   })
   .strict();
 
-/* Every Collectorate field is optional: the website shows "to be supplied" for what is missing. */
+/*
+ * Every district office field is optional; the website leaves out what is missing. The name is the
+ * "District Coordinator", a pair like the address and hours: both languages or neither.
+ */
 const districtOffice = z
   .object({
     districtId: z.string().uuid('Invalid district'),
-    collectorName: z.string().trim().max(150, 'Collector name must be at most 150 characters').nullish(),
+    collectorName: optionalBilingual(150, 'District Coordinator'),
     address: optionalBilingual(500, 'Office address'),
     phone: contactPhone.nullish(),
     email: contactEmail.nullish(),
@@ -190,7 +193,7 @@ export const updateCoordinatorSchema = {
   body: coordinatorWrite.partial().refine(atLeastOneField, 'Provide at least one field to update'),
 };
 
-/* District name first: the order the website lists the offices in. */
+/* District name first: the order the website lists the offices in. collectorName sorts by the English name. */
 export const listDistrictOfficesSchema = { query: listQueryAscSchema(['district', 'collectorName', 'createdAt', 'updatedAt'] as const) };
 export const createDistrictOfficeSchema = { body: districtOffice };
 export const updateDistrictOfficeSchema = {
@@ -206,3 +209,41 @@ export type UpdateCoordinatorBody = z.infer<typeof updateCoordinatorSchema.body>
 export type ListDistrictOfficesQuery = z.infer<typeof listDistrictOfficesSchema.query>;
 export type CreateDistrictOfficeBody = z.infer<typeof createDistrictOfficeSchema.body>;
 export type UpdateDistrictOfficeBody = z.infer<typeof updateDistrictOfficeSchema.body>;
+
+/*
+ * Approved training centres, one at a time. Name and district are required; address and centre manager
+ * are pairs (both languages or neither); phone (masked digits allowed, as the site has always shown them)
+ * and email are optional.
+ */
+const trainingCentre = z
+  .object({
+    districtId: z.string().uuid('Invalid district'),
+    name: bilingual(200, 'Centre name'),
+    address: optionalBilingual(500, 'Address'),
+    managerName: optionalBilingual(150, 'Centre manager'),
+    phone: coordinatorPhone.nullish(),
+    email: contactEmail.nullish(),
+    displayOrder: z.coerce.number().int().min(0).max(999).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict();
+
+/* District name first, then each district's own order: the order the District Office pages list the centres in. */
+export const listTrainingCentresSchema = {
+  query: listQueryAscSchema(['district', 'displayOrder', 'name', 'createdAt', 'updatedAt'] as const).extend({
+    districtId: z.string().uuid('Invalid district').optional(),
+  }),
+};
+export const createTrainingCentreSchema = { body: trainingCentre };
+export const updateTrainingCentreSchema = {
+  params: idParams,
+  body: trainingCentre.partial().refine(atLeastOneField, 'Provide at least one field to update'),
+};
+
+/* The "Approved training centres" card's "Show on website" switch, on its own like the District offices one. */
+export const trainingCentresSectionSchema = districtOfficesSectionSchema;
+
+export type ListTrainingCentresQuery = z.infer<typeof listTrainingCentresSchema.query>;
+export type CreateTrainingCentreBody = z.infer<typeof createTrainingCentreSchema.body>;
+export type UpdateTrainingCentreBody = z.infer<typeof updateTrainingCentreSchema.body>;
+export type TrainingCentresSectionBody = DistrictOfficesSectionBody;

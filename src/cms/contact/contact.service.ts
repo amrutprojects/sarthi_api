@@ -11,6 +11,7 @@ import {
   ContactCoordinator,
   ContactCoordinatorDistrict,
   ContactDistrictOffice,
+  ContactTrainingCentre,
   type ContactOrganization,
   type ContactPageSettings,
   type OrgType,
@@ -21,20 +22,25 @@ import type {
   AdminCoordinator,
   AdminDistrictOffice,
   AdminOrganization,
+  AdminTrainingCentre,
   Bilingual,
   CoordinatorListQuery,
   CreateCoordinatorInput,
   CreateDistrictOfficeInput,
+  CreateTrainingCentreInput,
   DistrictOfficeListQuery,
   DistrictRef,
   MoveDistrictsOption,
   PatchCoordinatorInput,
   PatchDistrictOfficeInput,
+  PatchTrainingCentreInput,
   PublicContactPage,
   PublicCoordinator,
   PublicDistrictOffice,
   PublicOrganization,
+  PublicTrainingCentre,
   PublicWhatsApp,
+  TrainingCentreListQuery,
   UpdateContactPageInput,
   UpdateCoordinatorInput,
   UpdateDistrictOfficeInput,
@@ -44,6 +50,7 @@ import type {
 const NOT_CONFIGURED = 'The Contact page has not been configured yet. Run the database seed to create it.';
 const COORDINATOR_NOT_FOUND = 'Coordinator not found';
 const OFFICE_NOT_FOUND = 'District office not found';
+const CENTRE_NOT_FOUND = 'Training centre not found';
 
 /* A 409 that also names the field, so the admin form can show it against the right input. */
 const conflict = (message: string, details: { field: string; message: string }[]) =>
@@ -136,7 +143,7 @@ const toAdminCoordinator = (c: ContactCoordinator): AdminCoordinator => ({
 const toAdminDistrictOffice = (o: ContactDistrictOffice): AdminDistrictOffice => ({
   id: o.id,
   district: districtRef(o.district),
-  collectorName: o.collectorName,
+  collectorName: pair(o.collectorNameMr, o.collectorNameEn),
   address: pair(o.addressMr, o.addressEn),
   phone: o.phone,
   email: o.email,
@@ -154,11 +161,12 @@ const toPublicCoordinator = (c: ContactCoordinator): PublicCoordinator => ({
 });
 
 const toPublicDistrictOffice = (o: ContactDistrictOffice): PublicDistrictOffice => {
+  const collectorName = pair(o.collectorNameMr, o.collectorNameEn);
   const address = pair(o.addressMr, o.addressEn);
   const officeHours = pair(o.officeHoursMr, o.officeHoursEn);
   return {
     district: { code: o.district.code, name: o.district.name },
-    ...(o.collectorName ? { collectorName: o.collectorName } : {}),
+    ...(collectorName ? { collectorName } : {}),
     ...(address ? { address } : {}),
     ...(o.phone ? { phone: o.phone } : {}),
     ...(o.email ? { email: o.email } : {}),
@@ -167,7 +175,8 @@ const toPublicDistrictOffice = (o: ContactDistrictOffice): PublicDistrictOffice 
 };
 
 const officeColumns = (input: UpdateDistrictOfficeInput) => ({
-  collectorName: input.collectorName || null,
+  collectorNameMr: input.collectorName?.mr ?? null,
+  collectorNameEn: input.collectorName?.en ?? null,
   addressMr: input.address?.mr ?? null,
   addressEn: input.address?.en ?? null,
   phone: input.phone || null,
@@ -177,10 +186,53 @@ const officeColumns = (input: UpdateDistrictOfficeInput) => ({
   isActive: input.isActive ?? true,
 });
 
-/* The columns an office update changes: only the fields it carries. Null (or a blank name) clears one. */
+const toAdminTrainingCentre = (t: ContactTrainingCentre): AdminTrainingCentre => ({
+  id: t.id,
+  district: districtRef(t.district),
+  name: { mr: t.nameMr, en: t.nameEn },
+  address: pair(t.addressMr, t.addressEn),
+  managerName: pair(t.managerNameMr, t.managerNameEn),
+  phone: t.phone,
+  email: t.email,
+  displayOrder: t.displayOrder,
+  isActive: t.isActive,
+  createdAt: t.createdAt,
+  updatedAt: t.updatedAt,
+});
+
+const toPublicTrainingCentre = (t: ContactTrainingCentre): PublicTrainingCentre => {
+  const address = pair(t.addressMr, t.addressEn);
+  const managerName = pair(t.managerNameMr, t.managerNameEn);
+  return {
+    district: { code: t.district.code, name: t.district.name },
+    name: { mr: t.nameMr, en: t.nameEn },
+    ...(address ? { address } : {}),
+    ...(managerName ? { managerName } : {}),
+    ...(t.phone ? { phone: t.phone } : {}),
+    ...(t.email ? { email: t.email } : {}),
+  };
+};
+
+/* The columns a centre update changes: only the fields it carries. Null clears an optional one. */
+const centrePatchColumns = (input: PatchTrainingCentreInput) => ({
+  ...(input.districtId === undefined ? {} : { districtId: input.districtId }),
+  ...(input.name === undefined ? {} : { nameMr: input.name.mr, nameEn: input.name.en }),
+  ...(input.address === undefined ? {} : { addressMr: input.address?.mr ?? null, addressEn: input.address?.en ?? null }),
+  ...(input.managerName === undefined
+    ? {}
+    : { managerNameMr: input.managerName?.mr ?? null, managerNameEn: input.managerName?.en ?? null }),
+  ...(input.phone === undefined ? {} : { phone: input.phone || null }),
+  ...(input.email === undefined ? {} : { email: input.email || null }),
+  ...(input.displayOrder === undefined ? {} : { displayOrder: input.displayOrder }),
+  ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+});
+
+/* The columns an office update changes: only the fields it carries. Null clears one. */
 const officePatchColumns = (input: PatchDistrictOfficeInput) => ({
   ...(input.districtId === undefined ? {} : { districtId: input.districtId }),
-  ...(input.collectorName === undefined ? {} : { collectorName: input.collectorName || null }),
+  ...(input.collectorName === undefined
+    ? {}
+    : { collectorNameMr: input.collectorName?.mr ?? null, collectorNameEn: input.collectorName?.en ?? null }),
   ...(input.address === undefined ? {} : { addressMr: input.address?.mr ?? null, addressEn: input.address?.en ?? null }),
   ...(input.phone === undefined ? {} : { phone: input.phone || null }),
   ...(input.email === undefined ? {} : { email: input.email || null }),
@@ -237,6 +289,7 @@ export class ContactService {
       pageSubtitle: { mr: settings.pageSubtitleMr, en: settings.pageSubtitleEn },
       isPublished: settings.isPublished,
       showDistrictOffices: settings.showDistrictOffices,
+      showTrainingCentres: settings.showTrainingCentres,
       whatsappNumber: settings.whatsappNumber,
       whatsappMessage: { mr: settings.whatsappMessageMr, en: settings.whatsappMessageEn },
       createdAt: settings.createdAt,
@@ -255,10 +308,12 @@ export class ContactService {
   async getPublic(): Promise<PublicContactPage | null> {
     const settings = await contactRepository.findSettings();
     if (!settings || !settings.isPublished || !settings.isActive) return null;
-    const [organizations, coordinators, offices] = await Promise.all([
+    const [organizations, coordinators, offices, centres] = await Promise.all([
       contactRepository.findOrganizations(settings.id, { activeOnly: true }),
       contactRepository.findCoordinators(settings.id, { activeOnly: true }),
       contactRepository.findDistrictOffices(settings.id, { activeOnly: true }),
+      /* Hidden card: no centre is sent, so the website is never handed content it must not show. */
+      settings.showTrainingCentres ? contactRepository.findTrainingCentres(settings.id, { activeOnly: true }) : [],
     ]);
     return {
       pageTitle: { mr: settings.pageTitleMr, en: settings.pageTitleEn },
@@ -268,6 +323,8 @@ export class ContactService {
       districtOffices: offices.map(toPublicDistrictOffice),
       whatsapp: toPublicWhatsApp(settings),
       showDistrictOffices: settings.showDistrictOffices,
+      trainingCentres: centres.map(toPublicTrainingCentre),
+      showTrainingCentres: settings.showTrainingCentres,
     };
   }
 
@@ -462,14 +519,32 @@ export class ContactService {
   }
 
   /*
-   * Every write to the coordinator and district office sections is audited as a change to the Contact
-   * page, naming the section, the operation and the entry.
+   * Shows or hides the "Approved training centres" card on every District Office page. Only this flag is
+   * written; the centres themselves are left as they are.
+   */
+  async setTrainingCentresSection(show: boolean, req?: Request): Promise<AdminContactPage> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await contactRepository.update(settings.id, { showTrainingCentres: show }, m);
+      await auditService.recordInTx(m, req, {
+        action: AUDIT_ACTIONS.CONTACT_TRAINING_CENTRES_SECTION,
+        resource: 'contact-page',
+        resourceId: settings.id,
+        details: { showTrainingCentres: show },
+      });
+    });
+    return this.getForAdmin();
+  }
+
+  /*
+   * Every write to the coordinator, district office and training centre sections is audited as a change
+   * to the Contact page, naming the section, the operation and the entry.
    */
   private recordSectionChange(
     m: EntityManager,
     req: Request | undefined,
     settingsId: string,
-    section: 'coordinators' | 'district-offices',
+    section: 'coordinators' | 'district-offices' | 'training-centres',
     op: 'create' | 'update' | 'status' | 'delete',
     id: string,
     movedDistricts: string[] = [],
@@ -679,6 +754,88 @@ export class ContactService {
       await this.requireOffice(m, settings.id, id);
       await m.getRepository(ContactDistrictOffice).update(id, { isDelete: true, isActive: false });
       await this.recordSectionChange(m, req, settings.id, 'district-offices', 'delete', id);
+    });
+  }
+
+  /* ---------------- approved training centres, one at a time ---------------- */
+
+  async listTrainingCentres(q: TrainingCentreListQuery): Promise<Paginated<AdminTrainingCentre>> {
+    const settings = await this.requireSettings();
+    const page = await contactRepository.listTrainingCentres(settings.id, q);
+    return { items: page.items.map(toAdminTrainingCentre), meta: page.meta };
+  }
+
+  async getTrainingCentre(id: string): Promise<AdminTrainingCentre> {
+    const settings = await this.requireSettings();
+    const centre = await contactRepository.findTrainingCentre(settings.id, id);
+    if (!centre) throw AppError.notFound(CENTRE_NOT_FOUND);
+    return toAdminTrainingCentre(centre);
+  }
+
+  private async requireCentre(m: EntityManager, settingsId: string, id: string): Promise<ContactTrainingCentre> {
+    const centre = await contactRepository.findTrainingCentre(settingsId, id, m);
+    if (!centre) throw AppError.notFound(CENTRE_NOT_FOUND);
+    return centre;
+  }
+
+  /* A new centre goes to the end of its district's list unless an order is given. */
+  async createTrainingCentre(input: CreateTrainingCentreInput, req?: Request): Promise<AdminTrainingCentre> {
+    const id = await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.assertDistrictsExist(m, [input.districtId], 'districtId');
+      const displayOrder = input.displayOrder ?? (await contactRepository.nextTrainingCentreOrder(input.districtId, m));
+      const repo = m.getRepository(ContactTrainingCentre);
+      const saved = await repo.save(
+        repo.create({
+          settingsId: settings.id,
+          districtId: input.districtId,
+          nameMr: input.name.mr,
+          nameEn: input.name.en,
+          addressMr: input.address?.mr ?? null,
+          addressEn: input.address?.en ?? null,
+          managerNameMr: input.managerName?.mr ?? null,
+          managerNameEn: input.managerName?.en ?? null,
+          phone: input.phone || null,
+          email: input.email || null,
+          displayOrder,
+          isActive: input.isActive ?? true,
+        }),
+      );
+      await this.recordSectionChange(m, req, settings.id, 'training-centres', 'create', saved.id);
+      return saved.id;
+    });
+    return this.getTrainingCentre(id);
+  }
+
+  /* Any subset of the fields; a new districtId moves the centre to that district. */
+  async updateTrainingCentre(id: string, input: PatchTrainingCentreInput, req?: Request): Promise<AdminTrainingCentre> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      const current = await this.requireCentre(m, settings.id, id);
+      if (input.districtId !== undefined && input.districtId !== current.districtId)
+        await this.assertDistrictsExist(m, [input.districtId], 'districtId');
+      await m.getRepository(ContactTrainingCentre).update(id, centrePatchColumns(input));
+      await this.recordSectionChange(m, req, settings.id, 'training-centres', 'update', id);
+    });
+    return this.getTrainingCentre(id);
+  }
+
+  async setTrainingCentreStatus(id: string, isActive: boolean, req?: Request): Promise<AdminTrainingCentre> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.requireCentre(m, settings.id, id);
+      await m.getRepository(ContactTrainingCentre).update(id, { isActive });
+      await this.recordSectionChange(m, req, settings.id, 'training-centres', 'status', id);
+    });
+    return this.getTrainingCentre(id);
+  }
+
+  async removeTrainingCentre(id: string, req?: Request): Promise<void> {
+    await AppDataSource.transaction(async (m) => {
+      const settings = await this.requireSettings(m);
+      await this.requireCentre(m, settings.id, id);
+      await m.getRepository(ContactTrainingCentre).update(id, { isDelete: true, isActive: false });
+      await this.recordSectionChange(m, req, settings.id, 'training-centres', 'delete', id);
     });
   }
 }

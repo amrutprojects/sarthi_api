@@ -13,6 +13,7 @@ import {
   type TestActor,
 } from '../../helpers/test-app';
 import { seedTopBar } from '../../../src/database/seeds/seed-top-bar';
+import { TopBarMarathiNumerals1798100000000 } from '../../../src/database/migrations/1798100000000-TopBarMarathiNumerals';
 import { auditService } from '../../../src/modules/audit/audit.service';
 import { ROLE_CODES } from '../../../src/modules/roles-permissions';
 
@@ -42,12 +43,15 @@ interface PublicFeed {
   showSection: boolean;
   governmentName: Pair | null;
   showLanguageToggle: boolean;
+  marathiNumerals: boolean;
   links: PublicLink[];
 }
 interface AdminSettings {
   id: string;
   governmentName: Pair;
   showLanguageToggle: boolean;
+  marathiNumerals: boolean;
+  showSection: boolean;
   updatedAt: string;
 }
 interface Detail {
@@ -96,6 +100,15 @@ const get = async (id: string): Promise<AdminLink> =>
   (await request(app).get(`${ADMIN_URL}/${id}`).set(auth(admin.token)).expect(200)).body.data;
 const countRows = async () =>
   (await AppDataSource.query(`SELECT count(*)::int AS n FROM "top_bar_links" WHERE "isDelete" = false`))[0].n as number;
+const lastSettingsAudit = async () =>
+  (
+    await AppDataSource.query(
+      `SELECT "details" FROM "audit_logs" WHERE "action" = 'cms.top-bar-settings.update' ORDER BY "createdAt" DESC LIMIT 1`,
+    )
+  )[0].details as Record<string, unknown>;
+/* The "Show on website" switch (src/cms/visibility), the one writer of the whole strip's flag. */
+const setStripVisible = (visible: boolean) =>
+  request(app).put(`${API}/cms/section-visibility/top-bar`).set(auth(admin.token)).send({ visible }).expect(200);
 
 beforeAll(async () => {
   app = await setupTestApp();
@@ -122,12 +135,18 @@ describe('Top Bar seed', () => {
       { label: STATUS, link: '/track', displayOrder: 2, isActive: true },
     ]);
 
-    expect(await getSettings()).toMatchObject({ governmentName: GOVERNMENT, showLanguageToggle: true, showSection: true });
+    expect(await getSettings()).toMatchObject({
+      governmentName: GOVERNMENT,
+      showLanguageToggle: true,
+      marathiNumerals: true,
+      showSection: true,
+    });
 
     expect(await publicFeed()).toEqual({
       showSection: true,
       governmentName: GOVERNMENT,
       showLanguageToggle: true,
+      marathiNumerals: true,
       links: [
         { label: VERIFY, link: '/verify' },
         { label: STATUS, link: '/track' },
@@ -141,7 +160,13 @@ describe('Top Bar seed', () => {
     await request(app).delete(`${ADMIN_URL}/${status!.id}`).set(auth(admin.token)).expect(200);
     expect(await seedTopBar(AppDataSource)).toEqual({ created: false, linksCreated: 0 });
     expect(await list()).toEqual([]);
-    expect(await publicFeed()).toEqual({ showSection: true, governmentName: GOVERNMENT, showLanguageToggle: true, links: [] });
+    expect(await publicFeed()).toEqual({
+      showSection: true,
+      governmentName: GOVERNMENT,
+      showLanguageToggle: true,
+      marathiNumerals: true,
+      links: [],
+    });
     /* Put the two links back for the rest of the suite, as new records. */
     await create({ label: VERIFY, link: '/verify' }).expect(201);
     await create({ label: STATUS, link: '/track' }).expect(201);
@@ -440,11 +465,23 @@ describe('Top Bar settings', () => {
     expect(res.body.data).toMatchObject({ governmentName: GOVERNMENT, showLanguageToggle: false });
     const before = await publicLinks();
     const feed = (await publicFeed())!;
-    expect(feed).toEqual({ showSection: true, governmentName: GOVERNMENT, showLanguageToggle: false, links: before });
+    expect(feed).toEqual({
+      showSection: true,
+      governmentName: GOVERNMENT,
+      showLanguageToggle: false,
+      marathiNumerals: true,
+      links: before,
+    });
     expect((await list()).length).toBeGreaterThan(1);
 
     await putSettings({ governmentName: GOVERNMENT, showLanguageToggle: true }).expect(200);
-    expect(await publicFeed()).toEqual({ showSection: true, governmentName: GOVERNMENT, showLanguageToggle: true, links: before });
+    expect(await publicFeed()).toEqual({
+      showSection: true,
+      governmentName: GOVERNMENT,
+      showLanguageToggle: true,
+      marathiNumerals: true,
+      links: before,
+    });
   });
 
   it('a blank government name (or null) switches the bold text off: the feed says null, the admin form gets blanks', async () => {
@@ -452,7 +489,13 @@ describe('Top Bar settings', () => {
     const blank = await putSettings({ governmentName: BLANK, showLanguageToggle: true });
     expect(blank.status).toBe(200);
     expect(blank.body.data).toMatchObject({ governmentName: BLANK, showLanguageToggle: true });
-    expect(await publicFeed()).toEqual({ showSection: true, governmentName: null, showLanguageToggle: true, links: before });
+    expect(await publicFeed()).toEqual({
+      showSection: true,
+      governmentName: null,
+      showLanguageToggle: true,
+      marathiNumerals: true,
+      links: before,
+    });
 
     await putSettings({ governmentName: GOVERNMENT, showLanguageToggle: true }).expect(200);
     const cleared = await putSettings({ governmentName: null, showLanguageToggle: true });
@@ -473,7 +516,13 @@ describe('Top Bar settings', () => {
     const rows = await list();
     for (const r of rows)
       await request(app).patch(`${ADMIN_URL}/${r.id}/status`).set(auth(admin.token)).send({ isActive: false }).expect(200);
-    expect(await publicFeed()).toEqual({ showSection: true, governmentName: GOVERNMENT, showLanguageToggle: true, links: [] });
+    expect(await publicFeed()).toEqual({
+      showSection: true,
+      governmentName: GOVERNMENT,
+      showLanguageToggle: true,
+      marathiNumerals: true,
+      links: [],
+    });
     for (const r of rows)
       await request(app).patch(`${ADMIN_URL}/${r.id}/status`).set(auth(admin.token)).send({ isActive: r.isActive }).expect(200);
     expect((await publicLinks()).length).toBe(rows.filter((r) => r.isActive).length);
@@ -526,9 +575,138 @@ describe('Top Bar settings', () => {
   it('keeps the saved settings when the database save fails', async () => {
     const before = await getSettings();
     jest.spyOn(auditService, 'recordInTx').mockRejectedValueOnce(new Error('simulated database failure'));
-    const res = await putSettings({ governmentName: BLANK, showLanguageToggle: false });
+    const res = await putSettings({ governmentName: BLANK, showLanguageToggle: false, marathiNumerals: false });
     expect(res.status).toBe(500);
     expect(await getSettings()).toEqual(before);
+  });
+});
+
+describe('Marathi numerals switch', () => {
+  /* Every save below sends the rest of the settings as they are, so only the digits change. */
+  const SETTINGS = { governmentName: GOVERNMENT, showLanguageToggle: true };
+
+  it('is on by default, on the admin form and in the public feed', async () => {
+    expect(await getSettings()).toMatchObject({ ...SETTINGS, marathiNumerals: true });
+    expect((await publicFeed())!.marathiNumerals).toBe(true);
+  });
+
+  it('switching it off reaches the admin form and the website, and switching it on brings the Devanagari digits back', async () => {
+    const before = await publicLinks();
+    const current = await getSettings();
+    const off = await putSettings({ ...SETTINGS, marathiNumerals: false, expectedUpdatedAt: current.updatedAt });
+    expect(off.status).toBe(200);
+    expect(off.body.data).toMatchObject({ ...SETTINGS, marathiNumerals: false, showSection: true });
+    expect((await getSettings()).marathiNumerals).toBe(false);
+    expect(await lastSettingsAudit()).toEqual({ governmentName: GOVERNMENT.en, showLanguageToggle: true, marathiNumerals: false });
+    /* Only the digits change: the strip, its name, its links and the language switch are as they were. */
+    expect(await publicFeed()).toEqual({ showSection: true, ...SETTINGS, marathiNumerals: false, links: before });
+
+    const on = await putSettings({ ...SETTINGS, marathiNumerals: true, expectedUpdatedAt: off.body.data.updatedAt });
+    expect(on.status).toBe(200);
+    expect(on.body.data.marathiNumerals).toBe(true);
+    expect(await lastSettingsAudit()).toEqual({ governmentName: GOVERNMENT.en, showLanguageToggle: true, marathiNumerals: true });
+    expect(await publicFeed()).toEqual({ showSection: true, ...SETTINGS, marathiNumerals: true, links: before });
+  });
+
+  it('a save without marathiNumerals (an older admin build) leaves the switch as it is, either way', async () => {
+    await putSettings({ ...SETTINGS, marathiNumerals: false }).expect(200);
+    /* The other settings still save; the digits stay off, and the audit records the value kept. */
+    const edited = await putSettings({ governmentName: GOVERNMENT, showLanguageToggle: false });
+    expect(edited.status).toBe(200);
+    expect(edited.body.data).toMatchObject({ governmentName: GOVERNMENT, showLanguageToggle: false, marathiNumerals: false });
+    expect(await lastSettingsAudit()).toEqual({ governmentName: GOVERNMENT.en, showLanguageToggle: false, marathiNumerals: false });
+    expect(await publicFeed()).toMatchObject({ showLanguageToggle: false, marathiNumerals: false });
+
+    await putSettings({ ...SETTINGS, marathiNumerals: true }).expect(200);
+    expect((await putSettings(SETTINGS).expect(200)).body.data.marathiNumerals).toBe(true);
+    expect(await publicFeed()).toMatchObject({ showLanguageToggle: true, marathiNumerals: true });
+  });
+
+  it('is independent of the language switch: either can be on while the other is off', async () => {
+    await putSettings({ governmentName: GOVERNMENT, showLanguageToggle: false, marathiNumerals: true }).expect(200);
+    expect(await publicFeed()).toMatchObject({ showLanguageToggle: false, marathiNumerals: true });
+    await putSettings({ governmentName: GOVERNMENT, showLanguageToggle: true, marathiNumerals: false }).expect(200);
+    expect(await publicFeed()).toMatchObject({ showLanguageToggle: true, marathiNumerals: false });
+    await putSettings({ ...SETTINGS, marathiNumerals: true }).expect(200);
+  });
+
+  it('is sent while the whole strip is hidden, since it is site-wide, and a settings save can still change it', async () => {
+    await setStripVisible(false);
+    expect(await publicFeed()).toEqual({ showSection: false, ...SETTINGS, marathiNumerals: true, links: [] });
+
+    const off = await putSettings({ ...SETTINGS, marathiNumerals: false });
+    expect(off.status).toBe(200);
+    /* The save never touches the strip's own flag. */
+    expect(off.body.data).toMatchObject({ showSection: false, marathiNumerals: false });
+    expect(await publicFeed()).toEqual({ showSection: false, ...SETTINGS, marathiNumerals: false, links: [] });
+
+    await setStripVisible(true);
+    expect(await publicFeed()).toMatchObject({ showSection: true, marathiNumerals: false });
+    expect((await publicLinks()).length).toBeGreaterThan(0);
+    await putSettings({ ...SETTINGS, marathiNumerals: true }).expect(200);
+  });
+
+  it('refuses a marathiNumerals that is not true or false, and changes nothing', async () => {
+    const before = await getSettings();
+    for (const value of ['yes', 'false', 0, 1, null, {}]) {
+      const res = await putSettings({ ...SETTINGS, marathiNumerals: value });
+      expect(res.status).toBe(422);
+      expect(details(res)).toEqual([{ field: 'body.marathiNumerals', message: 'marathiNumerals must be true or false' }]);
+    }
+    expect(await getSettings()).toEqual(before);
+    expect((await publicFeed())!.marathiNumerals).toBe(true);
+  });
+
+  it('a view-only administrator cannot switch it', async () => {
+    const viewer = await actorWith(['cms-topbar.view']);
+    const res = await request(app)
+      .put(`${ADMIN_URL}/settings`)
+      .set(auth(viewer.token))
+      .send({ ...SETTINGS, marathiNumerals: false });
+    expect(res.status).toBe(403);
+    expect((await getSettings()).marathiNumerals).toBe(true);
+    expect((await publicFeed())!.marathiNumerals).toBe(true);
+  });
+});
+
+describe('TopBarMarathiNumerals migration', () => {
+  const migration = new TopBarMarathiNumerals1798100000000();
+  const run = async (step: 'up' | 'down') => {
+    const qr = AppDataSource.createQueryRunner();
+    try {
+      await migration[step](qr);
+    } finally {
+      await qr.release();
+    }
+  };
+  const column = async () =>
+    (
+      await AppDataSource.query(
+        `SELECT "is_nullable", "column_default" FROM information_schema.columns
+          WHERE "table_name" = 'top_bar_settings' AND "column_name" = 'marathiNumerals'`,
+      )
+    )[0] as { is_nullable: string; column_default: string } | undefined;
+  const row = async () =>
+    (await AppDataSource.query(`SELECT "marathiNumerals", "updatedAt" FROM "top_bar_settings" WHERE "isDelete" = false`))[0] as {
+      marathiNumerals: boolean;
+      updatedAt: Date;
+    };
+
+  it('adds the column NOT NULL DEFAULT true: the existing row is switched on and not rewritten; down drops it', async () => {
+    await AppDataSource.query(`UPDATE "top_bar_settings" SET "marathiNumerals" = false`);
+    const { updatedAt } = await row();
+
+    await run('down');
+    const afterDown = await column();
+    await run('up');
+
+    expect(afterDown).toBeUndefined();
+    expect(await column()).toEqual({ is_nullable: 'NO', column_default: 'true' });
+    const after = await row();
+    expect(after.marathiNumerals).toBe(true);
+    expect(after.updatedAt.getTime()).toBe(updatedAt.getTime());
+    expect((await getSettings()).marathiNumerals).toBe(true);
+    expect((await publicFeed())!.marathiNumerals).toBe(true);
   });
 });
 

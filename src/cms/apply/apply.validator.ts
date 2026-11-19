@@ -83,7 +83,7 @@ export const updateApplySettingsSchema = {
       pageSubtitle: bilingual(500, 'Page subtitle'),
       noteTitle: bilingual(200, 'Note title'),
       noteBody: bilingual(2000, 'Note text'),
-      glanceHeading: bilingual(200, 'At a glance heading'),
+      glanceHeading: bilingual(200, 'For Your Information heading'),
       documentsHeading: bilingual(200, 'Documents heading'),
       ctaText: bilingual(1000, 'Call to action text'),
       ctaLabel: bilingual(100, 'Button label'),

@@ -8,15 +8,34 @@ import {
   ContactDistrictOffice,
   ContactOrganization,
   ContactPageSettings,
+  ContactTrainingCentre,
 } from './contact.model';
-import type { CoordinatorListQuery, DistrictOfficeListQuery, DistrictOfficeSortField } from './contact.types';
+import type {
+  CoordinatorListQuery,
+  DistrictOfficeListQuery,
+  DistrictOfficeSortField,
+  TrainingCentreListQuery,
+  TrainingCentreSortField,
+} from './contact.types';
 
-/* ?sortBy= of the district office list, as columns of the query below (`district` is the district's name). */
+/*
+ * ?sortBy= of the district office list, as columns of the query below (`district` is the district's name,
+ * `collectorName` the District Coordinator's English name).
+ */
 const OFFICE_SORT: Record<DistrictOfficeSortField, string> = {
   district: 'd.name',
-  collectorName: 'o.collectorName',
+  collectorName: 'o.collectorNameEn',
   createdAt: 'o.createdAt',
   updatedAt: 'o.updatedAt',
+};
+
+/* ?sortBy= of the training centre list (`district` is the district's name). */
+const CENTRE_SORT: Record<TrainingCentreSortField, string> = {
+  district: 'd.name',
+  displayOrder: 't.displayOrder',
+  name: 't.nameEn',
+  createdAt: 't.createdAt',
+  updatedAt: 't.updatedAt',
 };
 
 /*
@@ -170,7 +189,8 @@ export class ContactRepository extends BaseRepository<ContactPageSettings> {
           w
             .where('d.name ILIKE :term', { term })
             .orWhere('d.code ILIKE :term', { term })
-            .orWhere('o.collectorName ILIKE :term', { term })
+            .orWhere('o.collectorNameEn ILIKE :term', { term })
+            .orWhere('o.collectorNameMr ILIKE :term', { term })
             .orWhere('o.phone ILIKE :term', { term })
             .orWhere('o.email ILIKE :term', { term }),
         ),
@@ -224,6 +244,72 @@ export class ContactRepository extends BaseRepository<ContactPageSettings> {
 
   coordinators(manager?: EntityManager) {
     return (manager ?? this.repo().manager).getRepository(ContactCoordinator);
+  }
+
+  /* ---------------- approved training centres ---------------- */
+
+  /* Live centre rows of a configuration with their district (centres of a deleted district are left out). */
+  private centresWithDistrict(settingsId: string, opts: { activeOnly?: boolean; manager?: EntityManager } = {}) {
+    const qb = (opts.manager ?? this.repo().manager)
+      .getRepository(ContactTrainingCentre)
+      .createQueryBuilder('t')
+      .innerJoinAndSelect('t.district', 'd', opts.activeOnly ? 'd.isDelete = false AND d.isActive = true' : 'd.isDelete = false')
+      .where('t.isDelete = false')
+      .andWhere('t.settingsId = :settingsId', { settingsId });
+    if (opts.activeOnly) qb.andWhere('t.isActive = true');
+    return qb;
+  }
+
+  /* Every centre, by district name and then each district's own order. */
+  findTrainingCentres(settingsId: string, opts: { activeOnly?: boolean; manager?: EntityManager } = {}): Promise<ContactTrainingCentre[]> {
+    return this.centresWithDistrict(settingsId, opts)
+      .orderBy('d.name', 'ASC')
+      .addOrderBy('t.displayOrder', 'ASC')
+      .addOrderBy('t.createdAt', 'ASC')
+      .getMany();
+  }
+
+  findTrainingCentre(settingsId: string, id: string, manager?: EntityManager): Promise<ContactTrainingCentre | null> {
+    return this.centresWithDistrict(settingsId, { manager }).andWhere('t.id = :id', { id }).getOne();
+  }
+
+  async listTrainingCentres(settingsId: string, q: TrainingCentreListQuery): Promise<Paginated<ContactTrainingCentre>> {
+    const qb = this.centresWithDistrict(settingsId);
+    if (q.districtId) qb.andWhere('t.districtId = :districtId', { districtId: q.districtId });
+    if (q.search) {
+      const term = likePattern(q.search);
+      qb.andWhere(
+        new Brackets((w) =>
+          w
+            .where('d.name ILIKE :term', { term })
+            .orWhere('d.code ILIKE :term', { term })
+            .orWhere('t.nameEn ILIKE :term', { term })
+            .orWhere('t.nameMr ILIKE :term', { term })
+            .orWhere('t.managerNameEn ILIKE :term', { term })
+            .orWhere('t.phone ILIKE :term', { term })
+            .orWhere('t.email ILIKE :term', { term }),
+        ),
+      );
+    }
+    if (q.isActive !== undefined) qb.andWhere('t.isActive = :isActive', { isActive: q.isActive });
+    const { skip, take } = toSkipTake(q);
+    qb.orderBy(CENTRE_SORT[q.sortBy], q.sortOrder);
+    if (q.sortBy === 'district') qb.addOrderBy('t.displayOrder', 'ASC');
+    if (q.sortBy !== 'createdAt') qb.addOrderBy('t.createdAt', 'ASC');
+    const [items, total] = await qb.addOrderBy('t.id').skip(skip).take(take).getManyAndCount();
+    return { items, meta: buildMeta(q, total) };
+  }
+
+  /* The next free place at the end of a district's centres, capped at the validator's 999. */
+  async nextTrainingCentreOrder(districtId: string, manager?: EntityManager): Promise<number> {
+    const row = await (manager ?? this.repo().manager)
+      .getRepository(ContactTrainingCentre)
+      .createQueryBuilder('t')
+      .select('MAX(t.displayOrder)', 'max')
+      .where('t.isDelete = false')
+      .andWhere('t.districtId = :districtId', { districtId })
+      .getRawOne<{ max: number | null }>();
+    return row?.max == null ? 0 : Math.min(Number(row.max) + 1, 999);
   }
 
   organizations(manager?: EntityManager) {

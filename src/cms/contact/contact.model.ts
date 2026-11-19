@@ -41,6 +41,13 @@ export class ContactPageSettings extends AppBaseEntity {
   showDistrictOffices!: boolean;
 
   /*
+   * The "Approved training centres" card on every District Office page. false: the website leaves the card
+   * out. Written only by PATCH /cms/contact/training-centres-section.
+   */
+  @Column({ type: 'boolean', name: 'showTrainingCentres', default: true })
+  showTrainingCentres!: boolean;
+
+  /*
    * The website's WhatsApp button. Digits only, country code included; blank: the website uses the AMRUT
    * card's phone (CHK_contact_page_settings_whatsapp_number).
    */
@@ -178,8 +185,12 @@ export class ContactDistrictOffice extends AppBaseEntity {
   @Column({ type: 'uuid', name: 'districtId' })
   districtId!: string;
 
-  @Column({ type: 'varchar', length: 150, name: 'collectorName', nullable: true })
-  collectorName!: string | null;
+  /* The District Coordinator's name: a pair, both halves or neither (CHK_contact_district_offices_collector_pair). */
+  @Column({ type: 'varchar', length: 150, name: 'collectorNameMr', nullable: true })
+  collectorNameMr!: string | null;
+
+  @Column({ type: 'varchar', length: 150, name: 'collectorNameEn', nullable: true })
+  collectorNameEn!: string | null;
 
   @Column({ type: 'varchar', length: 500, name: 'addressMr', nullable: true })
   addressMr!: string | null;
@@ -198,6 +209,52 @@ export class ContactDistrictOffice extends AppBaseEntity {
 
   @Column({ type: 'varchar', length: 120, name: 'officeHoursEn', nullable: true })
   officeHoursEn!: string | null;
+
+  @ManyToOne('District', { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'districtId' })
+  district!: District;
+}
+
+/*
+ * One approved training centre, shown in the "Approved training centres" card of its district's
+ * District Office page. A district has any number of them, listed by displayOrder. The name is
+ * required in both languages; address and centre manager are pairs (both halves or neither); phone
+ * and email are optional. The website leaves out whatever is missing.
+ */
+@Entity({ name: 'contact_training_centres' })
+export class ContactTrainingCentre extends AppBaseEntity {
+  @Column({ type: 'uuid', name: 'settingsId' })
+  settingsId!: string;
+
+  @Column({ type: 'uuid', name: 'districtId' })
+  districtId!: string;
+
+  @Column({ type: 'varchar', length: 200, name: 'nameMr' })
+  nameMr!: string;
+
+  @Column({ type: 'varchar', length: 200, name: 'nameEn' })
+  nameEn!: string;
+
+  @Column({ type: 'varchar', length: 500, name: 'addressMr', nullable: true })
+  addressMr!: string | null;
+
+  @Column({ type: 'varchar', length: 500, name: 'addressEn', nullable: true })
+  addressEn!: string | null;
+
+  @Column({ type: 'varchar', length: 150, name: 'managerNameMr', nullable: true })
+  managerNameMr!: string | null;
+
+  @Column({ type: 'varchar', length: 150, name: 'managerNameEn', nullable: true })
+  managerNameEn!: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  phone!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  email!: string | null;
+
+  @Column({ type: 'integer', name: 'displayOrder', default: 0 })
+  displayOrder!: number;
 
   @ManyToOne('District', { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'districtId' })

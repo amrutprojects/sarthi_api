@@ -9,12 +9,16 @@ import {
   contactStatusSchema,
   createCoordinatorSchema,
   createDistrictOfficeSchema,
+  createTrainingCentreSchema,
   districtOfficesSectionSchema,
   listCoordinatorsSchema,
   listDistrictOfficesSchema,
+  listTrainingCentresSchema,
+  trainingCentresSectionSchema,
   updateContactPageSchema,
   updateCoordinatorSchema,
   updateDistrictOfficeSchema,
+  updateTrainingCentreSchema,
 } from './contact.validator';
 
 /*
@@ -72,3 +76,17 @@ contactRouter.patch(
   contactController.setDistrictOfficeStatus,
 );
 contactRouter.delete('/district-offices/:id', update, validateRequest(contactItemIdSchema), contactController.removeDistrictOffice);
+
+/* The District Office pages' "Approved training centres" card: its "Show on website" switch, then the centres one at a time. */
+contactRouter.patch('/training-centres-section', update, validateRequest(trainingCentresSectionSchema), contactController.setTrainingCentresSection);
+contactRouter.get('/training-centres', view, validateRequest(listTrainingCentresSchema), contactController.listTrainingCentres);
+contactRouter.post('/training-centres', update, validateRequest(createTrainingCentreSchema), contactController.createTrainingCentre);
+contactRouter.get('/training-centres/:id', view, validateRequest(contactItemIdSchema), contactController.getTrainingCentre);
+contactRouter.patch('/training-centres/:id', update, validateRequest(updateTrainingCentreSchema), contactController.updateTrainingCentre);
+contactRouter.patch(
+  '/training-centres/:id/status',
+  update,
+  validateRequest(contactItemStatusSchema),
+  contactController.setTrainingCentreStatus,
+);
+contactRouter.delete('/training-centres/:id', update, validateRequest(contactItemIdSchema), contactController.removeTrainingCentre);

@@ -7,12 +7,16 @@ import type {
   ContactStatusBody,
   CreateCoordinatorBody,
   CreateDistrictOfficeBody,
+  CreateTrainingCentreBody,
   DistrictOfficesSectionBody,
   ListCoordinatorsQuery,
   ListDistrictOfficesQuery,
+  ListTrainingCentresQuery,
+  TrainingCentresSectionBody,
   UpdateContactPageBody,
   UpdateCoordinatorBody,
   UpdateDistrictOfficeBody,
+  UpdateTrainingCentreBody,
 } from './contact.validator';
 
 type IdParams = { id: string };
@@ -107,6 +111,44 @@ export const contactController = {
   removeDistrictOffice: asyncHandler(async (req: Request, res: Response) => {
     await contactService.removeDistrictOffice(params<IdParams>(req).id, req);
     ApiResponse.ok(res, null, 'District office deleted successfully');
+  }),
+
+  /* ---- Approved training centres ---- */
+
+  setTrainingCentresSection: asyncHandler(async (req: Request, res: Response) => {
+    const { show } = body<TrainingCentresSectionBody>(req);
+    const data = await contactService.setTrainingCentresSection(show, req);
+    ApiResponse.ok(res, data, show ? 'Training centres shown on the website' : 'Training centres hidden from the website');
+  }),
+
+  listTrainingCentres: asyncHandler(async (req: Request, res: Response) => {
+    const page = await contactService.listTrainingCentres(query<ListTrainingCentresQuery>(req));
+    ApiResponse.ok(res, page.items, 'Training centres retrieved successfully', page.meta);
+  }),
+
+  getTrainingCentre: asyncHandler(async (req: Request, res: Response) => {
+    ApiResponse.ok(res, await contactService.getTrainingCentre(params<IdParams>(req).id), 'Training centre retrieved successfully');
+  }),
+
+  createTrainingCentre: asyncHandler(async (req: Request, res: Response) => {
+    const data = await contactService.createTrainingCentre(body<CreateTrainingCentreBody>(req), req);
+    ApiResponse.created(res, data, 'Training centre created successfully');
+  }),
+
+  updateTrainingCentre: asyncHandler(async (req: Request, res: Response) => {
+    const data = await contactService.updateTrainingCentre(params<IdParams>(req).id, body<UpdateTrainingCentreBody>(req), req);
+    ApiResponse.ok(res, data, 'Training centre updated successfully');
+  }),
+
+  setTrainingCentreStatus: asyncHandler(async (req: Request, res: Response) => {
+    const { isActive } = body<{ isActive: boolean }>(req);
+    const data = await contactService.setTrainingCentreStatus(params<IdParams>(req).id, isActive, req);
+    ApiResponse.ok(res, data, isActive ? 'Training centre activated' : 'Training centre deactivated');
+  }),
+
+  removeTrainingCentre: asyncHandler(async (req: Request, res: Response) => {
+    await contactService.removeTrainingCentre(params<IdParams>(req).id, req);
+    ApiResponse.ok(res, null, 'Training centre deleted successfully');
   }),
 
   /*

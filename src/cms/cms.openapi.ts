@@ -103,7 +103,8 @@ documentEndpoint({
         districtOffices: z.array(
           z.object({
             district: z.object({ code: z.string(), name: z.string() }),
-            collectorName: z.string().optional(),
+            /* The District Coordinator's name, in both languages; absent while it is not supplied. */
+            collectorName: Bilingual.optional(),
             address: Bilingual.optional(),
             phone: z.string().optional(),
             email: z.string().email().optional(),
@@ -119,6 +120,19 @@ documentEndpoint({
         }),
         /* false: the website leaves out the "District offices" section (heading and list of every district). */
         showDistrictOffices: z.boolean(),
+        /* Active approved training centres, by district name and then each district's order; empty while the card is hidden. */
+        trainingCentres: z.array(
+          z.object({
+            district: z.object({ code: z.string(), name: z.string() }),
+            name: Bilingual,
+            address: Bilingual.optional(),
+            managerName: Bilingual.optional(),
+            phone: z.string().optional(),
+            email: z.string().email().optional(),
+          }),
+        ),
+        /* false: the District Office pages leave out the "Approved training centres" card. */
+        showTrainingCentres: z.boolean(),
       })
       .nullable(),
   ),
@@ -607,6 +621,12 @@ const TopBar = z.object({
   governmentName: Bilingual.nullable(),
   /* Whether the Marathi / English switch on the right of the strip is shown. */
   showLanguageToggle: z.boolean(),
+  /*
+   * Site-wide, not part of the strip: true, the website prints every figure in Devanagari digits (०१२३) while it is
+   * read in Marathi; false, no conversion: figures print exactly as written, in both languages. Always sent, also
+   * when showSection is false.
+   */
+  marathiNumerals: z.boolean(),
   /* Active links only, already in display order. */
   links: z.array(
     z.object({
@@ -625,7 +645,8 @@ documentEndpoint({
   summary: 'Top Bar (strip at the top of every page)',
   description:
     'The strip at the very top of every website page: the government name, the links beside it (e.g. Verify Certificate, Check ' +
-    'Application Status) in display order, and whether the language switch is shown, in Marathi and English. Managed in the admin ' +
+    'Application Status) in display order, and whether the language switch is shown, in Marathi and English. It also carries the ' +
+    'site-wide Marathi numerals switch (`marathiNumerals`), sent even while the strip is hidden. Managed in the admin ' +
     'panel under CMS → Home Page Management → Top Bar. `data` is null when the Top Bar has not been configured (the website then ' +
     'shows its own bundled strip).',
   permission: 'public',
