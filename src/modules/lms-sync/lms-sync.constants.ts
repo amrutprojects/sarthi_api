@@ -44,6 +44,22 @@ export function flagForLmsStatus(status: string): SyncStatus {
   }
 }
 
+/*
+ * The flag for one item of the LMS request view (M2-F1). An unchanged re-send (`outcome` SKIPPED_UNCHANGED) changed
+ * nothing in the LMS, so a student whose learner exists (status PROVISIONED, or a learner id / code) is SYNCED; any
+ * other item follows its status (flagForLmsStatus). Before the fix the LMS did not list a skipped record under the new
+ * request at all, and the link stayed SENT.
+ */
+export function flagForItem(item: {
+  status: string;
+  outcome?: string;
+  learner_id?: string | null;
+  learner_code?: string | null;
+}): SyncStatus {
+  if (item.outcome === 'SKIPPED_UNCHANGED' && (item.status === 'PROVISIONED' || !!item.learner_id || !!item.learner_code)) return 'SYNCED';
+  return flagForLmsStatus(item.status);
+}
+
 /* Error codes stored in student_lms_link.lastErrorCode (besides LMS_<status> and the LMS's own error codes). */
 export const SYNC_ERROR = {
   /* A field the LMS requires is empty in Amrut; fixed by editing the student (the edit re-queues it). */

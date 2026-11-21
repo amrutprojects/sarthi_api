@@ -77,6 +77,7 @@ interface LinkRow {
   syncStatus: string;
   lmsRequestId: string | null;
   lmsLearnerCode: string | null;
+  lmsLearnerId: string | null;
   lmsStatus: string | null;
   payloadChecksum: string | null;
   attempts: number;
@@ -187,6 +188,56 @@ describe('lms sync worker', () => {
     /* Same data with a newer source_updated_at: the LMS skips it as unchanged. */
     expect(JSON.stringify(fake.records.get(a)!.payload)).toBe(before);
     expect(fake.records.get(a)!.updated_at).toBe(lmsUpdatedAt);
+    expect((await link(a))!.syncStatus).toBe('SYNCED');
+  });
+
+  /* M2-F1 (lms-api docs/qa/reports/m2-integration.md): the LMS request view now lists the skipped record. */
+  it('M2-F1: an unchanged re-send is SYNCED from the request view (outcome SKIPPED_UNCHANGED) with the LMS learner id', async () => {
+    const lmsLearner = fake.records.get(a)!.learner_id;
+    expect(lmsLearner).toEqual(expect.any(String));
+    await lmsSyncService.push([a]);
+    const stats = await worker.runCycle();
+    expect(stats.sent).toBe(1);
+    const l = await link(a);
+    expect(l).toMatchObject({ syncStatus: 'SYNCED', lmsStatus: 'PROVISIONED', lastErrorCode: null });
+    expect(l!.lmsLearnerId).toBe(lmsLearner);
+    expect(fake.records.size).toBe(1);
+  });
+
+  it('M2-F1: a later answer without a learner id keeps the stored LMS learner id', async () => {
+    const stored = (await link(a))!.lmsLearnerId;
+    expect(stored).toEqual(expect.any(String));
+    fake.records.get(a)!.learner_id = null; // the LMS answers the record without its learner id
+    try {
+      await lmsSyncService.push([a]);
+      await worker.runCycle();
+      const l = await link(a);
+      expect(l!.syncStatus).toBe('SYNCED');
+      expect(l!.lmsLearnerId).toBe(stored);
+    } finally {
+      fake.records.get(a)!.learner_id = stored;
+    }
+  });
+
+  it('M2-F1: an LMS before the fix (skipped record not listed) leaves the link SENT; the fixed LMS repairs it', async () => {
+    fake.listSkipped = false;
+    /*
+     * As in the real run: reconcile has already read past this record (its updated_at does not move on a skip), so
+     * only the request view could tell the outcome. Here the fake's record may be the last one read, and reconcile
+     * re-reads the last instant (cursor − 1 ms), so the cursor is placed just after it.
+     */
+    await AppDataSource.query(`UPDATE "lms_sync_state" SET "value" = $1`, [
+      new Date(Date.parse(fake.records.get(a)!.updated_at) + 1).toISOString(),
+    ]);
+    try {
+      await lmsSyncService.push([a]);
+      await worker.runCycle();
+      expect((await link(a))!.syncStatus).toBe('SENT');
+    } finally {
+      fake.listSkipped = true;
+    }
+    await lmsSyncService.push([a]);
+    await worker.runCycle();
     expect((await link(a))!.syncStatus).toBe('SYNCED');
   });
 
