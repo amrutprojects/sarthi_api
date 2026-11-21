@@ -17,6 +17,7 @@ import { lmsAccessRouter, lmsIntegrationRouter } from './modules/lms-access/lms-
 import { lmsReferenceRouter } from './modules/lms-access/lms-reference.routes';
 import { lmsSyncRouter } from './modules/lms-sync/lms-sync.routes';
 import { lmsReadsRouter } from './modules/lms-reads/lms-reads.routes';
+import { attendanceReportsRouter } from './modules/attendance-reports/attendance-reports.routes';
 import {
   cmsRouter,
   publicContactRouter,
@@ -69,6 +70,8 @@ apiRouter.use('/lms-integration', lmsIntegrationStudentRouter);
 apiRouter.use('/lms-integration-reviews', lmsReviewRouter);
 /* M1: LMS data read live from the LMS tenant API, behind LMS_READS_ENABLED (src/modules/lms-reads). */
 apiRouter.use('/lms-reads', lmsReadsRouter);
+/* M3: attendance reports by division, district, centre and batch, read from the LMS (src/modules/attendance-reports). */
+apiRouter.use('/attendance-reports', attendanceReportsRouter);
 for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
 
 /* CMS content, geography masters and the Masters group. Every route under /cms requires a session (see src/cms/index.ts). */

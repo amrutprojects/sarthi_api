@@ -5,3 +5,6 @@
 export { lmsReadsService, LmsReadsService, type LmsReadsSettings, type LmsReadsStatus } from './lms-reads.service';
 export { createTenantReadClient, LmsReadError, type TenantReadClient, type TenantRead } from './tenant-read-client';
 export { LMS_READ_PERMISSIONS, LMS_TENANT_READS } from './lms-reads.constants';
+/* M3 attendance reports (src/modules/attendance-reports) read through this service. */
+export type { LmsReadResult } from './lms-reads.service';
+export type { LmsAttendance, LmsAttendanceRow, LmsBatch } from './lms-reads.mappers';

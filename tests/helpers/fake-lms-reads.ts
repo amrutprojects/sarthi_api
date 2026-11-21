@@ -17,6 +17,10 @@ export interface FakeLmsReads {
   url: string;
   calls: { path: string; query: Record<string, unknown>; apiKey: string | undefined }[];
   mode: FakeLmsMode;
+  /* M3: attendance items per group_by (wire rows); a group_by not listed gets the default NAG row. */
+  attendanceItems: Partial<Record<string, unknown[]>>;
+  /* M3: batch list override (wire rows); default [FAKE_DATA.batch]. */
+  batchItems?: unknown[];
   close(): Promise<void>;
 }
 
@@ -104,7 +108,7 @@ export const FAKE_DATA = {
 
 export async function startFakeLmsReads(): Promise<FakeLmsReads> {
   const app = express();
-  const state: FakeLmsReads = { url: '', calls: [], mode: 'ok', close: async () => undefined };
+  const state: FakeLmsReads = { url: '', calls: [], mode: 'ok', attendanceItems: {}, close: async () => undefined };
 
   app.use('/tenant/v1', (req: Request, res: Response, next) => {
     state.calls.push({ path: req.path, query: { ...req.query }, apiKey: req.header('x-api-key') });
@@ -134,7 +138,7 @@ export async function startFakeLmsReads(): Promise<FakeLmsReads> {
     res.json(FAKE_DATA.summary);
   });
   r.get('/centres', (req, res) => res.json(page([FAKE_DATA.centre], req)));
-  r.get('/batches', (req, res) => res.json(page([FAKE_DATA.batch], req)));
+  r.get('/batches', (req, res) => res.json(page(state.batchItems ?? [FAKE_DATA.batch], req)));
   r.get('/sessions', (req, res) => res.json(page([FAKE_DATA.session], req)));
   r.get('/trainers', (req, res) => res.json(page([FAKE_DATA.trainer], req)));
   r.get('/live-sessions', (req, res) =>
@@ -167,7 +171,7 @@ export async function startFakeLmsReads(): Promise<FakeLmsReads> {
       group_by: String(req.query.group_by ?? 'district'),
       date_from: String(req.query.date_from ?? '2026-10-22'),
       date_to: String(req.query.date_to ?? '2026-11-21'),
-      items: [
+      items: state.attendanceItems[String(req.query.group_by ?? 'district')] ?? [
         {
           code: 'NAG',
           batches: 1,
