@@ -14,7 +14,8 @@ import type { ListSyncQuery } from './lms-sync.validation';
  * "Push to LMS" / "Retry" / "Run now" actions. Personal values are not returned here: code and name only (the
  * register's own endpoints show the rest, masked).
  */
-const tenant = () => env.LMS_TENANT_CODE;
+/* null until the tenant code is entered (LMS_TENANT_CODE): reads then show every student as NOT_SYNCED. */
+const tenant = () => env.LMS_TENANT_CODE ?? null;
 const ds = () => AppDataSource;
 
 export interface SyncListItem {
@@ -148,6 +149,9 @@ export const lmsSyncService = {
 
   /* "Push to LMS": queues each eligible student now (PENDING, no backoff), even when its data has not changed. */
   async push(studentIds: string[]) {
+    const tenantCode = tenant();
+    if (!tenantCode)
+      throw new AppError(HTTP_STATUS.CONFLICT, 'The LMS tenant code is not set up yet (LMS_TENANT_CODE)', 'LMS_TENANT_NOT_CONFIGURED');
     const ids = [...new Set(studentIds)];
     const rows: { id: string; eligible: boolean }[] = await ds().query(
       `SELECT s."id", (${ELIGIBLE_STUDENT_SQL}) AS "eligible" FROM "students" s WHERE s."id" = ANY($1::uuid[]) AND s."isDelete" = false`,
@@ -165,7 +169,7 @@ export const lmsSyncService = {
          ON CONFLICT ("studentId", "lmsTenantCode") DO UPDATE
            SET "syncStatus" = 'PENDING', "queuedAt" = now(), "nextAttemptAt" = NULL, "attempts" = 0,
                "lastErrorCode" = NULL, "lastErrorDetails" = '[]'::jsonb`,
-        [tenant(), queue],
+        [tenantCode, queue],
       );
     const syncEnabled = getLmsSyncWorker().enabled;
     if (queue.length && syncEnabled) void triggerLmsSync();

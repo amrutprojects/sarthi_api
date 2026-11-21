@@ -39,7 +39,7 @@ function lmsPerson(over: Record<string, unknown> = {}): Record<string, unknown> 
     taluka: 'Haveli',
     division: 'Pune',
     pin_code: '411001',
-    lms_tenant_code: 'AMRUT',
+    lms_tenant_code: 'TEST_TENANT',
     lms_learner_ref: `req-${n}`,
     ...over,
   };

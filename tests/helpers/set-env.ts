@@ -14,6 +14,8 @@ process.env.DOCUMENT_STORAGE_DIR = 'storage-test/documents';
 process.env.STORAGE_DRIVER = 'local';
 /* LMS sign-in endpoints refuse unsigned calls; the tests sign with this test-only secret (.env.test values win if set). */
 process.env.LMS_INTEGRATION_SECRET ??= 'db-test-lms-integration-secret-0123456789';
+/* No LMS tenant code is preset in the app (entered by hand per installation); the DB tests use an explicit test code. */
+process.env.LMS_TENANT_CODE ??= 'TEST_TENANT';
 /* The EDP portal tests sign up and sign in many times per file; its per-IP limit is not what they test. */
 process.env.EDP_RATE_LIMIT_MAX ??= '1000';
 /* The contact the portal shows after submitting; the tests check it reaches the portal. */

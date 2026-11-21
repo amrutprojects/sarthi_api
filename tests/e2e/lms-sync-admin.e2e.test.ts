@@ -10,6 +10,7 @@ import {
   teardownTestApp,
   type TestActor,
 } from '../helpers/test-app';
+import { env } from '../../src/config/env.config';
 
 /*
  * Admin endpoints of the M1 Amrut → LMS student sync (/api/v1/lms-sync, docs/lms-sync/admin-api.md). The sync is
@@ -56,8 +57,8 @@ beforeAll(async () => {
   /* B already failed once on the LMS side. */
   await AppDataSource.query(
     `INSERT INTO "student_lms_link" ("studentId", "lmsTenantCode", "syncStatus", "attempts", "lastErrorCode", "lastErrorDetails")
-     VALUES ($1, 'AMRUT', 'FAILED', 2, 'LMS_REJECTED_FIELDS', '[{"field":"pin_code","code":"format"}]')`,
-    [ids.B],
+     VALUES ($1, $2, 'FAILED', 2, 'LMS_REJECTED_FIELDS', '[{"field":"pin_code","code":"format"}]')`,
+    [ids.B, env.LMS_TENANT_CODE],
   );
 });
 afterAll(teardownTestApp);
@@ -80,7 +81,7 @@ describe('LMS sync admin API', () => {
   it('summary counts eligible students per flag', async () => {
     const res = await request(app).get(`${BASE}/summary`).set(auth(viewer.token));
     expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ tenantCode: 'AMRUT', syncEnabled: false, eligible: 2 });
+    expect(res.body.data).toMatchObject({ tenantCode: env.LMS_TENANT_CODE, syncEnabled: false, eligible: 2 });
     expect(res.body.data.byStatus).toMatchObject({ NOT_SYNCED: 1, FAILED: 1, PENDING: 0, SENT: 0, SYNCED: 0, REVIEW: 0 });
   });
 

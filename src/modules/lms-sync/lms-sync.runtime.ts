@@ -15,13 +15,14 @@ const log = logger.child({ component: 'lms-sync' });
 export function getLmsSyncWorker(): LmsSyncWorker {
   if (!worker) {
     const client =
-      env.LMS_SYNC_ENABLED && env.LMS_EXTERNAL_BASE_URL && env.LMS_TENANT_API_KEY
+      env.LMS_SYNC_ENABLED && env.LMS_EXTERNAL_BASE_URL && env.LMS_TENANT_API_KEY && env.LMS_TENANT_CODE
         ? createLmsClient({ baseUrl: env.LMS_EXTERNAL_BASE_URL, apiKey: env.LMS_TENANT_API_KEY, timeoutMs: env.LMS_HTTP_TIMEOUT_MS })
         : null;
     worker = createLmsSyncWorker({
       ds: AppDataSource,
       client,
-      tenantCode: env.LMS_TENANT_CODE,
+      /* Without a client the worker never sends, so the empty code is never written. */
+      tenantCode: env.LMS_TENANT_CODE ?? '',
       batchSize: env.LMS_SYNC_BATCH_SIZE,
       log,
     });

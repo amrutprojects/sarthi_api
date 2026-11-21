@@ -17,14 +17,18 @@ approvals and edits reach the LMS because the worker polls the table, not becaus
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `LMS_SYNC_ENABLED` | `false` | Off = no call to the LMS at all. The screens still show the flags; "Push" and "Retry" only queue |
-| `LMS_EXTERNAL_BASE_URL` | – | LMS API host, e.g. `https://lms-api.example.org` (the client adds `/tenant/v1`) |
+| `LMS_EXTERNAL_BASE_URL` | – | LMS API host (the client adds `/tenant/v1`) |
 | `LMS_TENANT_API_KEY` | – | Tenant key issued by the LMS Super Admin for the Amrut tenant, scopes `students.write` and `students.read` |
-| `LMS_TENANT_CODE` | `AMRUT` | Tenant code stored on each link (`student_lms_link.lmsTenantCode`) |
+| `LMS_TENANT_CODE` | – | Tenant code the LMS gave the Amrut tenant, stored on each link (`student_lms_link.lmsTenantCode`) |
 | `LMS_SYNC_INTERVAL_SECONDS` | `60` | Pause between automatic cycles |
 | `LMS_SYNC_BATCH_SIZE` | `100` | Records per `POST /students` (LMS accepts 1–200) |
 | `LMS_HTTP_TIMEOUT_MS` | `15000` | Timeout of one LMS call |
 
-With `LMS_SYNC_ENABLED=true` the API refuses to start unless the URL and the key are set.
+**Nothing is preset.** The base URL, the tenant key and the tenant code are entered by hand when the Amrut tenant is
+created in the LMS and the link is set up; there is no default value, no seeded key and no seeded link row. While
+`LMS_SYNC_ENABLED=false` they may be empty (no tenant code: the screens show every student as `NOT_SYNCED` and
+"Push to LMS" answers `409 LMS_TENANT_NOT_CONFIGURED`). With `LMS_SYNC_ENABLED=true` the API refuses to start
+unless all three are set; the error names the missing variables, never a value.
 
 The key is **server-side only**. It is read from the environment (inject it from the secret manager outside
 development), sent only in the `X-Api-Key` header, and is never logged, stored, returned by an endpoint or sent

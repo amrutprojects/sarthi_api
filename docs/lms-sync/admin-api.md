@@ -20,11 +20,12 @@ beyond code and name is returned; the register's own endpoints show the rest (ma
 ## `GET /summary`
 
 ```json
-{ "data": { "tenantCode": "AMRUT", "syncEnabled": false, "eligible": 2,
+{ "data": { "tenantCode": "TENANT_CODE", "syncEnabled": false, "eligible": 2,
             "byStatus": { "NOT_SYNCED": 1, "PENDING": 0, "SENT": 0, "SYNCED": 0, "FAILED": 1, "REVIEW": 0 } } }
 ```
 
-Counts cover eligible students only (approved, active, not deleted). `syncEnabled: false` → show a banner
+`tenantCode` is the configured `LMS_TENANT_CODE`, or `null` while it is not set up yet (then every student counts as
+`NOT_SYNCED`). Counts cover eligible students only (approved, active, not deleted). `syncEnabled: false` → show a banner
 "LMS sync is switched off" (actions still queue).
 
 ## `GET /students`
@@ -51,7 +52,7 @@ Sorted by the latest sync activity first. A student without a link shows `syncSt
 ```json
 { "data": {
     "studentId": "uuid", "code": "STU-000123", "firstName": "Asha", "lastName": "Example",
-    "studentStatus": "RECEIVED", "eligible": true, "tenantCode": "AMRUT", "syncEnabled": true,
+    "studentStatus": "RECEIVED", "eligible": true, "tenantCode": "TENANT_CODE", "syncEnabled": true,
     "syncStatus": "SYNCED", "lmsLearnerId": null, "lmsLearnerCode": "AMK-L-0000123",
     "lmsRequestId": "5f0c2a8e-…", "lmsStatus": "PROVISIONED", "lmsReasonCodes": [],
     "attempts": 1, "lastErrorCode": null, "lastErrorDetails": [],
@@ -79,7 +80,7 @@ Body: `{ "studentIds": ["uuid", …] }` (1–500).
 
 Eligible students become `PENDING` (attempts and error reset) and are sent in the next cycle, started at once when
 the sync is on, even if unchanged. `reason`: `NOT_ELIGIBLE` (not approved, inactive) or `NOT_FOUND`.
-Audited as `lms_sync.push`.
+`409 LMS_TENANT_NOT_CONFIGURED` while `LMS_TENANT_CODE` is not set. Audited as `lms_sync.push`.
 
 ## `POST /students/retry`
 

@@ -15,7 +15,9 @@ import { FakeLms } from '../../helpers/fake-lms';
  * down → queued and recovered; keys never logged.
  */
 const KEY = `test-tenant-key-${crypto.randomBytes(12).toString('hex')}`;
-const TENANT = env.LMS_TENANT_CODE;
+/* No tenant code is preset in the app; tests/helpers/set-env.ts gives the DB tests an explicit one. */
+const TENANT = env.LMS_TENANT_CODE ?? '';
+if (!TENANT) throw new Error('LMS_TENANT_CODE must be set for this test (tests/helpers/set-env.ts)');
 const fake = new FakeLms(KEY);
 const logs: unknown[] = [];
 const log: SyncLogger = {

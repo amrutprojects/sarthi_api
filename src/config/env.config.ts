@@ -5,6 +5,7 @@
 import path from 'path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { lmsLinkConfigIssues } from './lms-link-config';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'development';
 
@@ -137,17 +138,23 @@ const schema = z.object({
    * students to the LMS tenant API (/tenant/v1) with the tenant API key the LMS Super Admin issued. The key is
    * server-side only: never sent to a browser, never logged. LMS_SYNC_ENABLED=false (default) = no call to the LMS
    * at all (the admin screens still show the sync flags and "Push to LMS" only queues).
-   * LMS_EXTERNAL_BASE_URL is the LMS API host (https://lms-api.example.org); `/tenant/v1` is added by the client.
+   * LMS_EXTERNAL_BASE_URL is the LMS API host; `/tenant/v1` is added by the client. No value here is preset: the
+   * base URL, tenant key and tenant code are all entered by hand (all three required once LMS_SYNC_ENABLED=true).
    */
   LMS_SYNC_ENABLED: bool,
   LMS_EXTERNAL_BASE_URL: blankAsUnset(z.string().trim().url('LMS_EXTERNAL_BASE_URL must be a URL').optional()),
   LMS_TENANT_API_KEY: blankAsUnset(z.string().trim().min(16, 'LMS_TENANT_API_KEY looks too short').optional()),
-  /* The tenant code the key belongs to (student_lms_link.lms_tenant_code). */
-  LMS_TENANT_CODE: z
-    .string()
-    .trim()
-    .regex(/^[A-Z0-9_-]{2,40}$/, 'LMS_TENANT_CODE must be 2-40 upper-case letters, digits, _ or -')
-    .default('AMRUT'),
+  /*
+   * The tenant code the LMS gave the Amrut tenant (student_lms_link.lms_tenant_code). No default: entered by hand when
+   * the link is set up. Empty is allowed only while LMS_SYNC_ENABLED=false.
+   */
+  LMS_TENANT_CODE: blankAsUnset(
+    z
+      .string()
+      .trim()
+      .regex(/^[A-Z0-9_-]{2,40}$/, 'LMS_TENANT_CODE must be 2-40 upper-case letters, digits, _ or -')
+      .optional(),
+  ),
   /* Seconds between two automatic sync cycles (scan students, send, follow statuses, reconcile). */
   LMS_SYNC_INTERVAL_SECONDS: z.coerce.number().int().min(10).max(86_400).default(60),
   /* Records per POST /tenant/v1/students call (the LMS accepts 1-200). */
@@ -288,11 +295,10 @@ if (raw.NODE_ENV === 'production' && /CHANGE_ME|REPLACE_WITH/i.test(raw.JWT_SECR
   process.exit(1);
 }
 
-if ((raw.LMS_SYNC_ENABLED || raw.LMS_READS_ENABLED) && (!raw.LMS_EXTERNAL_BASE_URL || !raw.LMS_TENANT_API_KEY)) {
+const lmsLinkIssues = lmsLinkConfigIssues(raw);
+if (lmsLinkIssues.length) {
   // eslint-disable-next-line no-console
-  console.error(
-    'Invalid environment configuration:\n  - LMS_SYNC_ENABLED / LMS_READS_ENABLED=true needs LMS_EXTERNAL_BASE_URL and LMS_TENANT_API_KEY',
-  );
+  console.error(`Invalid environment configuration:\n${lmsLinkIssues.map((i) => `  - ${i}`).join('\n')}`);
   process.exit(1);
 }
 

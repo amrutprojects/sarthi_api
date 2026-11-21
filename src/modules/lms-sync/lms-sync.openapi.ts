@@ -14,7 +14,7 @@ const ErrorDetail = z.object({ field: z.string().optional(), code: z.string() })
 const SyncSummaryDto = registry.register(
   'LmsSyncSummary',
   z.object({
-    tenantCode: z.string(),
+    tenantCode: z.string().nullable(),
     syncEnabled: z.boolean(),
     eligible: z.number().int().describe('Approved, active students (what the sync sends)'),
     byStatus: z.record(Flag, z.number().int()),
@@ -52,7 +52,7 @@ const SyncDetailDto = registry.register(
     lastName: z.string(),
     studentStatus: z.string(),
     eligible: z.boolean(),
-    tenantCode: z.string(),
+    tenantCode: z.string().nullable(),
     syncEnabled: z.boolean(),
     syncStatus: Flag,
     lmsLearnerId: z.string().nullable(),
@@ -147,11 +147,13 @@ documentEndpoint({
   path: '/lms-sync/students/push',
   tag,
   summary: 'Push to LMS: queue one or many students now',
-  description: 'Eligible students become PENDING and are sent in the next cycle (started at once when the sync is on), even if unchanged.',
+  description:
+    'Eligible students become PENDING and are sent in the next cycle (started at once when the sync is on), even if unchanged. 409 LMS_TENANT_NOT_CONFIGURED while LMS_TENANT_CODE is not set.',
   permission: act,
   request: { body: pushSchema.body },
   response: envelope(PushResultDto),
   status: 200,
+  errors: [409],
 });
 documentEndpoint({
   method: 'post',

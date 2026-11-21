@@ -117,6 +117,7 @@ Validated at startup (`src/config/env.config.ts`); the process exits listing eve
 | `IMPORT_MAX_FILE_MB` / `IMPORT_MAX_ROWS` | 20 / 50000 | student import limits |
 | `STORAGE_DIR` | storage | private folder for student documents (relative to the backend folder); back it up |
 | `DOCUMENT_MAX_FILE_MB` / `DOCUMENTS_ZIP_MAX_MB` / `DOCUMENTS_ZIP_MAX_FILES` | 5 / 500 / 20000 | documents ZIP limits |
+| `LMS_SYNC_ENABLED` / `LMS_EXTERNAL_BASE_URL` / `LMS_TENANT_API_KEY` / `LMS_TENANT_CODE` | false / — / — / — | Amrut → LMS student sync ([docs/lms-sync/README.md](docs/lms-sync/README.md)). No value is preset: all are entered by hand when the Amrut tenant and its LMS link are set up; all three required once the sync is on |
 
 ## Student documents (ZIP upload)
 

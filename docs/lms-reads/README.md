@@ -103,7 +103,8 @@ ignored, so additive LMS changes never break a screen.
 
 - Same configuration: `LMS_EXTERNAL_BASE_URL` and `LMS_TENANT_API_KEY` are the sync's variables; this module adds only
   `LMS_READS_ENABLED`, `LMS_READS_TIMEOUT_MS` and `LMS_READS_CACHE_SECONDS`. The startup check refuses
-  `LMS_SYNC_ENABLED` or `LMS_READS_ENABLED` without both.
+  `LMS_SYNC_ENABLED` or `LMS_READS_ENABLED` without both (the sync also needs `LMS_TENANT_CODE`). None of these values is
+  preset: all are entered by hand when the Amrut tenant and its LMS link are set up.
 - Separate small client: the sync's `lms-client.ts` is for writes (typed student methods, retries with backoff);
   a screen read must fail fast and wants a cache. The read client reuses the sync's `tenantBaseUrl()` and
   `parseRetryAfter()` (exported from the lms-sync module index).
