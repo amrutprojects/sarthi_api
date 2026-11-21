@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { documentEndpoint, envelope, pagedEnvelope, registry } from '../../shared/openapi/registry';
-import { LMS_READ_ANY, LMS_READ_PERMISSIONS as P } from './lms-reads.constants';
-import { lmsAttendanceQuery, lmsListQuery, lmsLiveSessionsQuery, lmsSummaryQuery } from './lms-reads.validation';
+import { LIVE_DATA_SETTING_PERMISSIONS as S, LMS_READ_ANY, LMS_READ_PERMISSIONS as P } from './lms-reads.constants';
+import { liveDataBody, lmsAttendanceQuery, lmsListQuery, lmsLiveSessionsQuery, lmsSummaryQuery } from './lms-reads.validation';
 
 const tag = 'LMS reads';
 const ts = z.string().nullable().describe('ISO 8601 instant from the LMS');
@@ -9,7 +9,30 @@ const counts = z.record(z.unknown()).describe('Counts as the LMS sends them, key
 const SOURCE =
   'Read live from the LMS tenant API (`/tenant/v1`) with the Amrut tenant key; reused for `LMS_READS_CACHE_SECONDS`. ' +
   'Headers `X-Lms-Fetched-At` and `X-Lms-Cache` (HIT / MISS / REVALIDATED). 404 `LMS_READS_DISABLED` while LMS_READS_ENABLED is off; ' +
-  '503 `LMS_TIMEOUT` / `LMS_UNREACHABLE` / `LMS_UNAVAILABLE` / `LMS_RATE_LIMITED` / `LMS_KEY_REJECTED` / `LMS_BAD_ANSWER` when the LMS cannot be used.';
+  '503 `LMS_TIMEOUT` / `LMS_UNREACHABLE` / `LMS_UNAVAILABLE` / `LMS_RATE_LIMITED` / `LMS_KEY_REJECTED` / `LMS_BAD_ANSWER` when the LMS cannot be used. ' +
+  'G-2: 404 `LMS_LIVE_DATA_OFF` while the master switch is on but the setting "Show live LMS data" is off. The envelope carries ' +
+  '`source: "live"` and `fetched_at`; these routes never fall back to local data.';
+
+/* G-2: every data answer says where it came from. */
+const LIVE = { source: z.literal('live'), fetched_at: z.string().describe('ISO 8601 instant the LMS produced the answer') };
+const liveEnvelope = <T extends z.ZodTypeAny>(data: T) => envelope(data).extend(LIVE);
+const livePagedEnvelope = <T extends z.ZodTypeAny>(item: T) => pagedEnvelope(item).extend(LIVE);
+
+export const LiveDataStateDto = registry.register(
+  'LmsLiveDataState',
+  z.object({
+    setting: z.boolean().describe('What an administrator chose (default false)'),
+    masterSwitch: z.boolean().describe('LMS_READS_ENABLED'),
+    configured: z.boolean().describe('LMS API host, tenant key and tenant code are entered'),
+    canEnable: z.boolean(),
+    blocker: z.enum(['MASTER_SWITCH_OFF', 'LMS_NOT_CONFIGURED']).nullable(),
+    missing: z.array(z.string()).describe('Names of the missing link variables, never values'),
+    live: z.boolean().describe('setting && masterSwitch && configured'),
+    source: z.enum(['live', 'local']),
+    updatedAt: z.string().nullable(),
+    updatedByUserId: z.string().nullable(),
+  }),
+);
 
 export const LmsReadsStatusDto = registry.register(
   'LmsReadsStatus',
@@ -172,7 +195,7 @@ const data = [
     lms: '`GET /tenant/v1/summary` (scope stats.read)',
     permission: P.summary,
     query: lmsSummaryQuery,
-    response: envelope(LmsSummaryDto),
+    response: liveEnvelope(LmsSummaryDto),
   },
   {
     path: '/lms-reads/centres',
@@ -180,7 +203,7 @@ const data = [
     lms: '`GET /tenant/v1/centres` (scope stats.read)',
     permission: P.centres,
     query: lmsListQuery,
-    response: pagedEnvelope(LmsCentreDto),
+    response: livePagedEnvelope(LmsCentreDto),
   },
   {
     path: '/lms-reads/batches',
@@ -188,7 +211,7 @@ const data = [
     lms: '`GET /tenant/v1/batches` (scope stats.read)',
     permission: P.batches,
     query: lmsListQuery,
-    response: pagedEnvelope(LmsBatchDto),
+    response: livePagedEnvelope(LmsBatchDto),
   },
   {
     path: '/lms-reads/sessions',
@@ -196,7 +219,7 @@ const data = [
     lms: '`GET /tenant/v1/sessions` (scope stats.read)',
     permission: P.sessions,
     query: lmsListQuery,
-    response: pagedEnvelope(LmsSessionDto),
+    response: livePagedEnvelope(LmsSessionDto),
   },
   {
     path: '/lms-reads/live-sessions',
@@ -204,7 +227,7 @@ const data = [
     lms: '`GET /tenant/v1/live-sessions` (API-110, scope sessions.read)',
     permission: P.sessions,
     query: lmsLiveSessionsQuery,
-    response: envelope(LmsLiveSessionsDto),
+    response: liveEnvelope(LmsLiveSessionsDto),
   },
   {
     path: '/lms-reads/trainers',
@@ -212,7 +235,7 @@ const data = [
     lms: '`GET /tenant/v1/trainers` (scope stats.read)',
     permission: P.trainers,
     query: lmsListQuery,
-    response: pagedEnvelope(LmsTrainerDto),
+    response: livePagedEnvelope(LmsTrainerDto),
   },
   {
     path: '/lms-reads/attendance',
@@ -220,7 +243,7 @@ const data = [
     lms: '`GET /tenant/v1/attendance` (scope delivery.read)',
     permission: P.attendance,
     query: lmsAttendanceQuery,
-    response: envelope(LmsAttendanceDto),
+    response: liveEnvelope(LmsAttendanceDto),
   },
 ] as const;
 
@@ -236,3 +259,29 @@ for (const d of data)
     response: d.response,
     errors: [404, 503],
   });
+
+documentEndpoint({
+  method: 'get',
+  path: '/lms-reads/live-data',
+  tag,
+  summary: 'G-2 setting "Show live LMS data"',
+  description:
+    'The switch state: the stored setting (default off), the master switch LMS_READS_ENABLED, whether the LMS link is configured, ' +
+    'whether the switch may be turned on (and why not), and the effective `source` the screens show (`live` / `local`). Never returns key or URL.',
+  permission: [...S.view],
+  response: envelope(LiveDataStateDto),
+});
+
+documentEndpoint({
+  method: 'put',
+  path: '/lms-reads/live-data',
+  tag,
+  summary: 'Switch "Show live LMS data" on or off (audited)',
+  description:
+    'Switching on needs the master switch LMS_READS_ENABLED and the LMS link configured (host, tenant key, tenant code): otherwise 409 ' +
+    '`LMS_LIVE_DATA_UNAVAILABLE` with the blocker and the missing variable names. Switching off is always allowed. Audit action `lms.live_data.update`.',
+  permission: [...S.update],
+  request: { body: liveDataBody },
+  response: envelope(LiveDataStateDto),
+  errors: [409, 422],
+});

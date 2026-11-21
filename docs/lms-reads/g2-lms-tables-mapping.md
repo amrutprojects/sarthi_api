@@ -1,5 +1,10 @@
 # G-2 input: Amrut's `lms_*` tables and screens → their `/tenant/v1` replacement
 
+> **Decided 21 Nov 2026 (user):** the `lms_*` tables are **kept permanently** and are never dropped, renamed or
+> emptied. A Panel setting ("Show live LMS data", [../mt-g2-live-data-setting.md](../mt-g2-live-data-setting.md))
+> chooses whether the screens show local or live data. The retirement options below are superseded; the mapping stays
+> as reference for which live read feeds which screen.
+
 For the later G-2 decision (retire Amrut's LMS copies). **Nothing here is done by M1**: the tables, the
 `/api/v1/lms/*` routes and their screens stay unchanged. Sources: this repo's migrations and `docs/lms/lms-masters.md`;
 lms-api `main` 22d77784 (`/tenant/v1` §2, §2b) and branch `claude/mt-tenant-integration-ops-*` dbd9ec26 (§6,

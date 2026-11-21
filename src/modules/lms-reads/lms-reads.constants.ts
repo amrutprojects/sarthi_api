@@ -36,3 +36,12 @@ export const LMS_TENANT_READS = {
 } as const;
 
 export const LMS_READS_DISABLED = 'LMS_READS_DISABLED';
+
+/*
+ * G-2 "Show live LMS data" (live-data-setting.service.ts). Reading the state: anyone who opens an LMS screen (for the
+ * badge) or the System Settings screen. Changing it: the existing System Settings update right.
+ */
+export const LIVE_DATA_SETTING_PERMISSIONS = {
+  view: [...LMS_READ_ANY, 'settings.view', 'settings.update'],
+  update: ['settings.update'],
+} as const;

@@ -5,3 +5,13 @@
 export { lmsReadsService, LmsReadsService, type LmsReadsSettings, type LmsReadsStatus } from './lms-reads.service';
 export { createTenantReadClient, LmsReadError, type TenantReadClient, type TenantRead } from './tenant-read-client';
 export { LMS_READ_PERMISSIONS, LMS_TENANT_READS } from './lms-reads.constants';
+export {
+  liveDataSettingService,
+  LiveDataSettingService,
+  LIVE_DATA_KEY,
+  LIVE_DATA_OFF,
+  LIVE_DATA_UNAVAILABLE,
+  LIVE_DATA_AUDIT_ACTION,
+  type LiveDataState,
+} from './live-data-setting.service';
+export { LIVE_DATA_SETTING_PERMISSIONS } from './lms-reads.constants';

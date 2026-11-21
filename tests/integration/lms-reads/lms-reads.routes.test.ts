@@ -14,11 +14,12 @@ import {
 } from '../../../src/modules/lms-reads/lms-reads.openapi';
 import { envelope, pagedEnvelope } from '../../../src/shared/openapi/registry';
 import { FAKE_LMS_KEY, startFakeLmsReads, type FakeLmsReads } from '../../helpers/fake-lms-reads';
-import { actorWith, API, auth, request, setupTestApp, superAdmin, teardownTestApp } from '../../helpers/test-app';
+import { actorWith, API, AppDataSource, auth, request, setupTestApp, superAdmin, teardownTestApp } from '../../helpers/test-app';
 
 /*
  * /api/v1/lms-reads with the LMS faked in process (tests/helpers/fake-lms-reads.ts). The switch and the LMS settings
  * are changed on the parsed `env` object, which the service reads on every request.
+ * G-2: the Panel setting "Show live LMS data" is switched on for this file (its off / on paths are in live-data-setting.test.ts).
  */
 let app: Express;
 let lms: FakeLmsReads;
@@ -36,6 +37,7 @@ beforeAll(async () => {
   app = await setupTestApp();
   lms = await startFakeLmsReads();
   admin = (await superAdmin()).token;
+  await AppDataSource.query(`INSERT INTO "panel_settings" ("key", "value") VALUES ('lms.live_data', '{"enabled": true}')`);
 });
 afterAll(async () => {
   setEnv(original);
