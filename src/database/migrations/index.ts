@@ -90,6 +90,7 @@ import { ApplyGlanceHeading1798200000000 } from './1798200000000-ApplyGlanceHead
 import { ContactTrainingCentres1798300000000 } from './1798300000000-ContactTrainingCentres';
 import { DistrictOfficeCoordinatorNameBilingual1798400000000 } from './1798400000000-DistrictOfficeCoordinatorNameBilingual';
 import { EdpTalukaFreeText1798100000000 } from './1798100000000-EdpTalukaFreeText';
+import { StudentLmsLink1798510000000 } from './1798510000000-StudentLmsLink';
 /* Explicit, ordered migration registry used by the DataSource and the TypeORM CLI. Append new migrations here. */
 export const MIGRATIONS = [
   InitialSchema1792000000000,
@@ -192,4 +193,5 @@ export const MIGRATIONS = [
   ContactTrainingCentres1798300000000,
   DistrictOfficeCoordinatorNameBilingual1798400000000,
   EdpTalukaFreeText1798100000000,
+  StudentLmsLink1798510000000,
 ];

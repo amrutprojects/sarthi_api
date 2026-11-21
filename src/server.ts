@@ -4,6 +4,7 @@ import { appConfig } from './config/app.config';
 import { AppDataSource, initializeDatabase } from './config/database.config';
 import { logger } from './observability/logger';
 import { createApp } from './app';
+import { startLmsSyncPoller, stopLmsSyncPoller } from './modules/lms-sync';
 
 async function main() {
   await initializeDatabase();
@@ -19,11 +20,15 @@ async function main() {
   const server = createServer(createApp());
   server.listen(appConfig.port, () => logger.info({ port: appConfig.port, prefix: appConfig.apiPrefix }, 'server listening'));
 
+  /* M1 Amrut → LMS student sync: polls the students table when LMS_SYNC_ENABLED=true (no-op otherwise). */
+  startLmsSyncPoller();
+
   /* Graceful shutdown: stop accepting connections, finish in-flight requests, close the pool. */
   const shutdown = (signal: string) => {
     logger.info({ signal }, 'shutting down');
     server.close(() => {
-      AppDataSource.destroy()
+      stopLmsSyncPoller()
+        .then(() => AppDataSource.destroy())
         .catch((err) => logger.error({ err }, 'error closing database'))
         .finally(() => process.exit(0));
     });

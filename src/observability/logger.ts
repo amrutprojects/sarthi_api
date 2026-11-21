@@ -19,6 +19,11 @@ export const logger = pino({
       '*.token',
       '*.accessToken',
       '*.refreshToken',
+      /* API keys (LMS tenant key of the student sync, inbound X-Api-Key). */
+      'req.headers["x-api-key"]',
+      '*.apiKey',
+      '*["x-api-key"]',
+      '*["X-Api-Key"]',
     ],
     censor: '[REDACTED]',
   },
