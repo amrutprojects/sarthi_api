@@ -8,7 +8,7 @@ import {
   recordChecksum,
   type StudentSyncRow,
 } from '../../../src/modules/lms-sync/lms-payload';
-import { flagForLmsStatus } from '../../../src/modules/lms-sync/lms-sync.constants';
+import { flagForItem, flagForLmsStatus } from '../../../src/modules/lms-sync/lms-sync.constants';
 
 /* Synthetic student with every column filled, restricted ones included (they must never reach the payload). */
 const row = (over: Partial<StudentSyncRow> & Record<string, unknown> = {}): StudentSyncRow =>
@@ -160,4 +160,22 @@ describe('LMS status → sync flag', () => {
     ['ALLOTTED', 'SENT'],
     ['ON_HOLD', 'SENT'],
   ])('%s → %s', (lms, flag) => expect(flagForLmsStatus(lms)).toBe(flag));
+});
+
+/* M2-F1: an item of the LMS request view, with the outcome of that call. */
+describe('flagForItem (request view outcome)', () => {
+  const learner = '6f1c2a3b-0000-4000-8000-000000000001';
+  it.each([
+    ['unchanged re-send of a provisioned student', { status: 'PROVISIONED', outcome: 'SKIPPED_UNCHANGED' }, 'SYNCED'],
+    ['unchanged re-send, learner id only', { status: 'PENDING_ALLOTMENT', outcome: 'SKIPPED_UNCHANGED', learner_id: learner }, 'SYNCED'],
+    ['unchanged re-send, learner code only', { status: 'ALLOTTED', outcome: 'SKIPPED_UNCHANGED', learner_code: 'AMK-L-0000001' }, 'SYNCED'],
+    ['unchanged re-send still being processed', { status: 'RECEIVED', outcome: 'SKIPPED_UNCHANGED', learner_id: null }, 'SENT'],
+    ['unchanged re-send of a duplicate suspect', { status: 'DUPLICATE_SUSPECT', outcome: 'SKIPPED_UNCHANGED' }, 'REVIEW'],
+    ['unchanged re-send of a rejected record', { status: 'REJECTED', outcome: 'SKIPPED_UNCHANGED' }, 'FAILED'],
+    ['older copy of a provisioned student', { status: 'PROVISIONED', outcome: 'STALE' }, 'SYNCED'],
+    ['written and provisioned', { status: 'PROVISIONED', outcome: 'ACCEPTED' }, 'SYNCED'],
+    ['written, still waiting', { status: 'RECEIVED', outcome: 'ACCEPTED' }, 'SENT'],
+    ['an older LMS (no outcome)', { status: 'PROVISIONED' }, 'SYNCED'],
+    ['an older LMS, still waiting', { status: 'ALLOTTED' }, 'SENT'],
+  ])('%s', (_name, item, flag) => expect(flagForItem(item)).toBe(flag));
 });

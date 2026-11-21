@@ -25,6 +25,13 @@ export interface StudentStatusItem {
   learner_code?: string | null;
   account_status?: string | null;
   updated_at?: string;
+  /*
+   * Request view only (lms-api since M2-F1): what that call did with the record — ACCEPTED / INVALID (written),
+   * SKIPPED_UNCHANGED (same data, nothing written) or STALE (older copy, ignored) — and the learner it provisioned.
+   * Absent from an older LMS.
+   */
+  outcome?: string;
+  learner_id?: string | null;
 }
 export interface RequestStatusPage {
   intake_request_id: string;

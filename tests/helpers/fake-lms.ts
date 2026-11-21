@@ -78,10 +78,15 @@ export interface FakeRecord {
   status: string;
   reason_codes: string[];
   learner_code: string | null;
+  /* The LMS learner id once provisioned (lms-api answers it on the request view since M2-F1). */
+  learner_id?: string | null;
   updated_at: string;
   source_updated_at: string;
   payload: Record<string, unknown>;
 }
+
+/* What one POST /students call did with a record (lms-api request view `outcome`, M2-F1). */
+type FakeOutcome = 'ACCEPTED' | 'INVALID' | 'SKIPPED_UNCHANGED' | 'STALE';
 
 export class FakeLms {
   readonly apiKey: string;
@@ -91,7 +96,13 @@ export class FakeLms {
   /* external_student_ids the LMS answers with a field error (pin_code format). */
   readonly forceReject = new Set<string>();
   readonly records = new Map<string, FakeRecord>();
-  readonly requests = new Map<string, string[]>();
+  readonly requests = new Map<string, { id: string; outcome: FakeOutcome }[]>();
+  /*
+   * lms-api since M2-F1 lists EVERY record of a call on GET /students/requests/:id, skipped ones included (with
+   * `outcome`, the current status and the learner). false = the LMS before that fix: a record the call skipped
+   * (unchanged or older copy) is not listed under the new request (it stays under the call that wrote it).
+   */
+  listSkipped = true;
   readonly idempotency = new Map<string, { hash: string; answer: unknown }>();
   /* Every POST /students body that reached the handler (also during outages). */
   readonly sendBodies: { headers: http.IncomingHttpHeaders; body: { records: Record<string, unknown>[] } }[] = [];
@@ -129,6 +140,7 @@ export class FakeLms {
     if (!r) throw new Error(`fake LMS: no record ${externalId}`);
     r.status = 'PROVISIONED';
     r.learner_code = r.learner_code ?? `AMK-L-${String(++this.seq).padStart(7, '0')}`;
+    r.learner_id = r.learner_id ?? crypto.randomUUID();
     r.updated_at = this.tick();
   }
 
@@ -197,16 +209,18 @@ export class FakeLms {
           }
       const requestId = crypto.randomUUID();
       const rejected: { index: number; external_student_id: string | null; errors: { field: string; code: string }[] }[] = [];
-      const ids: string[] = [];
+      const ids: { id: string; outcome: FakeOutcome }[] = [];
       body.records.forEach((rec, index) => {
         const id = String(rec.external_student_id);
-        ids.push(id);
+        const entry: { id: string; outcome: FakeOutcome } = { id, outcome: 'ACCEPTED' };
+        ids.push(entry);
         const errors = REQUIRED.filter((f) => rec[f] === undefined || rec[f] === '').map((field) => ({ field, code: 'required' }));
         if (this.forceReject.has(id)) errors.push({ field: 'pin_code', code: 'format' });
         const { source_updated_at, ...payload } = rec;
         const existing = this.records.get(id);
         if (errors.length) {
           rejected.push({ index, external_student_id: id, errors });
+          entry.outcome = 'INVALID';
           this.records.set(id, {
             ...(existing ?? { learner_code: null }),
             external_student_id: id,
@@ -218,9 +232,15 @@ export class FakeLms {
           } as FakeRecord);
           return;
         }
-        if (existing && Date.parse(String(source_updated_at)) < Date.parse(existing.source_updated_at)) return; // STALE
+        if (existing && Date.parse(String(source_updated_at)) < Date.parse(existing.source_updated_at)) {
+          entry.outcome = 'STALE';
+          return;
+        }
         // SKIPPED_UNCHANGED (an INVALID record is validated again on a re-send)
-        if (existing && existing.status !== 'INVALID' && JSON.stringify(existing.payload) === JSON.stringify(payload)) return;
+        if (existing && existing.status !== 'INVALID' && JSON.stringify(existing.payload) === JSON.stringify(payload)) {
+          entry.outcome = 'SKIPPED_UNCHANGED';
+          return;
+        }
         if (existing) {
           existing.payload = payload;
           existing.source_updated_at = String(source_updated_at);
@@ -259,9 +279,16 @@ export class FakeLms {
       const page = Number(req.query.page ?? 1);
       const size = Number(req.query.page_size ?? 200);
       const items = ids
-        .map((id) => this.records.get(id))
-        .filter((r): r is FakeRecord => !!r)
-        .map((r) => ({ external_student_id: r.external_student_id, status: r.status, reason_codes: r.reason_codes }));
+        .filter((e) => this.listSkipped || e.outcome === 'ACCEPTED' || e.outcome === 'INVALID')
+        .map((e) => ({ e, r: this.records.get(e.id) }))
+        .filter((x): x is { e: { id: string; outcome: FakeOutcome }; r: FakeRecord } => !!x.r)
+        .map(({ e, r }) => ({
+          external_student_id: r.external_student_id,
+          status: r.status,
+          reason_codes: r.reason_codes,
+          /* The fields lms-api adds since M2-F1 (absent before it). */
+          ...(this.listSkipped ? { outcome: e.outcome, learner_id: r.learner_id ?? null, learner_code: r.learner_code } : {}),
+        }));
       res.json({
         intake_request_id: req.params.id,
         received_at: new Date().toISOString(),

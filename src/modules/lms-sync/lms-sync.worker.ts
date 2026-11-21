@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { DataSource } from 'typeorm';
-import { ELIGIBLE_STUDENT_SQL, SYNC_ERROR, flagForLmsStatus, reconcileCursorKey } from './lms-sync.constants';
+import { ELIGIBLE_STUDENT_SQL, SYNC_ERROR, flagForItem, reconcileCursorKey } from './lms-sync.constants';
 import { LmsError, backoffDelay, type LmsClient, type StudentStatusItem } from './lms-client';
 import {
   buildLmsRecord,
@@ -316,7 +316,7 @@ export function createLmsSyncWorker(o: LmsSyncWorkerOptions): LmsSyncWorker {
   /* Applies one LMS status to the student's link (by external_student_id = students.id). */
   async function applyStatus(item: StudentStatusItem, onlyRequestId?: string): Promise<boolean> {
     if (!item || typeof item.external_student_id !== 'string' || !UUID_RE.test(item.external_student_id)) return false;
-    const flag = flagForLmsStatus(item.status);
+    const flag = flagForItem(item);
     const reasons = Array.isArray(item.reason_codes) ? item.reason_codes.map(String) : [];
     const errorCode = flag === 'FAILED' ? `LMS_${item.status}` : flag === 'REVIEW' ? 'LMS_DUPLICATE_SUSPECT' : null;
     const details = flag === 'FAILED' || flag === 'REVIEW' ? reasons.map((code) => ({ code })) : [];
@@ -324,13 +324,14 @@ export function createLmsSyncWorker(o: LmsSyncWorkerOptions): LmsSyncWorker {
       `UPDATE "student_lms_link"
           SET "lmsStatus" = $3, "lmsReasonCodes" = $4::jsonb,
               "lmsLearnerCode" = COALESCE($5, "lmsLearnerCode"), "lastCheckedAt" = now(),
+              "lmsLearnerId" = COALESCE($10, "lmsLearnerId"),
               "syncStatus" = CASE WHEN "syncStatus" = 'PENDING' OR COALESCE("lastErrorCode", '') = ANY($9) THEN "syncStatus" ELSE $6 END,
               "lastSyncedAt" = CASE WHEN $6 = 'SYNCED' AND "syncStatus" <> 'PENDING' AND COALESCE("lastErrorCode", '') <> ALL($9)
                                     THEN now() ELSE "lastSyncedAt" END,
               "lastErrorCode" = CASE WHEN "syncStatus" = 'PENDING' OR COALESCE("lastErrorCode", '') = ANY($9) THEN "lastErrorCode" ELSE $7 END,
               "lastErrorDetails" = CASE WHEN "syncStatus" = 'PENDING' OR COALESCE("lastErrorCode", '') = ANY($9) THEN "lastErrorDetails"
                                         ELSE $8::jsonb END
-        WHERE "studentId" = $1 AND "lmsTenantCode" = $2 ${onlyRequestId ? 'AND "lmsRequestId" = $10' : ''}`,
+        WHERE "studentId" = $1 AND "lmsTenantCode" = $2 ${onlyRequestId ? 'AND "lmsRequestId" = $11' : ''}`,
       [
         item.external_student_id,
         tenant,
@@ -342,6 +343,8 @@ export function createLmsSyncWorker(o: LmsSyncWorkerOptions): LmsSyncWorker {
         JSON.stringify(details),
         /* INVALID is the LMS's view of a record it rejected: keep the field codes the send answer gave. */
         item.status === 'INVALID' ? [...LOCAL_ERRORS, SYNC_ERROR.LMS_REJECTED_FIELDS] : LOCAL_ERRORS,
+        /* The LMS learner id (request view since M2-F1); an answer without one keeps the stored id. */
+        typeof item.learner_id === 'string' && UUID_RE.test(item.learner_id) ? item.learner_id : null,
         ...(onlyRequestId ? [onlyRequestId] : []),
       ],
     );
@@ -362,10 +365,12 @@ export function createLmsSyncWorker(o: LmsSyncWorkerOptions): LmsSyncWorker {
         const res = await o.client!.getRequest(lmsRequestId, page, PAGE_SIZE);
         for (const item of res.items ?? []) {
           let it = item;
-          /* The request view has no learner code: read the student once it is provisioned. */
+          /* An older LMS's request view has no learner code: read the student once it is provisioned. */
           if (item.status === 'PROVISIONED' && !item.learner_code && lookups < learnerLookups) {
             lookups++;
-            it = (await o.client!.getStudent(item.external_student_id)) ?? item;
+            /* Keep the request-view fields (outcome, learner_id) the student view does not carry. */
+            const student = await o.client!.getStudent(item.external_student_id);
+            it = student ? { ...item, ...student } : item;
           }
           if (await applyStatus(it, lmsRequestId)) stats.followed++;
         }
