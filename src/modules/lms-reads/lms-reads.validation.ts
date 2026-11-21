@@ -49,3 +49,7 @@ export type LmsSummaryQuery = z.infer<typeof lmsSummaryQuery>;
 export type LmsListQuery = z.infer<typeof lmsListQuery>;
 export type LmsLiveSessionsQuery = z.infer<typeof lmsLiveSessionsQuery>;
 export type LmsAttendanceQuery = z.infer<typeof lmsAttendanceQuery>;
+
+/* G-2: PUT /lms-reads/live-data switches "Show live LMS data" on or off. */
+export const liveDataBody = z.object({ enabled: z.boolean() }).strict();
+export type LiveDataBody = z.infer<typeof liveDataBody>;

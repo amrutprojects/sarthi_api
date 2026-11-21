@@ -20,6 +20,7 @@ import { LMS_ENTITIES } from '../lms/lms.entities';
 import { EDP_ENTITIES } from '../modules/students/edp/edp.entities';
 import { StudentLmsLink } from '../modules/lms-sync/student-lms-link.entity';
 import { ApiKey } from '../modules/api-keys/api-key.entity';
+import { PanelSetting } from '../modules/lms-reads/panel-setting.entity';
 import { LmsStudentRequest, LmsStudentReview } from '../modules/students/lms-integration/lms-integration.entities';
 
 export { AppBaseEntity } from './base.entity';
@@ -73,4 +74,6 @@ export const ENTITIES = [
   ApiKey,
   LmsStudentRequest,
   LmsStudentReview,
+  /* G-2: Panel settings changed at run time ("Show live LMS data"). */
+  PanelSetting,
 ];
