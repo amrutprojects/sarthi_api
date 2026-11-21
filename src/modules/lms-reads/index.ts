@@ -15,3 +15,6 @@ export {
   type LiveDataState,
 } from './live-data-setting.service';
 export { LIVE_DATA_SETTING_PERMISSIONS } from './lms-reads.constants';
+/* M3 attendance reports (src/modules/attendance-reports) read through this service. */
+export type { LmsReadResult } from './lms-reads.service';
+export type { LmsAttendance, LmsAttendanceRow, LmsBatch } from './lms-reads.mappers';
