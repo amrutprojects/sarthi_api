@@ -1,0 +1,119 @@
+# Amrut-issued API keys and the LMS student endpoints (M1)
+
+The LMS calls Amrut with a key **Amrut issues** (contract `lms-api/docs/contracts/multi-tenant/amrut-student-api.md`).
+An Amrut admin generates the key in the Admin Panel and gives it to the LMS Super Admin, who enters it in the LMS
+tenant's `AMRUT` provider config (`base_url` = this API's origin, secret `api_key`). This page documents the
+key-management endpoints for the Panel screens, the LMS endpoints, and the review queue. Machine-readable:
+`GET /api/v1/openapi.json` (tags _API keys_, _LMS integration (X-Api-Key)_, _LMS integration reviews_).
+
+All admin endpoints use the standard envelope `{ success, status, message, data, meta? }` and the usual session
+(cookie + `X-CSRF-Token`, or bearer). Errors: `{ success: false, status, message, data: null, error: { code, details?, requestId } }`.
+
+## 1. Key management — `/api/v1/api-keys`
+
+Permissions follow the **LMS Integration** menu (`lms.*`). Every change is written to the audit log
+(`api_key.created`, `api_key.rotated`, `api_key.revoked`; a refused call with a known key: `api_key.denied`).
+The secret never appears in the audit log, in a log line or in any later answer.
+
+### The key object (`ApiKey`)
+
+```json
+{
+  "id": "uuid",
+  "label": "LMS – production",
+  "prefix": "3f9a1c0b7d2e",
+  "displayPrefix": "amk_3f9a1c0b7d2e_…",
+  "scopes": ["lms.students.match", "lms.students.create", "lms.students.update"],
+  "status": "ACTIVE",
+  "state": "ACTIVE",
+  "expiresAt": null,
+  "createdAt": "2026-11-21T10:00:00.000Z",
+  "createdById": "uuid",
+  "rotatedAt": null,
+  "rotatedById": null,
+  "replacedById": null,
+  "rotatedFromId": null,
+  "revokedAt": null,
+  "revokedById": null,
+  "revokedReason": null,
+  "lastUsedAt": null
+}
+```
+
+- `status` is stored (`ACTIVE` | `REVOKED`); **`state` is what to show**: `ACTIVE`, `EXPIRING` (rotated, still
+  accepted until `expiresAt`), `EXPIRED`, `REVOKED`.
+- `lastUsedAt` is refreshed at most once a minute.
+- `replacedById` / `rotatedFromId` link the two keys of a rotation.
+
+### Endpoints
+
+| Method and path                 | Permission   | Body                                                                     | Answer                                                    |
+| ------------------------------- | ------------ | ------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `GET /api-keys?state=`          | `lms.view`   | –  (`state` optional: `ACTIVE` · `EXPIRING` · `EXPIRED` · `REVOKED`)      | 200 `data: ApiKey[]` (newest first)                       |
+| `GET /api-keys/:id`             | `lms.view`   | –                                                                        | 200 `data: ApiKey`; 404                                   |
+| `POST /api-keys`                | `lms.create` | `{ label (2–100), scopes?: string[], expiresAt?: ISO date-time \| null }` | 201 `data: { key: ApiKey, secret }`; 400 past expiry; 422 |
+| `POST /api-keys/:id/rotate`     | `lms.update` | `{ overlapMinutes?: 0–10080 }` (default 1440 = one day)                  | 201 `data: { key: ApiKey, secret, previous: ApiKey }`; 404; 409 not active |
+| `POST /api-keys/:id/revoke`     | `lms.delete` | `{ reason (3–300) }`                                                     | 200 `data: ApiKey`; 404; 409 already revoked              |
+
+- **`secret` is returned once** (generate and rotate; answers carry `Cache-Control: no-store`). The screen must show
+  it with a copy button and a clear "you will not see this again" warning. Format: `amk_<12 hex>_<43 base64url>`.
+- `scopes` default to all three; the LMS needs all three.
+- **Rotate:** a new key with the same label and scopes; the old key keeps working for `overlapMinutes` (0 stops it
+  at once) so the LMS Super Admin can paste the new key without an outage. A key that is not `ACTIVE` cannot be rotated.
+  An expiry set on the old key carries over to the new one.
+- **Revoke:** refused from the next request. Use it when a key may have leaked (rotation with overlap 0 is the
+  alternative when a replacement is needed at once).
+
+## 2. LMS endpoints — `/api/v1/lms-integration` (header `X-Api-Key`)
+
+Called by the LMS server only; no session. Success bodies are the contract's (no envelope). Any key failure
+(missing, malformed, unknown, revoked, expired, missing scope) → **401** `error.code = "API_KEY_INVALID"`.
+Errors carry `{field, code}` pairs only (in `details` and `error.details`), never a value.
+
+| Call                                  | Scope                 | Answers                                                                                                                             |
+| ------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /lms-integration/students/match` | `lms.students.match`  | 200 `{ result: NONE \| MATCH \| POSSIBLE, tier, student_id, student_code }`; 400                                                     |
+| `POST /lms-integration/students`       | `lms.students.create` | 201 `CREATED` · 200 `MATCHED` · 202 `REVIEW` (`{ result, student_id, student_code? }`); 400 `VALIDATION_FAILED`; 422 `IDEMPOTENCY_KEY_REUSED` |
+| `PATCH /lms-integration/students/:id`  | `lms.students.update` | 200 `{ result: "UPDATED" }`; 400; 404 `NOT_FOUND`; 409 `STALE`                                                                       |
+
+- **Match tiers are the import's** (T0 source record ID, T1 Aadhaar blind index, T2 name + date of birth + mobile or
+  email, T3 mobile or email), computed over values normalised by the import's own validator. MATCH = T0, or T1 with
+  the same name and date of birth; POSSIBLE = T1 with a different name or date of birth, or T2; T3 = NONE with
+  `tier: "T3"` (information only).
+- **Create-or-match** requires `Idempotency-Key` and the LMS mandatory set (first/last name, father's and mother's
+  name, email, date of birth, gender, permanent address, landmark, district, taluka, division, PIN code, mobile) plus
+  `lms_tenant_code` and `lms_learner_ref`; the import-only fields (Aadhaar, religion, caste, current address, course
+  centre, technology, education) are optional, but must be valid when sent.
+  - MATCH → 200 MATCHED, nothing created. POSSIBLE → 202 REVIEW (see §3). Otherwise → 201 CREATED: a student with
+    `source = 'LMS'`, code `LMS-000001…`, a registration number, status `RECEIVED`, `externalStatus = 'LMS'`.
+  - Idempotent per (`lms_tenant_code`, `Idempotency-Key`): a retry replays the answer; the same key with a different
+    body → 422. A second call for the same `lms_learner_ref` (new key) returns the same student or the same review.
+  - All LMS creates are serialised by one database lock, so two creates of one person never both create.
+- **PATCH** accepts the person's own details (`first_name`, `last_name`, `father_name`, `mother_name`, `email`,
+  `date_of_birth`, `mobile_number`, `gender`, `marital_status`, `permanent_address`, `landmark`, `district`, `taluka`,
+  `division`, `pin_code`, `alternate_mobile_number`, `alternate_email`) plus `source_updated_at`. Never the Aadhaar
+  number or the source record ID (400 `not_allowed`). `STALE` when `source_updated_at` is older than Amrut's last
+  change to the student; a correction that changes nothing answers UPDATED (safe to retry).
+
+## 3. Review queue — `/api/v1/lms-integration-reviews`
+
+LMS creates answered **202 REVIEW** wait here for Amrut's **same-person / different-person decision** — the
+import's workflow (decision words `SAME_PERSON` · `DIFFERENT_PERSON` · `HOLD`, audit action `reconciliation.decided`,
+permissions `imports.view` / `imports.update`).
+
+| Method and path                               | Permission       | Body                       | Answer                                       |
+| --------------------------------------------- | ---------------- | -------------------------- | -------------------------------------------- |
+| `GET /lms-integration-reviews?status=&page=&limit=` | `imports.view`   | – (`status`: `PENDING` \| `DECIDED`) | 200 paged `LmsStudentReview[]`                |
+| `GET /lms-integration-reviews/:id`            | `imports.view`   | –                          | 200 `LmsStudentReview`; 404                  |
+| `POST /lms-integration-reviews/:id/decide`    | `imports.update` | `{ decision, reason (3–500) }` | 200 `LmsStudentReview`; 404; 409 decided     |
+
+`LmsStudentReview`: `id` (also the `student_id` the LMS was given), `status`, `lmsTenantCode`, `lmsLearnerRef`,
+`name`, `fatherName`, `motherName`, `dateOfBirth`, masked `email` / `mobile` / `aadhaar`, `gender`, `districtName`,
+`talukaName`, `match { tier, studentId, studentCode, note }`, `decision`, `decisionReason`, `decidedById`,
+`decidedAt`, `studentId`, `createdAt`.
+
+- `SAME_PERSON`: linked to the matched student; nothing in the register changes.
+- `DIFFERENT_PERSON`: a new `LMS-…` student is created with the review's id.
+- `HOLD`: stays pending. A decided review cannot be decided again.
+- The LMS learns the outcome by repeating its create (same `Idempotency-Key` or same `lms_learner_ref`):
+  202 while pending, then 200 MATCHED (same person) or 201 CREATED (different person).

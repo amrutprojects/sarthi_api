@@ -19,6 +19,8 @@ import { MASTER_ENTITIES } from '../masters/masters.entities';
 import { LMS_ENTITIES } from '../lms/lms.entities';
 import { EDP_ENTITIES } from '../modules/students/edp/edp.entities';
 import { StudentLmsLink } from '../modules/lms-sync/student-lms-link.entity';
+import { ApiKey } from '../modules/api-keys/api-key.entity';
+import { LmsStudentRequest, LmsStudentReview } from '../modules/students/lms-integration/lms-integration.entities';
 
 export { AppBaseEntity } from './base.entity';
 export { Caste, DocumentType, Education, Region };
@@ -67,4 +69,8 @@ export const ENTITIES = [
   ...EDP_ENTITIES,
   /* M1 Amrut → LMS student sync. */
   StudentLmsLink,
+  /* M1: Amrut-issued API keys (X-Api-Key) and the LMS student endpoints' requests and reviews. */
+  ApiKey,
+  LmsStudentRequest,
+  LmsStudentReview,
 ];
