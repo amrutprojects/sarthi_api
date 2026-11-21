@@ -10,6 +10,8 @@ import './modules/students/students.openapi';
 import './modules/students/edp/edp.openapi';
 import './modules/masters/masters.openapi';
 import './modules/lms-access/lms-access.openapi';
+import './modules/api-keys/api-keys.openapi';
+import './modules/students/lms-integration/lms-integration.openapi';
 import './cms/cms.openapi';
 
 export { documentedRoutes } from './shared/openapi/registry';

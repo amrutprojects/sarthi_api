@@ -42,6 +42,8 @@ import {
   publicLiveDashboardRouter,
 } from './cms';
 import { lmsRouter } from './lms';
+import { apiKeyRouter } from './modules/api-keys/api-key.routes';
+import { lmsIntegrationStudentRouter, lmsReviewRouter } from './modules/students/lms-integration/lms-integration.routes';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
 export const apiRouter = Router();
@@ -57,6 +59,10 @@ apiRouter.use('/student-registrations', registrationRouter);
 apiRouter.use('/permissions', permissionRouter);
 apiRouter.use('/audit-logs', auditLogRouter);
 apiRouter.use('/lms-access', lmsAccessRouter);
+/* M1: Amrut-issued API keys, the LMS student endpoints (X-Api-Key, no session) and their review queue. */
+apiRouter.use('/api-keys', apiKeyRouter);
+apiRouter.use('/lms-integration', lmsIntegrationStudentRouter);
+apiRouter.use('/lms-integration-reviews', lmsReviewRouter);
 for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
 
 /* CMS content, geography masters and the Masters group. Every route under /cms requires a session (see src/cms/index.ts). */

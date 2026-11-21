@@ -22,6 +22,13 @@ registry.registerComponent('securitySchemes', 'bearerAuth', {
   bearerFormat: 'JWT',
   description: 'API clients: POST /auth/login with header X-Auth-Mode: bearer returns accessToken.',
 });
+registry.registerComponent('securitySchemes', 'apiKeyAuth', {
+  type: 'apiKey',
+  in: 'header',
+  name: 'X-Api-Key',
+  description:
+    'Server-to-server calls (M1: the LMS) with a key issued in the Admin Panel (/api-keys). Any key failure is 401 API_KEY_INVALID.',
+});
 
 export const ErrorDetailSchema = z.object({ field: z.string().optional(), message: z.string() });
 export const ErrorEnvelope = registry.register(
@@ -76,6 +83,8 @@ interface EndpointDoc {
   status?: number;
   idempotent?: boolean;
   errors?: number[];
+  /* Called with an Amrut-issued key (X-Api-Key) holding this scope instead of a session; use with permission 'public'. */
+  apiKeyScope?: string;
 }
 
 /* Documented routes, used by the contract test to compare against the Express router. */
@@ -88,6 +97,7 @@ export function documentEndpoint(doc: EndpointDoc): void {
   const perms = isPublic || doc.permission === null ? [] : ([] as string[]).concat(doc.permission);
   const errors = new Set([
     ...(isPublic ? [] : [401, 403]),
+    ...(doc.apiKeyScope ? [401] : []),
     ...(doc.request?.body || doc.request?.query || doc.request?.params ? [422] : []),
     ...(doc.errors ?? []),
     429,
@@ -101,16 +111,18 @@ export function documentEndpoint(doc: EndpointDoc): void {
     summary: doc.summary,
     description: [
       doc.description,
-      perms.length
-        ? `**Permission:** ${perms.map((p) => `\`${p}\``).join(' or ')}`
-        : isPublic
-          ? '**Public.**'
-          : '**Any authenticated user.**',
+      doc.apiKeyScope
+        ? `**API key:** \`X-Api-Key\` with scope \`${doc.apiKeyScope}\`.`
+        : perms.length
+          ? `**Permission:** ${perms.map((p) => `\`${p}\``).join(' or ')}`
+          : isPublic
+            ? '**Public.**'
+            : '**Any authenticated user.**',
       doc.idempotent ? 'Supports the `Idempotency-Key` header: a retry with the same key and body returns the first response.' : '',
     ]
       .filter(Boolean)
       .join('\n\n'),
-    security: isPublic ? [] : [{ cookieAuth: [] }, { bearerAuth: [] }],
+    security: doc.apiKeyScope ? [{ apiKeyAuth: [] }] : isPublic ? [] : [{ cookieAuth: [] }, { bearerAuth: [] }],
     request: {
       ...(doc.request?.params ? { params: doc.request.params } : {}),
       ...(doc.request?.query ? { query: doc.request.query as z.AnyZodObject } : {}),

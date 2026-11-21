@@ -18,6 +18,8 @@ import { CMS_ENTITIES, ContactOrganization, ContactPageSettings, District, State
 import { MASTER_ENTITIES } from '../masters/masters.entities';
 import { LMS_ENTITIES } from '../lms/lms.entities';
 import { EDP_ENTITIES } from '../modules/students/edp/edp.entities';
+import { ApiKey } from '../modules/api-keys/api-key.entity';
+import { LmsStudentRequest, LmsStudentReview } from '../modules/students/lms-integration/lms-integration.entities';
 
 export { AppBaseEntity } from './base.entity';
 export { Caste, DocumentType, Education, Region };
@@ -64,4 +66,8 @@ export const ENTITIES = [
   ...LMS_ENTITIES,
   /* EDP portal (edp.sumago.ai): accounts, drafts, draft files, tracking-panel sign-ins. */
   ...EDP_ENTITIES,
+  /* M1: Amrut-issued API keys (X-Api-Key) and the LMS student endpoints' requests and reviews. */
+  ApiKey,
+  LmsStudentRequest,
+  LmsStudentReview,
 ];
