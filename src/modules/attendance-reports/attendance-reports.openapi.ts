@@ -28,7 +28,14 @@ const counts = {
 
 export const AttendanceReportsStatusDto = registry.register(
   'AttendanceReportsStatus',
-  z.object({ enabled: z.boolean(), configured: z.boolean(), cacheSeconds: int, timeoutMs: int }),
+  z.object({
+    enabled: z.boolean().describe('LMS_READS_ENABLED (server master switch)'),
+    configured: z.boolean(),
+    liveData: z.boolean().describe('Panel setting "Show live LMS data"'),
+    live: z.boolean().describe('enabled && liveData && configured: reports can be read now'),
+    cacheSeconds: int,
+    timeoutMs: int,
+  }),
 );
 
 export const AttendanceReportDto = registry.register(
@@ -61,7 +68,8 @@ documentEndpoint({
   path: '/attendance-reports/status',
   tag,
   summary: 'Whether attendance reports can be read from the LMS now',
-  description: 'Mirrors the M1 LMS read switch and link configuration. Never calls the LMS and never returns the key or URL.',
+  description:
+    'Mirrors the M1 LMS read switch, the "Show live LMS data" setting and the link configuration. Never calls the LMS and never returns the key or URL.',
   permission: [...ATTENDANCE_REPORT_PERMISSIONS],
   response: envelope(AttendanceReportsStatusDto),
 });
@@ -75,7 +83,7 @@ documentEndpoint({
     'Source: `GET /tenant/v1/attendance` (scope delivery.read; batch level also `GET /tenant/v1/batches`, scope stats.read) ' +
     'through the M1 read client, reused for `LMS_READS_CACHE_SECONDS`. LMS codes are named from Amrut’s District and ' +
     'Training Centre masters; divisions from the Maharashtra division table. Drill down with `division`, `district`, `centre`. ' +
-    '404 `LMS_READS_DISABLED` while LMS reads are off; 503 `LMS_NOT_CONFIGURED` without the LMS link; 503 `LMS_TIMEOUT` / ' +
+    '404 `LMS_READS_DISABLED` while LMS reads are off; 404 `LMS_LIVE_DATA_OFF` while the setting "Show live LMS data" is off; 503 `LMS_NOT_CONFIGURED` without the LMS link; 503 `LMS_TIMEOUT` / ' +
     '`LMS_UNREACHABLE` / `LMS_UNAVAILABLE` / `LMS_RATE_LIMITED` / `LMS_KEY_REJECTED` / `LMS_BAD_ANSWER` when the LMS cannot be used.',
   permission: [...ATTENDANCE_REPORT_PERMISSIONS],
   request: { query: attendanceReportQuery },

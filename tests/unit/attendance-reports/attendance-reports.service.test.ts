@@ -22,6 +22,7 @@ function deps(over: Partial<AttendanceReportsDeps> = {}) {
   const calls: unknown[] = [];
   const d = {
     status: () => ({ enabled: true, configured: true, cacheSeconds: 30, timeoutMs: 8000 }),
+    liveDataOn: jest.fn(async () => true),
     attendance: jest.fn(async (q: Parameters<AttendanceReportsDeps['attendance']>[0]) => {
       calls.push(q);
       return {
@@ -77,6 +78,37 @@ describe('AttendanceReportsService', () => {
     const { d } = deps({ attendance: jest.fn(async () => Promise.reject(refused)) });
     await expect(new AttendanceReportsService(d).report(q({}))).rejects.toBe(refused);
     expect(d.masters).not.toHaveBeenCalled();
+  });
+
+  it('G-2 setting off: 404 LMS_LIVE_DATA_OFF, nothing asked of the LMS, no master read', async () => {
+    const { d } = deps({ liveDataOn: jest.fn(async () => false) });
+    await expect(new AttendanceReportsService(d).report(q({ level: 'district' }))).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'LMS_LIVE_DATA_OFF',
+    });
+    expect(d.attendance).not.toHaveBeenCalled();
+    expect(d.batches).not.toHaveBeenCalled();
+    expect(d.masters).not.toHaveBeenCalled();
+  });
+
+  it('master switch off: left to the read service (LMS_READS_DISABLED), whatever the setting says', async () => {
+    const disabled = new AppError(404, 'LMS reads are switched off', 'LMS_READS_DISABLED');
+    const liveDataOn = jest.fn(async () => false);
+    const { d } = deps({
+      status: () => ({ enabled: false, configured: true, cacheSeconds: 30, timeoutMs: 8000 }),
+      liveDataOn,
+      attendance: jest.fn(async () => Promise.reject(disabled)),
+    });
+    await expect(new AttendanceReportsService(d).report(q({}))).rejects.toBe(disabled);
+    expect(liveDataOn).not.toHaveBeenCalled();
+  });
+
+  it('status reports the setting and whether reports are live', async () => {
+    expect(await new AttendanceReportsService(deps().d).status()).toMatchObject({ enabled: true, liveData: true, live: true });
+    const off = deps({ liveDataOn: jest.fn(async () => false) }).d;
+    expect(await new AttendanceReportsService(off).status()).toMatchObject({ liveData: false, live: false });
+    const noLink = deps({ status: () => ({ enabled: true, configured: false, cacheSeconds: 30, timeoutMs: 8000 }) }).d;
+    expect(await new AttendanceReportsService(noLink).status()).toMatchObject({ liveData: true, live: false });
   });
 });
 

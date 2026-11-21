@@ -7,7 +7,7 @@ import type { AttendanceReportQuery } from './attendance-reports.validation';
 
 export const attendanceReportsController = {
   status: asyncHandler(async (_req: Request, res: Response) => {
-    ApiResponse.ok(res, attendanceReportsService.status(), 'Attendance report status retrieved successfully');
+    ApiResponse.ok(res, await attendanceReportsService.status(), 'Attendance report status retrieved successfully');
   }),
   /* Same source headers as /lms-reads: X-Lms-Fetched-At (when the LMS produced the counts) and X-Lms-Cache. */
   report: asyncHandler(async (req: Request, res: Response) => {

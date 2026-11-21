@@ -61,7 +61,11 @@ beforeAll(async () => {
   lms = await startFakeLmsReads();
   admin = (await superAdmin()).token;
   await seedMasters();
+  /* G-2: the Panel setting "Show live LMS data" is on for every test unless one switches it off. */
+  await AppDataSource.query(`INSERT INTO "panel_settings" ("key", "value") VALUES ('lms.live_data', '{"enabled": true}')`);
 });
+const setLiveData = (enabled: boolean) =>
+  AppDataSource.query(`UPDATE "panel_settings" SET "value" = $1 WHERE "key" = 'lms.live_data'`, [JSON.stringify({ enabled })]);
 afterAll(async () => {
   setEnv(original);
   await lms.close();
@@ -178,6 +182,38 @@ describe('reports', () => {
 });
 
 describe('not available', () => {
+  it('"Show live LMS data" off: 404 LMS_LIVE_DATA_OFF at every level, nothing reaches the LMS, status says so', async () => {
+    await setLiveData(false);
+    try {
+      for (const level of ['division', 'district', 'centre', 'batch']) {
+        const res = await get(`?level=${level}`);
+        expect(res.status).toBe(404);
+        expect(res.body.error.code).toBe('LMS_LIVE_DATA_OFF');
+        expect(res.body.data ?? null).toBeNull();
+      }
+      expect(lms.calls).toHaveLength(0);
+      const status = await get('/status');
+      check(envelope(AttendanceReportsStatusDto), status.body);
+      expect(status.body.data).toMatchObject({ enabled: true, configured: true, liveData: false, live: false });
+    } finally {
+      await setLiveData(true);
+    }
+    expect((await get('/status')).body.data).toMatchObject({ liveData: true, live: true });
+  });
+
+  it('master switch off wins over the setting: 404 LMS_READS_DISABLED, as on the other LMS screens', async () => {
+    setEnv({ LMS_READS_ENABLED: false });
+    await setLiveData(true);
+    expect((await get('')).body.error.code).toBe('LMS_READS_DISABLED');
+    await setLiveData(false);
+    try {
+      expect((await get('')).body.error.code).toBe('LMS_READS_DISABLED');
+    } finally {
+      await setLiveData(true);
+    }
+    expect(lms.calls).toHaveLength(0);
+  });
+
   it('reads off: 404 LMS_READS_DISABLED, and status says so', async () => {
     setEnv({ LMS_READS_ENABLED: false });
     const res = await get('');
@@ -187,7 +223,7 @@ describe('not available', () => {
     const status = await get('/status');
     expect(status.status).toBe(200);
     check(envelope(AttendanceReportsStatusDto), status.body);
-    expect(status.body.data).toMatchObject({ enabled: false });
+    expect(status.body.data).toMatchObject({ enabled: false, live: false });
   });
 
   it('LMS link not configured: 503 LMS_NOT_CONFIGURED', async () => {

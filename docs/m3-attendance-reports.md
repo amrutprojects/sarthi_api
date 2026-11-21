@@ -18,7 +18,7 @@ locations reach Amrut.
 
 | Method | Path | Answer |
 | --- | --- | --- |
-| GET | `/api/v1/attendance-reports/status` | `{enabled, configured, cacheSeconds, timeoutMs}` — never calls the LMS, never returns the key or URL |
+| GET | `/api/v1/attendance-reports/status` | `{enabled, configured, liveData, live, cacheSeconds, timeoutMs}` — `liveData` is the setting "Show live LMS data", `live` = all three on; never calls the LMS, never returns the key or URL |
 | GET | `/api/v1/attendance-reports` | the report (below) |
 
 Query: `level` = `division` (default) \| `district` \| `centre` \| `batch`; `dateFrom`, `dateTo` (YYYY-MM-DD, LMS
@@ -57,7 +57,7 @@ Permissions (any one): `attendance.view`, `reports.view`, `lms.view`. The Panel 
 | Situation | API | Screen |
 | --- | --- | --- |
 | LMS reads off (`LMS_READS_ENABLED=false`) | 404 `LMS_READS_DISABLED`; status `enabled:false` | "Live LMS data is switched off" |
-| G-2 setting "Show live LMS data" off | 404 `LMS_LIVE_DATA_OFF` (once G-2 is merged, see below) | same |
+| G-2 setting "Show live LMS data" off (master switch on) | 404 `LMS_LIVE_DATA_OFF`; status `liveData:false` | same |
 | LMS link not configured | 503 `LMS_NOT_CONFIGURED`; status `configured:false` | "The LMS link is not configured" |
 | LMS down / slow / key refused / rate limited | 503 `LMS_UNAVAILABLE` / `LMS_TIMEOUT` / `LMS_UNREACHABLE` / `LMS_KEY_REJECTED` / `LMS_RATE_LIMITED` | "The LMS cannot be reached right now" with the code and Try again |
 | No attendance in range | 200, `rows: []` | "No attendance in this range" |
@@ -71,12 +71,12 @@ role name only), so every permitted user sees the whole of Amrut. When an assign
 place to apply it: intersect the request's `division` / `district` with the user's area before `buildReport`, and
 refuse a filter outside it.
 
-## Merge note — G-2 "Show live LMS data"
+## G-2 "Show live LMS data"
 
-G-2 (branch `claude/mt-g2-live-data-setting-*`, not merged when M3 was built) adds a `liveDataGate` to the `/lms-reads`
-data routes. M3's routes live in their own router, so after both are merged add the same gate to
-`GET /attendance-reports` (between the permission check and validation) and report the setting in `/status`. The
-screen already handles `LMS_LIVE_DATA_OFF`.
+The report follows the same two switches as the other LMS screens (`/lms-reads` liveDataGate): the master switch
+`LMS_READS_ENABLED` first (off → 404 `LMS_READS_DISABLED`, whatever the setting), then the Panel setting (off → 404
+`LMS_LIVE_DATA_OFF`). The check sits in `AttendanceReportsService.report` (`liveDataSettingService.isOn()`), before any
+LMS call or master read, so no figures leave the server while live data is off.
 
 ## Tests
 

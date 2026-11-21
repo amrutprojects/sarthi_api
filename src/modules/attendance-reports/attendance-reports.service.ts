@@ -1,4 +1,14 @@
-import { lmsReadsService, type LmsAttendance, type LmsBatch, type LmsReadResult, type LmsReadsStatus } from '../lms-reads';
+import { HTTP_STATUS } from '../../constants/api-response.constants';
+import { AppError } from '../../shared/errors/app-error';
+import {
+  LIVE_DATA_OFF,
+  liveDataSettingService,
+  lmsReadsService,
+  type LmsAttendance,
+  type LmsBatch,
+  type LmsReadResult,
+  type LmsReadsStatus,
+} from '../lms-reads';
 import { buildReport, type BuiltReport, type ReportMasters } from './attendance-report.builder';
 import { BATCH_MAX_PAGES, BATCH_PAGE_SIZE } from './attendance-reports.constants';
 import { loadReportMasters } from './attendance-reports.masters';
@@ -10,7 +20,18 @@ import type { AttendanceReportQuery } from './attendance-reports.validation';
  * masters. Nothing is stored. The M1 client's switches and errors apply unchanged: 404 LMS_READS_DISABLED while the
  * reads are off, 503 LMS_NOT_CONFIGURED without the LMS link, 503 LMS_TIMEOUT / LMS_UNREACHABLE / LMS_UNAVAILABLE /
  * LMS_KEY_REJECTED … when the LMS cannot be used. The key never leaves the server.
+ *
+ * G-2 "Show live LMS data": like the other LMS screens (lms-reads.routes.ts liveDataGate), the master switch
+ * LMS_READS_ENABLED is checked first (off → 404 LMS_READS_DISABLED), then the Panel setting (off → 404
+ * LMS_LIVE_DATA_OFF). Either way nothing reaches the LMS and no figures are returned.
  */
+export interface AttendanceReportsStatus extends LmsReadsStatus {
+  /* The Panel setting "Show live LMS data" (stored choice). */
+  liveData: boolean;
+  /* Reports can be read now: master switch, setting and LMS link all on. */
+  live: boolean;
+}
+
 export interface AttendanceReport extends BuiltReport {
   dateFrom: string | null;
   dateTo: string | null;
@@ -24,6 +45,8 @@ export interface AttendanceReportResult {
 
 export interface AttendanceReportsDeps {
   status(): LmsReadsStatus;
+  /* G-2 setting "Show live LMS data". */
+  liveDataOn(): Promise<boolean>;
   attendance(q: {
     groupBy: 'district' | 'division' | 'centre' | 'batch';
     dateFrom?: string;
@@ -36,6 +59,7 @@ export interface AttendanceReportsDeps {
 
 const defaultDeps: AttendanceReportsDeps = {
   status: () => lmsReadsService.status(),
+  liveDataOn: () => liveDataSettingService.isOn(),
   attendance: (q) => lmsReadsService.attendance(q),
   batches: (q) => lmsReadsService.batches(q),
   masters: loadReportMasters,
@@ -45,8 +69,17 @@ export class AttendanceReportsService {
   constructor(private readonly deps: AttendanceReportsDeps = defaultDeps) {}
 
   /* Whether reports can be read now (never calls the LMS, never returns the key or URL). */
-  status(): LmsReadsStatus {
-    return this.deps.status();
+  async status(): Promise<AttendanceReportsStatus> {
+    const s = this.deps.status();
+    const liveData = await this.deps.liveDataOn();
+    return { ...s, liveData, live: s.enabled && liveData && s.configured };
+  }
+
+  /* G-2 gate: master switch off is left to the read service (404 LMS_READS_DISABLED, as on /lms-reads). */
+  private async assertLive(): Promise<void> {
+    if (!this.deps.status().enabled) return;
+    if (!(await this.deps.liveDataOn()))
+      throw new AppError(HTTP_STATUS.NOT_FOUND, 'Live LMS data is switched off (System Settings)', LIVE_DATA_OFF);
   }
 
   /* LMS batch code → centre code, over the LMS's batch pages (bounded by BATCH_MAX_PAGES). */
@@ -62,6 +95,7 @@ export class AttendanceReportsService {
   }
 
   async report(q: AttendanceReportQuery): Promise<AttendanceReportResult> {
+    await this.assertLive();
     /* The LMS read first: it carries the switch and configuration checks, so a refused report reads no master. */
     const lms = await this.deps.attendance({ groupBy: q.level, dateFrom: q.dateFrom, dateTo: q.dateTo, entityCode: q.entityCode });
     const [masters, batchCentres] = await Promise.all([
