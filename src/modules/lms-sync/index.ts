@@ -5,3 +5,5 @@
 export * from './lms-sync.constants';
 export * from './student-lms-link.entity';
 export { startLmsSyncPoller, stopLmsSyncPoller, triggerLmsSync } from './lms-sync.runtime';
+/* Shared with the Panel's LMS read client (src/modules/lms-reads). */
+export { parseRetryAfter, tenantBaseUrl } from './lms-client';

@@ -156,6 +156,17 @@ const schema = z.object({
   LMS_HTTP_TIMEOUT_MS: z.coerce.number().int().min(500).max(120_000).default(15_000),
 
   /*
+   * M1 Panel reads of LMS data through /tenant/v1 (src/modules/lms-reads, docs/lms-reads/README.md), with the same
+   * LMS_EXTERNAL_BASE_URL and LMS_TENANT_API_KEY as the sync (the key also needs stats.read, delivery.read and
+   * sessions.read). Off by default: the /lms-reads data routes answer 404 and no read goes to the LMS.
+   */
+  LMS_READS_ENABLED: bool,
+  /* Timeout of one read call to the LMS (a Panel screen waits on it, so shorter than the sync's). */
+  LMS_READS_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(8_000),
+  /* Seconds an LMS answer is reused by the Panel API (in memory, per process); 0 = every request asks the LMS. */
+  LMS_READS_CACHE_SECONDS: z.coerce.number().int().min(0).max(600).default(30),
+
+  /*
    * EDP portal (edp.sumago.ai). EDP_JWT_SECRET signs the portal's and its tracking panel's tokens; unset = a key derived
    * from JWT_SECRET. Either way it differs from JWT_SECRET, so portal tokens are never accepted by the admin API.
    */
@@ -277,9 +288,11 @@ if (raw.NODE_ENV === 'production' && /CHANGE_ME|REPLACE_WITH/i.test(raw.JWT_SECR
   process.exit(1);
 }
 
-if (raw.LMS_SYNC_ENABLED && (!raw.LMS_EXTERNAL_BASE_URL || !raw.LMS_TENANT_API_KEY)) {
+if ((raw.LMS_SYNC_ENABLED || raw.LMS_READS_ENABLED) && (!raw.LMS_EXTERNAL_BASE_URL || !raw.LMS_TENANT_API_KEY)) {
   // eslint-disable-next-line no-console
-  console.error('Invalid environment configuration:\n  - LMS_SYNC_ENABLED=true needs LMS_EXTERNAL_BASE_URL and LMS_TENANT_API_KEY');
+  console.error(
+    'Invalid environment configuration:\n  - LMS_SYNC_ENABLED / LMS_READS_ENABLED=true needs LMS_EXTERNAL_BASE_URL and LMS_TENANT_API_KEY',
+  );
   process.exit(1);
 }
 

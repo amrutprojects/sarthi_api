@@ -13,6 +13,7 @@ import './modules/lms-access/lms-access.openapi';
 import './modules/lms-sync/lms-sync.openapi';
 import './modules/api-keys/api-keys.openapi';
 import './modules/students/lms-integration/lms-integration.openapi';
+import './modules/lms-reads/lms-reads.openapi';
 import './cms/cms.openapi';
 
 export { documentedRoutes } from './shared/openapi/registry';
