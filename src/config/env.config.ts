@@ -133,6 +133,29 @@ const schema = z.object({
   LMS_INTEGRATION_SECRET: z.string().min(32, 'LMS_INTEGRATION_SECRET must be at least 32 characters').optional(),
 
   /*
+   * M1 Amrut → LMS student sync (src/modules/lms-sync). Amrut is a tenant of the LMS and sends its approved
+   * students to the LMS tenant API (/tenant/v1) with the tenant API key the LMS Super Admin issued. The key is
+   * server-side only: never sent to a browser, never logged. LMS_SYNC_ENABLED=false (default) = no call to the LMS
+   * at all (the admin screens still show the sync flags and "Push to LMS" only queues).
+   * LMS_EXTERNAL_BASE_URL is the LMS API host (https://lms-api.example.org); `/tenant/v1` is added by the client.
+   */
+  LMS_SYNC_ENABLED: bool,
+  LMS_EXTERNAL_BASE_URL: blankAsUnset(z.string().trim().url('LMS_EXTERNAL_BASE_URL must be a URL').optional()),
+  LMS_TENANT_API_KEY: blankAsUnset(z.string().trim().min(16, 'LMS_TENANT_API_KEY looks too short').optional()),
+  /* The tenant code the key belongs to (student_lms_link.lms_tenant_code). */
+  LMS_TENANT_CODE: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9_-]{2,40}$/, 'LMS_TENANT_CODE must be 2-40 upper-case letters, digits, _ or -')
+    .default('AMRUT'),
+  /* Seconds between two automatic sync cycles (scan students, send, follow statuses, reconcile). */
+  LMS_SYNC_INTERVAL_SECONDS: z.coerce.number().int().min(10).max(86_400).default(60),
+  /* Records per POST /tenant/v1/students call (the LMS accepts 1-200). */
+  LMS_SYNC_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(100),
+  /* Timeout of one HTTP call to the LMS. */
+  LMS_HTTP_TIMEOUT_MS: z.coerce.number().int().min(500).max(120_000).default(15_000),
+
+  /*
    * EDP portal (edp.sumago.ai). EDP_JWT_SECRET signs the portal's and its tracking panel's tokens; unset = a key derived
    * from JWT_SECRET. Either way it differs from JWT_SECRET, so portal tokens are never accepted by the admin API.
    */
@@ -163,10 +186,28 @@ const schema = z.object({
    */
   SMS_API_URL: blankAsUnset(z.string().trim().url('SMS_API_URL must be a URL').optional()),
   SMS_AUTH_KEY: blankAsUnset(z.string().trim().optional()),
-  SMS_SENDER: blankAsUnset(z.string().trim().regex(/^[A-Za-z0-9]{3,11}$/, 'SMS_SENDER must be 3-11 letters or digits').optional()),
-  SMS_DLT_TEMPLATE_ID: blankAsUnset(z.string().trim().regex(/^\d{10,25}$/, 'SMS_DLT_TEMPLATE_ID must be digits').optional()),
+  SMS_SENDER: blankAsUnset(
+    z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9]{3,11}$/, 'SMS_SENDER must be 3-11 letters or digits')
+      .optional(),
+  ),
+  SMS_DLT_TEMPLATE_ID: blankAsUnset(
+    z
+      .string()
+      .trim()
+      .regex(/^\d{10,25}$/, 'SMS_DLT_TEMPLATE_ID must be digits')
+      .optional(),
+  ),
   SMS_ROUTE: blankAsUnset(z.string().trim().max(10).optional()),
-  SMS_COUNTRY: blankAsUnset(z.string().trim().regex(/^\d{1,4}$/, 'SMS_COUNTRY must be a dialling code, e.g. 91').optional()),
+  SMS_COUNTRY: blankAsUnset(
+    z
+      .string()
+      .trim()
+      .regex(/^\d{1,4}$/, 'SMS_COUNTRY must be a dialling code, e.g. 91')
+      .optional(),
+  ),
   SMS_OTP_MESSAGE: blankAsUnset(
     z
       .string()
@@ -233,6 +274,12 @@ if (raw.STORAGE_DRIVER === 's3' && (!raw.AWS_REGION || !raw.AWS_BUCKET_NAME)) {
 if (raw.NODE_ENV === 'production' && /CHANGE_ME|REPLACE_WITH/i.test(raw.JWT_SECRET + raw.DB_PASSWORD)) {
   // eslint-disable-next-line no-console
   console.error('Refusing to start in production with placeholder secrets from .env.example');
+  process.exit(1);
+}
+
+if (raw.LMS_SYNC_ENABLED && (!raw.LMS_EXTERNAL_BASE_URL || !raw.LMS_TENANT_API_KEY)) {
+  // eslint-disable-next-line no-console
+  console.error('Invalid environment configuration:\n  - LMS_SYNC_ENABLED=true needs LMS_EXTERNAL_BASE_URL and LMS_TENANT_API_KEY');
   process.exit(1);
 }
 

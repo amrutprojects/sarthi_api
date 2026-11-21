@@ -15,6 +15,7 @@ import { MASTERS } from './modules/masters';
 import { masterRouter } from './modules/masters/master.routes';
 import { lmsAccessRouter, lmsIntegrationRouter } from './modules/lms-access/lms-access.routes';
 import { lmsReferenceRouter } from './modules/lms-access/lms-reference.routes';
+import { lmsSyncRouter } from './modules/lms-sync/lms-sync.routes';
 import {
   cmsRouter,
   publicContactRouter,
@@ -57,6 +58,8 @@ apiRouter.use('/student-registrations', registrationRouter);
 apiRouter.use('/permissions', permissionRouter);
 apiRouter.use('/audit-logs', auditLogRouter);
 apiRouter.use('/lms-access', lmsAccessRouter);
+/* M1 Amrut → LMS student sync (sync flags, Push to LMS, Retry). */
+apiRouter.use('/lms-sync', lmsSyncRouter);
 for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
 
 /* CMS content, geography masters and the Masters group. Every route under /cms requires a session (see src/cms/index.ts). */
