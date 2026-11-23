@@ -20,12 +20,21 @@ import { seedAnnouncements } from './seed-announcements';
 import { seedTopBar } from './seed-top-bar';
 import { seedBrandBar } from './seed-brand-bar';
 import { seedEdpAdmin } from './seed-edp';
+import { env } from '../../config/env.config';
+import { demoContentSkipped, seedOptionsFor } from './seed-profile';
 
 /* npm run seed — idempotent. Requires migrations to be applied. */
 async function main() {
   await AppDataSource.initialize();
   try {
     if (await AppDataSource.showMigrations()) throw new Error('Pending migrations: run `npm run migration:run` first');
+    /* Demo-dataset content only on a local install (NODE_ENV development / test): see seed-profile.ts. */
+    const options = seedOptionsFor(env.NODE_ENV);
+    const skipped = demoContentSkipped(options);
+    if (skipped.length) {
+      // eslint-disable-next-line no-console
+      console.log(`NODE_ENV=${env.NODE_ENV}: not a local install, demo content skipped:`, skipped);
+    }
     const summary = await seedRbac(AppDataSource);
     // eslint-disable-next-line no-console
     console.log('RBAC seed complete:', summary);
@@ -33,11 +42,11 @@ async function main() {
     console.log('Masters seed complete (rows added):', await seedMasters(AppDataSource));
     /* The CMS page content. Each is idempotent and does nothing once configured. */
     // eslint-disable-next-line no-console
-    console.log('Contact page seed complete:', await seedContactPage(AppDataSource));
+    console.log('Contact page seed complete:', await seedContactPage(AppDataSource, options));
     // eslint-disable-next-line no-console
-    console.log('Contact coordinators & district offices seed complete:', await seedContactDirectory(AppDataSource));
+    console.log('Contact coordinators & district offices seed complete:', await seedContactDirectory(AppDataSource, options));
     // eslint-disable-next-line no-console
-    console.log('Contact training centres seed complete:', await seedContactTrainingCentres(AppDataSource));
+    console.log('Contact training centres seed complete:', await seedContactTrainingCentres(AppDataSource, options));
     // eslint-disable-next-line no-console
     console.log('Footer seed complete:', await seedFooter(AppDataSource));
     // eslint-disable-next-line no-console
@@ -59,7 +68,7 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log('About AMRUT seed complete:', await seedAboutAmrut(AppDataSource));
     // eslint-disable-next-line no-console
-    console.log("AMRUT's Impact seed complete:", await seedAmrutImpact(AppDataSource));
+    console.log("AMRUT's Impact seed complete:", await seedAmrutImpact(AppDataSource, options));
     // eslint-disable-next-line no-console
     console.log('Announcements seed complete:', await seedAnnouncements(AppDataSource));
     // eslint-disable-next-line no-console
