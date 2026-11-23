@@ -11,6 +11,9 @@ export const LMS_READ_PERMISSIONS = {
   summary: ['dashboard.view', 'exec.view', 'today.view', LMS_INTEGRATION],
   /* Training Centres. */
   centres: ['centres.view', LMS_INTEGRATION],
+  /* Entity-owned tracks and districts (ERD-1): reference data of the Training Centres screens, same rights. */
+  tracks: ['centres.view', LMS_INTEGRATION],
+  districts: ['centres.view', LMS_INTEGRATION],
   /* Batches. */
   batches: ['batches.view', LMS_INTEGRATION],
   /* Live Training Monitor, Offline Training, Online Training (class sessions and the live feed). */
@@ -28,6 +31,8 @@ export const LMS_READ_ANY = [...new Set(Object.values(LMS_READ_PERMISSIONS).flat
 export const LMS_TENANT_READS = {
   summary: { path: '/summary', scope: 'stats.read' },
   centres: { path: '/centres', scope: 'stats.read' },
+  tracks: { path: '/tracks', scope: 'stats.read' },
+  districts: { path: '/districts', scope: 'stats.read' },
   batches: { path: '/batches', scope: 'stats.read' },
   sessions: { path: '/sessions', scope: 'stats.read' },
   trainers: { path: '/trainers', scope: 'stats.read' },

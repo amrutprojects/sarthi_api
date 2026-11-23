@@ -113,6 +113,15 @@ export interface LmsCentre {
   status: string;
   isActive: boolean;
   sourceUpdatedAt: string | null;
+  /* ERD-1 (23 Nov 2026): the LMS entity that owns the centre, and the centre's reference details. */
+  entityCode: string | null;
+  taluka: string | null;
+  readinessStatus: string | null;
+  maxSeating: number | null;
+  computerSystems: number | null;
+  tracksOffered: string[];
+  divisionCode: string | null;
+  divisionName: string | null;
 }
 
 export function mapCentre(raw: unknown): LmsCentre {
@@ -127,6 +136,72 @@ export function mapCentre(raw: unknown): LmsCentre {
     status,
     isActive: status.toUpperCase() === 'ACTIVE',
     sourceUpdatedAt: str(r.updated_at),
+    entityCode: str(r.entity_code),
+    taluka: str(r.taluka),
+    readinessStatus: str(r.readiness_status),
+    maxSeating: numOrNull(r.max_seating),
+    computerSystems: numOrNull(r.computer_systems),
+    tracksOffered: strList(r.tracks_offered),
+    divisionCode: str(r.division_code),
+    divisionName: str(r.division_name),
+  };
+}
+
+/* ------------------------------------------------------------------ tracks (entity-owned, ERD-1) */
+
+export interface LmsTrack {
+  entityCode: string;
+  code: string;
+  name: string;
+  nameMr: string | null;
+  sortOrder: number | null;
+  status: string;
+  isActive: boolean;
+  updatedAt: string | null;
+}
+
+export function mapTrack(raw: unknown): LmsTrack {
+  const r = obj(raw);
+  const status = reqStr(r.status);
+  return {
+    entityCode: reqStr(r.entity_code),
+    code: reqStr(r.track_code),
+    name: reqStr(r.name),
+    nameMr: str(r.name_mr),
+    sortOrder: numOrNull(r.sort_order),
+    status,
+    isActive: status.toUpperCase() === 'ACTIVE',
+    updatedAt: str(r.updated_at),
+  };
+}
+
+/* ------------------------------------------------------------------ districts (entity-owned, ERD-1) */
+
+export interface LmsDistrict {
+  entityCode: string;
+  code: string;
+  nameEn: string;
+  nameMr: string | null;
+  divisionCode: string | null;
+  divisionName: string | null;
+  status: string;
+  isActive: boolean;
+  updatedAt: string | null;
+}
+
+export function mapDistrict(raw: unknown): LmsDistrict {
+  const r = obj(raw);
+  const status = reqStr(r.status);
+  return {
+    entityCode: reqStr(r.entity_code),
+    code: reqStr(r.district_code),
+    nameEn: reqStr(r.name_en),
+    nameMr: str(r.name_mr),
+    divisionCode: str(r.division_code),
+    divisionName: str(r.division_name),
+    status,
+    isActive: status.toUpperCase() === 'ACTIVE',
+    updatedAt: str(r.updated_at),
   };
 }
 

@@ -3,10 +3,12 @@ import {
   mapAttendance,
   mapBatch,
   mapCentre,
+  mapDistrict,
   mapLiveSessions,
   mapSession,
   mapSummary,
   mapTrainer,
+  mapTrack,
   readPage,
   toMeta,
 } from '../../../src/modules/lms-reads/lms-reads.mappers';
@@ -85,8 +87,101 @@ describe('lms-reads mappers', () => {
       status: 'ACTIVE',
       isActive: true,
       sourceUpdatedAt: '2026-11-20T00:00:00.000Z',
+      entityCode: null,
+      taluka: null,
+      readinessStatus: null,
+      maxSeating: null,
+      computerSystems: null,
+      tracksOffered: [],
+      divisionCode: null,
+      divisionName: null,
     });
     expect(mapCentre({ status: 'INACTIVE' }).isActive).toBe(false);
+  });
+
+  it('maps the entity-owned centre fields (ERD-1), null-safe', () => {
+    expect(
+      mapCentre({
+        centre_code: 'NAG-01',
+        entity_code: 'E1',
+        taluka: 'Nagpur Urban',
+        readiness_status: 'READY',
+        max_seating: 40,
+        computer_systems: 20,
+        tracks_offered: ['T01', 7, 'T03'],
+        division_code: 'NGP',
+        division_name: 'Nagpur Division',
+      }),
+    ).toMatchObject({
+      entityCode: 'E1',
+      taluka: 'Nagpur Urban',
+      readinessStatus: 'READY',
+      maxSeating: 40,
+      computerSystems: 20,
+      tracksOffered: ['T01', 'T03'],
+      divisionCode: 'NGP',
+      divisionName: 'Nagpur Division',
+    });
+    expect(mapCentre({ max_seating: '40', tracks_offered: 'T01' })).toMatchObject({ maxSeating: null, tracksOffered: [] });
+  });
+
+  it('maps an entity-owned track', () => {
+    expect(
+      mapTrack({
+        entity_code: 'E1',
+        track_code: 'T03',
+        name: 'Track three',
+        name_mr: 'ट्रॅक तीन',
+        sort_order: 3,
+        status: 'ACTIVE',
+        updated_at: '2026-11-23T00:00:00.000Z',
+      }),
+    ).toEqual({
+      entityCode: 'E1',
+      code: 'T03',
+      name: 'Track three',
+      nameMr: 'ट्रॅक तीन',
+      sortOrder: 3,
+      status: 'ACTIVE',
+      isActive: true,
+      updatedAt: '2026-11-23T00:00:00.000Z',
+    });
+    expect(mapTrack(null)).toEqual({
+      entityCode: '',
+      code: '',
+      name: '',
+      nameMr: null,
+      sortOrder: null,
+      status: '',
+      isActive: false,
+      updatedAt: null,
+    });
+  });
+
+  it('maps an entity-owned district with its division', () => {
+    expect(
+      mapDistrict({
+        entity_code: 'E1',
+        district_code: 'NAG',
+        name_en: 'Nagpur',
+        name_mr: 'नागपूर',
+        division_code: 'NGP',
+        division_name: 'Nagpur Division',
+        status: 'ACTIVE',
+        updated_at: '2026-11-23T00:00:00.000Z',
+      }),
+    ).toEqual({
+      entityCode: 'E1',
+      code: 'NAG',
+      nameEn: 'Nagpur',
+      nameMr: 'नागपूर',
+      divisionCode: 'NGP',
+      divisionName: 'Nagpur Division',
+      status: 'ACTIVE',
+      isActive: true,
+      updatedAt: '2026-11-23T00:00:00.000Z',
+    });
+    expect(mapDistrict({ status: 'INACTIVE' })).toMatchObject({ code: '', nameEn: '', divisionCode: null, isActive: false });
   });
 
   it('maps a batch', () => {

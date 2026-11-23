@@ -53,6 +53,21 @@ describe('lms-reads service', () => {
     expect(r.cache).toBe('MISS');
   });
 
+  it('reads entity-owned tracks and districts with the list paging and filters', async () => {
+    const { svc, urls } = service({}, (url) =>
+      url.includes('/tracks')
+        ? page([{ entity_code: 'E1', track_code: 'T03', name: 'Track three', status: 'ACTIVE' }])
+        : page([{ entity_code: 'E1', district_code: 'NAG', name_en: 'Nagpur', division_code: 'NGP', status: 'ACTIVE' }]),
+    );
+    const tracks = await svc.tracks({ page: 1, limit: 50, entityCode: 'E1' });
+    const districts = await svc.districts({ page: 2, limit: 10, updatedSince: '2026-11-21T00:00:00Z' });
+    expect(urls[0]).toBe('https://lms.example.test/tenant/v1/tracks?entity_code=E1&page=1&page_size=50');
+    expect(urls[1]).toBe('https://lms.example.test/tenant/v1/districts?page=2&page_size=10&updated_since=2026-11-21T00%3A00%3A00Z');
+    expect(tracks.data[0]).toMatchObject({ entityCode: 'E1', code: 'T03', isActive: true });
+    expect(districts.data[0]).toMatchObject({ code: 'NAG', nameEn: 'Nagpur', divisionCode: 'NGP' });
+    expect(districts.meta).toEqual({ page: 1, limit: 10, total: 1, totalPages: 1 });
+  });
+
   it('passes attendance and live-session filters through', async () => {
     const { svc, urls } = service({}, () => new Response('{"items":[]}', { status: 200 }));
     await svc.attendance({ groupBy: 'batch', dateFrom: '2026-11-01', dateTo: '2026-11-21' });

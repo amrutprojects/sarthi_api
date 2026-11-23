@@ -44,6 +44,8 @@ lmsReadsRouter.get('/live-data', any(S.view), c.liveData);
 lmsReadsRouter.put('/live-data', any(S.update), validateRequest({ body: liveDataBody }), c.setLiveData);
 lmsReadsRouter.get('/summary', any(P.summary), liveDataGate, validateRequest({ query: lmsSummaryQuery }), c.summary);
 lmsReadsRouter.get('/centres', any(P.centres), liveDataGate, validateRequest({ query: lmsListQuery }), c.centres);
+lmsReadsRouter.get('/tracks', any(P.tracks), liveDataGate, validateRequest({ query: lmsListQuery }), c.tracks);
+lmsReadsRouter.get('/districts', any(P.districts), liveDataGate, validateRequest({ query: lmsListQuery }), c.districts);
 lmsReadsRouter.get('/batches', any(P.batches), liveDataGate, validateRequest({ query: lmsListQuery }), c.batches);
 lmsReadsRouter.get('/sessions', any(P.sessions), liveDataGate, validateRequest({ query: lmsListQuery }), c.sessions);
 lmsReadsRouter.get('/live-sessions', any(P.sessions), liveDataGate, validateRequest({ query: lmsLiveSessionsQuery }), c.liveSessions);
