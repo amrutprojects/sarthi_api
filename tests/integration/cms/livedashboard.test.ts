@@ -12,6 +12,7 @@ import {
 } from '../../helpers/test-app';
 import { CmsLiveDashboard1797600000000 } from '../../../src/database/migrations/1797600000000-CmsLiveDashboard';
 import { RemoveDemoWording1797900000000 } from '../../../src/database/migrations/1797900000000-RemoveDemoWording';
+import { RemoveDemoDataset1798800000000 } from '../../../src/database/migrations/1798800000000-RemoveDemoDataset';
 import { auditService } from '../../../src/modules/audit/audit.service';
 
 const ADMIN_URL = `${API}/cms/live-dashboard`;
@@ -175,9 +176,11 @@ const lastAudit = async (action: string) =>
 
 /*
  * The four tables survive resetData() (their rows come from the migration), so this file starts from
- * and leaves behind exactly what the migration makes: its down() and up() rebuild them.
+ * exactly what that migration made (its down() and up() rebuild them, demo figures included, which is
+ * what these tests exercise) and leaves behind what all the migrations make: with `finalState`, the
+ * demo figures removed again by RemoveDemoDataset.
  */
-async function rebuild(): Promise<void> {
+async function rebuild(finalState = false): Promise<void> {
   const qr = AppDataSource.createQueryRunner();
   try {
     const migration = new CmsLiveDashboard1797600000000();
@@ -185,6 +188,7 @@ async function rebuild(): Promise<void> {
     await migration.up(qr);
     /* ...then what a later migration did to its rows: RemoveDemoWording cleared the seeded note. */
     await new RemoveDemoWording1797900000000().up(qr);
+    if (finalState) await new RemoveDemoDataset1798800000000().up(qr);
   } finally {
     await qr.release();
   }
@@ -196,7 +200,7 @@ beforeAll(async () => {
   await rebuild();
 });
 afterAll(async () => {
-  await rebuild();
+  await rebuild(true);
   await teardownTestApp();
 });
 afterEach(() => jest.restoreAllMocks());

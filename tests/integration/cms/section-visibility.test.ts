@@ -140,6 +140,8 @@ beforeAll(async () => {
   ]) {
     await seed(AppDataSource);
   }
+  /* The migrations leave the Live Dashboard hidden (1798800000000 removed its demo figures); this file starts with every section shown. */
+  await AppDataSource.query(`UPDATE "live_dashboard_settings" SET "showSection" = true WHERE "isDelete" = false`);
   admin = await superAdmin();
 });
 /*

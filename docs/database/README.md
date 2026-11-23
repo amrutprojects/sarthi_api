@@ -65,10 +65,32 @@ It leaves out the website's former demo-dataset content, and logs the list: the 
 figures (the section is created hidden and empty, for an administrator to fill in and switch on) and the
 implementation partner's placeholder e-mail `programme@sumago.demo` (left empty).
 
-Still inserted by **migrations** on every install (applied migrations are never edited, so a fix needs a new migration
-and the user's approval): the Live Dashboard figures of `1797600000000-CmsLiveDashboard` (from the demo dataset; its
-"DEMO ENVIRONMENT" disclaimer is removed by `1797900000000-RemoveDemoWording`) and the ten demo training centres of
-`1798300000000-ContactTrainingCentres` (on databases that already had the Contact page). Everything else migrations
-insert is reference or system data: training-centre types, technology tracks, regions / castes / document types,
-LMS form fields, programme elective domains, FAQ, eligibility and apply-page texts, nav menu, quick actions, page banners.
-No Amrut tenant, LMS key or LMS link is seeded or migrated in.
+Two older migrations inserted demo-dataset content: the Live Dashboard figures of `1797600000000-CmsLiveDashboard`
+(its "DEMO ENVIRONMENT" disclaimer was already removed by `1797900000000-RemoveDemoWording`) and the ten demo training
+centres of `1798300000000-ContactTrainingCentres` (on databases that already had the Contact page). Applied migrations
+are never edited, so **`1798800000000-RemoveDemoDataset`** (user decision, 23 Nov 2026) removes that content on every
+environment, in one transaction, idempotently; its `down()` is a deliberate no-op (demo rows never come back). It
+touches only rows that still hold exactly what those migrations wrote (every content column compared; position and the
+per-row show/hide switch ignored), and logs counts only:
+
+| Rows | Matched on | What happens |
+| --- | --- | --- |
+| `live_dashboard_cards` (8) | label (mr, en), value, detail (mr, en), link, tone | soft-deleted (`isDelete`, as the admin Delete) |
+| `live_dashboard_stats` (5) | label (mr, en), value | soft-deleted |
+| `live_dashboard_districts` (36 map tiles) | district code, status and all six figures | row and names kept; status `NOT_STARTED`, every figure 0 |
+| `live_dashboard_settings` | offline 800 / online 200 | both counts 0; headings and labels (the site's text) kept |
+| Live Dashboard "Show on website" | — | switched off only when that run removed demo figures and nothing an administrator entered is left |
+| `contact_training_centres` (10) | district (by name, else code), name, address, manager (mr, en), phone, e-mail empty | soft-deleted; the card's switch untouched |
+
+So:
+
+- a **fresh install** (any environment) ends with the Live Dashboard hidden, with no cards, no side figures, 0 / 0
+  training modes and 36 all-zero district tiles, and no training centres from migrations (a local install's seed may
+  still add the demo centres to an empty Contact page, as described above; a hosted one does not);
+- an **upgraded install** loses every demo row nobody edited; anything an administrator changed (a value, figure,
+  status, phone, e-mail …) or added stays, and the dashboard's switch stays as they set it if any of their content is
+  left.
+
+Everything else migrations insert is reference or system data: training-centre types, technology tracks, regions /
+castes / document types, LMS form fields, programme elective domains, FAQ, eligibility and apply-page texts, nav menu,
+quick actions, page banners. No Amrut tenant, LMS key or LMS link is seeded or migrated in.
