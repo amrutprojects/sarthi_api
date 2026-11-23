@@ -6,11 +6,13 @@ import {
   LmsAttendanceDto,
   LmsBatchDto,
   LmsCentreDto,
+  LmsDistrictDto,
   LmsLiveSessionsDto,
   LmsReadsStatusDto,
   LmsSessionDto,
   LmsSummaryDto,
   LmsTrainerDto,
+  LmsTrackDto,
 } from '../../../src/modules/lms-reads/lms-reads.openapi';
 import { envelope, pagedEnvelope } from '../../../src/shared/openapi/registry';
 import { FAKE_LMS_KEY, startFakeLmsReads, type FakeLmsReads } from '../../helpers/fake-lms-reads';
@@ -63,7 +65,17 @@ const check = (schema: ZodTypeAny, body: unknown) => {
   if (!r.success) throw new Error(JSON.stringify(r.error.issues.slice(0, 5), null, 2));
 };
 
-const DATA_ROUTES = ['/summary', '/centres', '/batches', '/sessions', '/live-sessions', '/trainers', '/attendance'];
+const DATA_ROUTES = [
+  '/summary',
+  '/centres',
+  '/tracks',
+  '/districts',
+  '/batches',
+  '/sessions',
+  '/live-sessions',
+  '/trainers',
+  '/attendance',
+];
 
 describe('switch', () => {
   it('while LMS_READS_ENABLED is off, data routes answer 404 LMS_READS_DISABLED and nothing reaches the LMS', async () => {
@@ -103,8 +115,12 @@ describe('permissions', () => {
     const { token } = await actorWith(['batches.view']);
     expect((await get('/batches', token)).status).toBe(200);
     expect((await get('/status', token)).status).toBe(200);
-    for (const p of ['/summary', '/centres', '/sessions', '/live-sessions', '/trainers', '/attendance'])
+    for (const p of ['/summary', '/centres', '/tracks', '/districts', '/sessions', '/live-sessions', '/trainers', '/attendance'])
       expect((await get(p, token)).status).toBe(403);
+
+    const centres = await actorWith(['centres.view']);
+    for (const p of ['/centres', '/tracks', '/districts']) expect((await get(p, centres.token)).status).toBe(200);
+    expect((await get('/batches', centres.token)).status).toBe(403);
 
     const live = await actorWith(['live.view']);
     expect((await get('/live-sessions', live.token)).status).toBe(200);
@@ -142,6 +158,7 @@ describe('reads from the LMS', () => {
     const centres = await get('/centres');
     check(pagedEnvelope(LmsCentreDto), centres.body);
     expect(centres.body.data[0]).toMatchObject({ code: 'NAG-01', districtName: 'Nagpur', centreTypeName: 'ITI', isActive: true });
+    expect(centres.body.data[0]).toMatchObject({ entityCode: 'SBX-08', divisionName: 'Nagpur Division', tracksOffered: ['T03'] });
 
     const sessions = await get('/sessions');
     check(pagedEnvelope(LmsSessionDto), sessions.body);
@@ -150,6 +167,20 @@ describe('reads from the LMS', () => {
     const trainers = await get('/trainers');
     check(pagedEnvelope(LmsTrainerDto), trainers.body);
     expect(trainers.body.data[0]).toMatchObject({ code: 'TR-1', centreCodes: ['NAG-01'] });
+  });
+
+  it('entity-owned tracks and districts in the documented shapes, with the list filters', async () => {
+    const tracks = await get('/tracks?entityCode=SBX-08');
+    expect(tracks.status).toBe(200);
+    check(pagedEnvelope(LmsTrackDto), tracks.body);
+    expect(tracks.body.data[0]).toMatchObject({ entityCode: 'SBX-08', code: 'T03', name: 'Synthetic Track', isActive: true });
+    expect(lms.calls[0]).toMatchObject({ path: '/tracks', apiKey: FAKE_LMS_KEY, query: { entity_code: 'SBX-08' } });
+
+    const districts = await get('/districts?page=1&limit=20');
+    expect(districts.status).toBe(200);
+    check(pagedEnvelope(LmsDistrictDto), districts.body);
+    expect(districts.body.data[0]).toMatchObject({ code: 'NAG', nameEn: 'Nagpur', divisionCode: 'NGP', divisionName: 'Nagpur Division' });
+    expect(districts.body.meta).toEqual({ page: 1, limit: 20, total: 1, totalPages: 1 });
   });
 
   it('live sessions of a day and attendance counts', async () => {

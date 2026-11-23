@@ -7,19 +7,23 @@ import {
   mapAttendance,
   mapBatch,
   mapCentre,
+  mapDistrict,
   mapLiveSessions,
   mapSession,
   mapSummary,
   mapTrainer,
+  mapTrack,
   readPage,
   toMeta,
   type LmsAttendance,
   type LmsBatch,
   type LmsCentre,
+  type LmsDistrict,
   type LmsLiveSessions,
   type LmsSession,
   type LmsSummary,
   type LmsTrainer,
+  type LmsTrack,
 } from './lms-reads.mappers';
 import type { LmsAttendanceQuery, LmsListQuery, LmsLiveSessionsQuery, LmsSummaryQuery } from './lms-reads.validation';
 import { createTenantReadClient, LmsReadError, type LmsQuery, type TenantRead, type TenantReadClient } from './tenant-read-client';
@@ -155,6 +159,14 @@ export class LmsReadsService {
 
   centres(q: LmsListQuery): Promise<LmsReadResult<LmsCentre[]>> {
     return this.list(LMS_TENANT_READS.centres.path, q, mapCentre);
+  }
+
+  tracks(q: LmsListQuery): Promise<LmsReadResult<LmsTrack[]>> {
+    return this.list(LMS_TENANT_READS.tracks.path, q, mapTrack);
+  }
+
+  districts(q: LmsListQuery): Promise<LmsReadResult<LmsDistrict[]>> {
+    return this.list(LMS_TENANT_READS.districts.path, q, mapDistrict);
   }
 
   batches(q: LmsListQuery): Promise<LmsReadResult<LmsBatch[]>> {

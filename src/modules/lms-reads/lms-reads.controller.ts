@@ -50,6 +50,12 @@ export const lmsReadsController = {
   centres: asyncHandler(async (req: Request, res: Response) => {
     send(res, await lmsReadsService.centres(query<LmsListQuery>(req)), 'LMS centres retrieved successfully');
   }),
+  tracks: asyncHandler(async (req: Request, res: Response) => {
+    send(res, await lmsReadsService.tracks(query<LmsListQuery>(req)), 'LMS tracks retrieved successfully');
+  }),
+  districts: asyncHandler(async (req: Request, res: Response) => {
+    send(res, await lmsReadsService.districts(query<LmsListQuery>(req)), 'LMS districts retrieved successfully');
+  }),
   batches: asyncHandler(async (req: Request, res: Response) => {
     send(res, await lmsReadsService.batches(query<LmsListQuery>(req)), 'LMS batches retrieved successfully');
   }),

@@ -15,7 +15,7 @@ It changes nothing that exists: the `lms_*` tables, the `/api/v1/lms/*` masters 
 | `LMS_READS_TIMEOUT_MS` | `8000` | Timeout of one LMS call (500–60000). |
 | `LMS_READS_CACHE_SECONDS` | `30` | How long an LMS answer is reused, in memory per process (0–600; 0 = no cache). |
 
-Key scopes the reads need on the LMS side: **`stats.read`** (summary, centres, batches, sessions, trainers),
+Key scopes the reads need on the LMS side: **`stats.read`** (summary, centres, tracks, districts, batches, sessions, trainers),
 **`delivery.read`** (attendance), **`sessions.read`** (live sessions). The student sync uses the same key with
 `students.read` / `students.write`, so one key with all five scopes covers both. A missing scope answers
 `503 LMS_KEY_REJECTED` with `details: [{ field: "scope", message: "missing_scope" }, …]`.
@@ -30,6 +30,8 @@ line, a response or the cache key. Errors keep the LMS's codes and request id, n
 | `/status` | — (no LMS call) | any code below | feature probe |
 | `/summary?entityCode=` | `GET /summary` | `dashboard.view`, `exec.view`, `today.view`, `lms.view` | Dashboard KPIs, Executive, Today |
 | `/centres?page&limit&updatedSince&entityCode` | `GET /centres` | `centres.view`, `lms.view` | Training Centres |
+| `/tracks?…` | `GET /tracks` | as `/centres` | LMS live tracks (Training Centres reference data) |
+| `/districts?…` | `GET /districts` | as `/centres` | LMS live districts with their division |
 | `/batches?…` | `GET /batches` | `batches.view`, `lms.view` | Batches |
 | `/sessions?…` | `GET /sessions` | `live.view`, `offline.view`, `online.view`, `lms.view` | Offline / Online Training |
 | `/live-sessions?date&centreCode&batchCode&deliveryMode` | `GET /live-sessions` (API-110) | as `/sessions` | Live Training Monitor |
@@ -43,18 +45,31 @@ Panel conventions (`page`, `limit` ≤ 100) and become the LMS's `page` / `page_
 lms-api `main` yet: until it is merged and deployed the LMS answers 404, so this route answers `404 LMS_NOT_FOUND`.
 All other reads are on lms-api `main`.
 
+Entity-owned reference data (lms-api decision ERD-1, 23 Nov 2026): the LMS owns centres, tracks and districts per
+LMS entity, and `/tenant/v1/centres` now returns only the centres the tenant's entities own. Amrut screens that show
+LMS data read centres, tracks and districts from these routes. Student registration, the import, Amrut's own masters
+(`src/masters`, `src/cms/masters`, `/api/v1/lms/*`), the attendance-reports builder and the student sync (`lms-sync`) are
+unchanged, and no `lms_*` table is removed. Until the LMS serves `/tracks` and `/districts` it answers 404, so
+these two routes answer `404 LMS_NOT_FOUND`.
+
 ## Response shapes
 
 Standard envelope `{ success, status, message, data, meta? }`; lists carry `meta: { page, limit, total, totalPages }`.
 Headers: `X-Lms-Fetched-At` (when the LMS produced the answer) and `X-Lms-Cache` (`HIT`, `MISS`, `REVALIDATED`).
-The exact schemas are in the OpenAPI document (`LmsSummary`, `LmsCentre`, `LmsBatch`, `LmsSession`, `LmsLiveSessions`,
+The exact schemas are in the OpenAPI document (`LmsSummary`, `LmsCentre`, `LmsTrack`, `LmsDistrict`, `LmsBatch`, `LmsSession`, `LmsLiveSessions`,
 `LmsTrainer`, `LmsAttendance`, `LmsReadsStatus`; tag "LMS reads").
 
 None of these facts had a Panel endpoint before (the Panel's Delivery / Training / Dashboard screens run on mock
 services), so the shapes are new: the LMS wire fields in camelCase, with these choices:
 
 - **Centre** follows the field names of `/lms/reference/centres` where they overlap: `code`, `name`, `districtCode`,
-  `districtName`, `centreTypeName`, `isActive`, `sourceUpdatedAt`; plus the LMS `status`.
+  `districtName`, `centreTypeName`, `isActive`, `sourceUpdatedAt`; plus the LMS `status` and the entity-owned
+  fields (ERD-1) `entityCode`, `taluka`, `readinessStatus`, `maxSeating`, `computerSystems`, `tracksOffered`
+  (list of track codes, `[]` when absent), `divisionCode`, `divisionName` (`null` when the LMS does not send them).
+- **Track** `{ entityCode, code, name, nameMr, sortOrder, status, isActive, updatedAt }` (from `track_code`, `name_mr`,
+  `sort_order`).
+- **District** `{ entityCode, code, nameEn, nameMr, divisionCode, divisionName, status, isActive, updatedAt }` (from
+  `district_code`, `name_en`, `name_mr`).
 - **Batch** `{ id, code, entityCode, courseCode, centreCode, centreName, trackCode, startDate, endDate, deliveryMode,
   status, capacity, learnersEnrolled, learnersActive, learnersCompleted, learnersWithdrawn, updatedAt }`.
 - **Session** `{ id, batchCode, centreCode, entityCode, title, moduleNo, startsAt, endsAt, deliveryMode, attendanceMode,

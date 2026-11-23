@@ -73,6 +73,41 @@ export const LmsCentreDto = registry.register(
     status: z.string(),
     isActive: z.boolean(),
     sourceUpdatedAt: ts,
+    entityCode: z.string().nullable(),
+    taluka: z.string().nullable(),
+    readinessStatus: z.string().nullable(),
+    maxSeating: z.number().int().nullable(),
+    computerSystems: z.number().int().nullable(),
+    tracksOffered: z.array(z.string()),
+    divisionCode: z.string().nullable(),
+    divisionName: z.string().nullable(),
+  }),
+);
+export const LmsTrackDto = registry.register(
+  'LmsTrack',
+  z.object({
+    entityCode: z.string(),
+    code: z.string(),
+    name: z.string(),
+    nameMr: z.string().nullable(),
+    sortOrder: z.number().int().nullable(),
+    status: z.string(),
+    isActive: z.boolean(),
+    updatedAt: ts,
+  }),
+);
+export const LmsDistrictDto = registry.register(
+  'LmsDistrict',
+  z.object({
+    entityCode: z.string(),
+    code: z.string(),
+    nameEn: z.string(),
+    nameMr: z.string().nullable(),
+    divisionCode: z.string().nullable(),
+    divisionName: z.string().nullable(),
+    status: z.string(),
+    isActive: z.boolean(),
+    updatedAt: ts,
   }),
 );
 export const LmsBatchDto = registry.register(
@@ -204,6 +239,22 @@ const data = [
     permission: P.centres,
     query: lmsListQuery,
     response: livePagedEnvelope(LmsCentreDto),
+  },
+  {
+    path: '/lms-reads/tracks',
+    summary: 'Tracks owned by Amrut’s LMS entities',
+    lms: '`GET /tenant/v1/tracks` (scope stats.read)',
+    permission: P.tracks,
+    query: lmsListQuery,
+    response: livePagedEnvelope(LmsTrackDto),
+  },
+  {
+    path: '/lms-reads/districts',
+    summary: 'Districts (with their division) owned by Amrut’s LMS entities',
+    lms: '`GET /tenant/v1/districts` (scope stats.read)',
+    permission: P.districts,
+    query: lmsListQuery,
+    response: livePagedEnvelope(LmsDistrictDto),
   },
   {
     path: '/lms-reads/batches',

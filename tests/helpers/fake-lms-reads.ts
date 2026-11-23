@@ -3,8 +3,8 @@ import type { AddressInfo } from 'net';
 import express, { type Request, type Response } from 'express';
 
 /*
- * In-process fake of the LMS tenant API reads (/tenant/v1: summary, centres, batches, sessions, live-sessions,
- * trainers, attendance) for the lms-reads route tests. Synthetic data only. It checks X-Api-Key like the LMS (401
+ * In-process fake of the LMS tenant API reads (/tenant/v1: summary, centres, tracks, districts, batches, sessions,
+ * live-sessions, trainers, attendance) for the lms-reads route tests. Synthetic data only. It checks X-Api-Key like the LMS (401
  * EXTERNAL_KEY_INVALID) and answers in the LMS envelopes. `mode` simulates trouble: 'down' = 503, 'slow' = no answer
  * before the client's timeout, 'drop' = connection reset. Distinct from tests/helpers/fake-lms.ts (the student-sync
  * fake on the sync branch), so the two can live side by side.
@@ -55,6 +55,33 @@ export const FAKE_DATA = {
     centre_type: 'ITI',
     status: 'ACTIVE',
     updated_at: '2026-11-20T00:00:00.000Z',
+    entity_code: 'SBX-08',
+    taluka: 'Nagpur Urban',
+    readiness_status: 'READY',
+    max_seating: 30,
+    computer_systems: 15,
+    tracks_offered: ['T03'],
+    division_code: 'NGP',
+    division_name: 'Nagpur Division',
+  },
+  track: {
+    entity_code: 'SBX-08',
+    track_code: 'T03',
+    name: 'Synthetic Track',
+    name_mr: null,
+    sort_order: 3,
+    status: 'ACTIVE',
+    updated_at: '2026-11-23T00:00:00.000Z',
+  },
+  district: {
+    entity_code: 'SBX-08',
+    district_code: 'NAG',
+    name_en: 'Nagpur',
+    name_mr: null,
+    division_code: 'NGP',
+    division_name: 'Nagpur Division',
+    status: 'ACTIVE',
+    updated_at: '2026-11-23T00:00:00.000Z',
   },
   batch: {
     batch_id: '11111111-1111-4111-8111-111111111111',
@@ -138,6 +165,8 @@ export async function startFakeLmsReads(): Promise<FakeLmsReads> {
     res.json(FAKE_DATA.summary);
   });
   r.get('/centres', (req, res) => res.json(page([FAKE_DATA.centre], req)));
+  r.get('/tracks', (req, res) => res.json(page([FAKE_DATA.track], req)));
+  r.get('/districts', (req, res) => res.json(page([FAKE_DATA.district], req)));
   r.get('/batches', (req, res) => res.json(page(state.batchItems ?? [FAKE_DATA.batch], req)));
   r.get('/sessions', (req, res) => res.json(page([FAKE_DATA.session], req)));
   r.get('/trainers', (req, res) => res.json(page([FAKE_DATA.trainer], req)));
