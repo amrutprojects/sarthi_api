@@ -1,5 +1,6 @@
 import type { DataSource, EntityManager } from 'typeorm';
 import { ImpactSection, ImpactStat } from '../../cms/impact/impact.model';
+import { LOCAL_SEED_OPTIONS, type SeedOptions } from './seed-profile';
 
 export interface AmrutImpactSeedSummary {
   created: boolean;
@@ -36,11 +37,22 @@ const STATS = [
  *
  * Runs in one transaction so a half-seeded section can never be committed.
  */
-export async function seedAmrutImpact(ds: DataSource): Promise<AmrutImpactSeedSummary> {
+/*
+ * On a hosted install (`options.demoContent` false, see seed-profile.ts) the figures, computed from the demo dataset,
+ * are not seeded: the section is created hidden with no cards, for an administrator to fill in and switch on.
+ */
+export async function seedAmrutImpact(
+  ds: DataSource,
+  options: SeedOptions = LOCAL_SEED_OPTIONS,
+): Promise<AmrutImpactSeedSummary> {
   return ds.transaction(async (m: EntityManager) => {
     const sections = m.getRepository(ImpactSection);
     if (await sections.findOne({ where: { isDelete: false } })) return { created: false, statsCreated: 0 };
 
+    if (!options.demoContent) {
+      await sections.save(sections.create({ ...SECTION, showSection: false }));
+      return { created: true, statsCreated: 0 };
+    }
     await sections.save(sections.create(SECTION));
     await m.getRepository(ImpactStat).insert(STATS.map((s, i) => ({ ...s, displayOrder: i + 1 })));
     return { created: true, statsCreated: STATS.length };

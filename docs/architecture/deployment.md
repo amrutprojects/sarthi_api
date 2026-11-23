@@ -18,7 +18,7 @@ npm ci
 npm run lint && npm run typecheck && npm test   # CI
 npm run build
 npm run migration:run:prod     # back up first; migrations never drop data
-npm run seed:prod              # idempotent
+npm run seed:prod              # idempotent; no demo content (docs/database/README.md, Seeds)
 npm run admin:create:prod -- --email … --name …   # first install only
 npm start                      # behind HTTPS
 ```

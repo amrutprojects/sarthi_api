@@ -7,6 +7,7 @@ import {
 } from '../../cms/contact/contact.model';
 import { District } from '../../cms/masters/district/district.model';
 import { State } from '../../cms/masters/state/state.model';
+import { LOCAL_SEED_OPTIONS, type SeedOptions } from './seed-profile';
 
 export interface ContactDirectorySeedSummary {
   stateCreated: boolean;
@@ -165,7 +166,14 @@ async function ensureDistricts(
  *
  * Needs the Contact page settings row (seedContactPage) and runs in one transaction.
  */
-export async function seedContactDirectory(ds: DataSource): Promise<ContactDirectorySeedSummary> {
+/*
+ * Not on a hosted install (`options.demoContent` false, see seed-profile.ts): the coordinators are the demo dataset's
+ * made-up people, so only the state, the districts and the empty district offices are seeded there.
+ */
+export async function seedContactDirectory(
+  ds: DataSource,
+  options: SeedOptions = LOCAL_SEED_OPTIONS,
+): Promise<ContactDirectorySeedSummary> {
   return ds.transaction(async (m: EntityManager) => {
     const summary: ContactDirectorySeedSummary = {
       stateCreated: false,
@@ -180,7 +188,7 @@ export async function seedContactDirectory(ds: DataSource): Promise<ContactDirec
 
     const coordinatorRepo = m.getRepository(ContactCoordinator);
     const officeRepo = m.getRepository(ContactDistrictOffice);
-    const seedCoordinators = (await coordinatorRepo.count({ where: { settingsId: settings.id } })) === 0;
+    const seedCoordinators = options.demoContent && (await coordinatorRepo.count({ where: { settingsId: settings.id } })) === 0;
     const seedOffices = (await officeRepo.count({ where: { settingsId: settings.id } })) === 0;
     if (!seedCoordinators && !seedOffices) return summary;
 

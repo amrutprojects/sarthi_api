@@ -1,6 +1,7 @@
 import type { DataSource, EntityManager } from 'typeorm';
 import { ContactPageSettings, ContactTrainingCentre } from '../../cms/contact/contact.model';
 import { District } from '../../cms/masters/district/district.model';
+import { LOCAL_SEED_OPTIONS, type SeedOptions } from './seed-profile';
 
 export interface ContactTrainingCentresSeedSummary {
   centresCreated: number;
@@ -34,9 +35,14 @@ const CENTRES: { district: string; code: string; name: [string, string]; address
  * had a centre (soft-deleted rows included), so a list an administrator deliberately emptied stays empty.
  * Needs the Contact page settings row and the districts (seedContactPage, seedContactDirectory); one transaction.
  */
-export async function seedContactTrainingCentres(ds: DataSource): Promise<ContactTrainingCentresSeedSummary> {
+/* Not on a hosted install (`options.demoContent` false, see seed-profile.ts): the centres are the demo dataset's. */
+export async function seedContactTrainingCentres(
+  ds: DataSource,
+  options: SeedOptions = LOCAL_SEED_OPTIONS,
+): Promise<ContactTrainingCentresSeedSummary> {
   return ds.transaction(async (m: EntityManager) => {
     const summary: ContactTrainingCentresSeedSummary = { centresCreated: 0, districtsMissing: [] };
+    if (!options.demoContent) return summary;
     const settings = await m.getRepository(ContactPageSettings).findOne({ where: { isDelete: false } });
     if (!settings) return summary;
 

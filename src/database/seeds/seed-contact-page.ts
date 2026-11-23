@@ -1,5 +1,6 @@
 import type { DataSource, EntityManager } from 'typeorm';
 import { ContactOrganization, ContactPageSettings } from '../../cms/contact/contact.model';
+import { LOCAL_SEED_OPTIONS, type SeedOptions } from './seed-profile';
 
 export interface ContactSeedSummary {
   created: boolean;
@@ -57,6 +58,11 @@ const ORGANIZATIONS = [
   },
 ];
 
+/* The organisations to seed: a placeholder `.demo` e-mail only on a local install. */
+export function organizationsFor(options: SeedOptions) {
+  return ORGANIZATIONS.map((o) => (!options.demoContent && o.email?.endsWith('.demo') ? { ...o, email: null } : o));
+}
+
 /*
  * Idempotent, and deliberately all-or-nothing about it: if a configuration row already exists this
  * does NOTHING AT ALL — it does not refresh the banner, re-add a missing card or "repair" an edited
@@ -65,7 +71,11 @@ const ORGANIZATIONS = [
  *
  * Runs in one transaction so a half-seeded page can never be committed.
  */
-export async function seedContactPage(ds: DataSource): Promise<ContactSeedSummary> {
+/*
+ * On a hosted install (`options.demoContent` false, see seed-profile.ts) a placeholder e-mail on the `.demo` domain is
+ * left empty (an empty e-mail is not printed).
+ */
+export async function seedContactPage(ds: DataSource, options: SeedOptions = LOCAL_SEED_OPTIONS): Promise<ContactSeedSummary> {
   return ds.transaction(async (m: EntityManager) => {
     const settingsRepo = m.getRepository(ContactPageSettings);
 
@@ -73,7 +83,7 @@ export async function seedContactPage(ds: DataSource): Promise<ContactSeedSummar
     if (existing) return { created: false, organizationsCreated: 0 };
 
     const settings = await settingsRepo.save(settingsRepo.create({ ...PAGE, isPublished: true }));
-    await m.getRepository(ContactOrganization).insert(ORGANIZATIONS.map((o) => ({ ...o, settingsId: settings.id })));
+    await m.getRepository(ContactOrganization).insert(organizationsFor(options).map((o) => ({ ...o, settingsId: settings.id })));
 
     return { created: true, organizationsCreated: ORGANIZATIONS.length };
   });
