@@ -14,7 +14,7 @@ import { documentStorage } from '../documents/document-storage';
 import { detectFileType, detectVideoType, documentFileRule, extensionMatches, isVideoDocumentType } from '../documents/file-type';
 import { StudentDocument } from '../documents/student-document.entity';
 import { Student } from '../register/student.entity';
-import { publicStudent, unmaskedContact } from '../register/student.service';
+import { centreNames, publicStudent, unmaskedContact } from '../register/student.service';
 import { decryptAadhaar, maskEmail, maskMobile } from '../aadhaar';
 import { DOCUMENTS, REGISTRATION_MASTER_FIELDS } from '../student.constants';
 import type { EditRegistrationBody, ListRegistrationsQuery } from './registration-admin.validation';
@@ -173,9 +173,10 @@ export const registrationAdminService = {
         details: { codes: items.map((s) => s.code), fields: ['email', 'mobile', 'aadhaar'] },
       });
     }
+    const names = await centreNames(items.map((s) => s.centreCode));
     return {
       items: items.map((s) => ({
-        ...publicStudent(s),
+        ...publicStudent(s, false, names),
         source: s.source,
         isActive: s.isActive,
         registrationNumber: s.registrationNumber,
@@ -240,7 +241,7 @@ export const registrationAdminService = {
         },
       });
     }
-    const base = publicStudent(s, true) as ReturnType<typeof publicStudent> & { documents: DocumentRow[] };
+    const base = publicStudent(s, true, await centreNames([s.centreCode])) as ReturnType<typeof publicStudent> & { documents: DocumentRow[] };
     return {
       ...base,
       documents: await withMasterDocuments(base.documents, s, files),

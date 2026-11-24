@@ -9,7 +9,22 @@ import { templateCsv } from './import-template';
 import { NO_TRACK, type BucketCounts, type StudentBatchRef, type StudentBucket, type StudentSummary } from './student.types';
 
 const trackName = (code: string | null) => TRACKS.find((t) => t.code === code)?.name ?? null;
-const centreName = (code: string | null) => CENTRES.find((c) => c.code === code)?.name ?? null;
+const builtInCentreName = (code: string | null) => CENTRES.find((c) => c.code === code)?.name ?? null;
+
+/*
+ * Course centres are the rows of the Regions master (the list the import, the registration form and the summary
+ * read). A centre added there is not in the built-in CENTRES list, so its name comes from the master; the built-in
+ * list stays the fallback for a code the master does not hold. Retired rows keep their name for history.
+ */
+export async function centreNames(codes: (string | null)[]): Promise<Map<string, string>> {
+  const wanted = [...new Set(codes.filter((c): c is string => !!c))];
+  if (!wanted.length) return new Map();
+  const rows: { code: string; name: string }[] = await AppDataSource.query(
+    `SELECT "code", "name" FROM "regions" WHERE "code" = ANY($1::text[]) AND NOT "isDelete"`,
+    [wanted],
+  );
+  return new Map(rows.map((r) => [r.code, r.name]));
+}
 /* Summary labels for a null track and a null caste / education reference. */
 const TRACK_TBC_NAME = 'To be confirmed';
 const NOT_RECORDED = 'Not recorded';
@@ -24,14 +39,14 @@ export function unmaskedContact(s: Student) {
 }
 
 /* Register view of a student: protected values are generated masked on the server and never sent in clear. */
-export function publicStudent(s: Student, detail = false) {
+export function publicStudent(s: Student, detail = false, names?: Map<string, string>) {
   const base = {
     id: s.id,
     code: s.code,
     sourceRecordId: s.sourceRecordId,
     name: `${s.firstName} ${s.lastName}`,
     centreCode: s.centreCode,
-    centreName: centreName(s.centreCode),
+    centreName: (s.centreCode ? names?.get(s.centreCode) : undefined) ?? builtInCentreName(s.centreCode),
     trackCode: s.trackCode,
     trackName: trackName(s.trackCode),
     trackToBeConfirmed: !s.trackCode,
@@ -155,12 +170,12 @@ export class StudentService {
       .skip((q.page - 1) * q.limit)
       .take(q.limit)
       .getManyAndCount();
-    const batches = await this.liveBatches(items.map((s) => s.id));
+    const [batches, names] = await Promise.all([this.liveBatches(items.map((s) => s.id)), centreNames(items.map((s) => s.centreCode))]);
     return {
       items: items.map((s) => {
         const batch = batches.get(s.id) ?? null;
         return {
-          ...publicStudent(s),
+          ...publicStudent(s, false, names),
           enrolled: batch !== null && s.status === STUDENT_STATUS.RECEIVED && s.isActive,
           batch,
           ...(unmask ? { unmasked: unmaskedContact(s) } : {}),
@@ -296,7 +311,7 @@ export class StudentService {
     if (!s) throw AppError.notFound(MESSAGES.notFound('Student'));
     /* The live batch, and `enrolled`, exactly as each list row carries them. */
     const batch = (await this.liveBatches([s.id])).get(s.id) ?? null;
-    return { ...publicStudent(s, true), enrolled: batch !== null && s.status === STUDENT_STATUS.RECEIVED && s.isActive, batch };
+    return { ...publicStudent(s, true, await centreNames([s.centreCode])), enrolled: batch !== null && s.status === STUDENT_STATUS.RECEIVED && s.isActive, batch };
   }
 
   /* Templates: see import-template.ts (CSV, Excel with instructions, matching sample documents ZIP). */
