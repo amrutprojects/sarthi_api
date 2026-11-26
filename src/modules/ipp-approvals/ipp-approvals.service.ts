@@ -42,7 +42,26 @@ export interface DecidedMany {
   applications: { id: string; stage: Stage; stageLabel: string }[];
 }
 
-type Decision = { event: 'APPROVED'; reason: null } | { event: 'REJECTED'; reason: string };
+/* A rejection has its reason (3–500 characters); an approval has one when it is a second approval (null when not given). */
+type Decision = { event: 'APPROVED'; reason: string | null } | { event: 'REJECTED'; reason: string };
+
+/*
+ * A second approval (the level decided the form before) needs a reason: 422 when it is not given, before anything is
+ * changed. A first approval does not need one.
+ */
+function assertReasons(rows: { decidedHere: boolean }[], decision: Decision, many: boolean): void {
+  if (decision.event !== 'APPROVED' || decision.reason) return;
+  const again = rows.filter((r) => r.decidedHere).length;
+  if (!again) return;
+  throw AppError.validation([
+    {
+      field: 'body.reason',
+      message: many
+        ? `Approval reason is required: ${again} of these applications were rejected before, so this is their second approval.`
+        : 'Approval reason is required: the application was rejected before, so this is its second approval.',
+    },
+  ]);
+}
 
 const notFound = (what: string) => AppError.notFound(`${what} not found`);
 const notYours = () => AppError.conflict('This form is not yours to decide now', IPP_ERROR.NOT_YOURS_TO_DECIDE);
@@ -100,8 +119,8 @@ class IppApprovalsService {
 
   /* ---- deciding ---- */
 
-  approve(req: Request, id: string): Promise<ApplicationDetailDto> {
-    return this.decideOne(req, id, { event: 'APPROVED', reason: null });
+  approve(req: Request, id: string, reason: string | null): Promise<ApplicationDetailDto> {
+    return this.decideOne(req, id, { event: 'APPROVED', reason });
   }
 
   reject(req: Request, id: string, reason: string): Promise<ApplicationDetailDto> {
@@ -115,11 +134,13 @@ class IppApprovalsService {
       const access = accessOf(auth, headOffice);
       const rows = await repository.lockDecidable(m, access, { ids: [id] });
       if (!rows.length) throw (await repository.isVisible(access, id, m)) ? notYours() : notFound('Application');
+      assertReasons(rows, decision, false);
       const [done] = await this.store(m, auth, rows, decision, headOffice);
       await auditService.recordInTx(m, req, {
         action: decision.event === 'APPROVED' ? IPP_AUDIT.APPROVE : IPP_AUDIT.REJECT,
         resource: 'ipp_application',
         resourceId: id,
+        /* Not the reason: free text, kept in the history only. */
         details: { from: rows[0].stage, to: done.stage },
       });
     });
@@ -127,13 +148,17 @@ class IppApprovalsService {
     return this.application(auth, id);
   }
 
-  /* Approves what is the user's to decide now of the given ids; the rest (other stage, not visible, unknown) is skipped. */
-  async approveMany(req: Request, ids: string[]): Promise<DecidedMany> {
+  /*
+   * Approves what is the user's to decide now of the given ids, each with the same reason; the rest (other stage, not
+   * visible, unknown) is skipped.
+   */
+  async approveMany(req: Request, ids: string[], reason: string | null): Promise<DecidedMany> {
     const auth = req.auth!;
     const result = await AppDataSource.transaction(async (m) => {
       const headOffice = await ippHeadOfficeService.holdAndRead(m);
       const rows = await repository.lockDecidable(m, accessOf(auth, headOffice), { ids });
-      const done = await this.store(m, auth, rows, { event: 'APPROVED', reason: null }, headOffice);
+      assertReasons(rows, { event: 'APPROVED', reason }, true);
+      const done = await this.store(m, auth, rows, { event: 'APPROVED', reason }, headOffice);
       const skipped = ids.length - done.length;
       if (done.length)
         await auditService.recordInTx(m, req, {
@@ -148,15 +173,19 @@ class IppApprovalsService {
     return result;
   }
 
-  /* Approves every application of the batch that is the user's to decide now; nothing is asked for that could be skipped. */
-  async approveBatch(req: Request, batchId: string): Promise<DecidedMany> {
+  /*
+   * Approves every application of the batch that is the user's to decide now, each with the same reason; nothing is asked
+   * for that could be skipped.
+   */
+  async approveBatch(req: Request, batchId: string, reason: string | null): Promise<DecidedMany> {
     const auth = req.auth!;
     const result = await AppDataSource.transaction(async (m) => {
       const headOffice = await ippHeadOfficeService.holdAndRead(m);
       const access = accessOf(auth, headOffice);
       if (!(await repository.isBatchVisible(access, batchId, m))) throw notFound('Batch');
       const rows = await repository.lockDecidable(m, access, { batchId });
-      const done = await this.store(m, auth, rows, { event: 'APPROVED', reason: null }, headOffice);
+      assertReasons(rows, { event: 'APPROVED', reason }, true);
+      const done = await this.store(m, auth, rows, { event: 'APPROVED', reason }, headOffice);
       if (done.length)
         await auditService.recordInTx(m, req, {
           action: IPP_AUDIT.APPROVE_BATCH,
@@ -174,7 +203,7 @@ class IppApprovalsService {
   private async store(
     m: EntityManager,
     auth: AuthUser,
-    rows: { id: string; stage: Level }[],
+    rows: { id: string; stage: Level; decidedHere?: boolean }[],
     decision: Decision,
     headOffice: boolean,
   ): Promise<DecidedMany['applications']> {

@@ -289,6 +289,30 @@ describe('SUBMIT, RESUBMIT, UPDATE', () => {
     expect((await events(fresh.id)).map((e) => e.event)).toEqual(['RECEIVED']);
   });
 
+  it("keeps the Auditor's approval reason with the form and in the history; an older IPP sends none", async () => {
+    const batch = wireBatch();
+    const form = wireApplication({ auditor_approval_reason: '  All documents verified  ' });
+    const old = wireApplication();
+    await submit(app, batch, [form, old]);
+    expect(await application(form.id)).toMatchObject({ auditorApprovalReason: 'All documents verified' });
+    expect((await events(form.id)).at(-1)).toMatchObject({ event: 'RECEIVED', reason: 'All documents verified' });
+    expect(await application(old.id)).toMatchObject({ auditorApprovalReason: null });
+    expect((await events(old.id)).at(-1)).toMatchObject({ event: 'RECEIVED', reason: null });
+
+    /* Sent back and approved again: the new reason, on the form and on its RESUBMITTED. A correction keeps none in its event. */
+    await withAuditor(form.id);
+    await send(wireMessage(batch, [{ ...form, action: 'RESUBMIT', auditor_approval_reason: 'Corrected marks verified' }]));
+    expect(await application(form.id)).toMatchObject({ auditorApprovalReason: 'Corrected marks verified' });
+    expect((await events(form.id)).at(-1)).toMatchObject({ event: 'RESUBMITTED', reason: 'Corrected marks verified' });
+    await send(wireMessage(batch, [{ ...form, action: 'UPDATE', auditor_approval_reason: 'Corrected marks verified' }]));
+    expect((await events(form.id)).at(-1)).toMatchObject({ event: 'CORRECTED', reason: null });
+
+    /* Too short to be one (an IPP never sends that): kept as none rather than refusing the form. */
+    const short = wireApplication({ auditor_approval_reason: 'ok' });
+    await submit(app, batch, [short]);
+    expect(await application(short.id)).toMatchObject({ auditorApprovalReason: null });
+  });
+
   it('a form of another batch is refused, whatever the action', async () => {
     const form = wireApplication();
     await submit(app, wireBatch(), [form]);
@@ -457,7 +481,7 @@ describe('the database keeps impossible states out', () => {
     ['a rejection of two levels', `'REJECTED', 'COEP', 'AUDITOR', 'a good reason'`],
     ['a rejection without a reason', `'REJECTED', 'COEP', 'DIVISION', NULL`],
     ['a blank reason', `'REJECTED', 'COEP', 'DIVISION', '     '`],
-    ['an approval with a reason', `'APPROVED', 'DIVISION', 'COEP', 'why'`],
+    ['an approval with a blank reason', `'APPROVED', 'DIVISION', 'COEP', '  ab  '`],
   ])('an event of %s', async (_name, values) => {
     const user = (await divisionalOfficer([])).user;
     await expect(

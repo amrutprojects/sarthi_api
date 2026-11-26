@@ -61,7 +61,8 @@ beforeEach(async () => {
   await resetIpp();
 });
 
-const approve = (who: TestActor, id: string) => request(app).post(`${BASE}/applications/${id}/approve`).set(auth(who.token));
+const approve = (who: TestActor, id: string) =>
+  request(app).post(`${BASE}/applications/${id}/approve`).set(auth(who.token)).send({ reason: 'Documents match the originals' });
 const reject = (who: TestActor, id: string, reason: string) =>
   request(app).post(`${BASE}/applications/${id}/reject`).set(auth(who.token)).send({ reason });
 const link = async (who = admin) => {
@@ -111,6 +112,20 @@ describe('sending', () => {
     expect(fake.unauthorized).toBe(0);
   });
 
+  it("an approval is sent with its reason, for IPP's history", async () => {
+    const [id] = await approved(1);
+    expect(await runIppLinkCycle()).toMatchObject({ sent: 1 });
+    expect(fake.calls.flat()).toEqual([
+      expect.objectContaining({
+        application_id: id,
+        action: 'APPROVE',
+        from: 'DIVISION',
+        to: 'COEP',
+        reason: 'Documents match the originals',
+      }),
+    ]);
+  });
+
   it('a decision IPP already has (duplicate) counts as sent', async () => {
     const [id] = await approved(1);
     const [row] = await decisions(id);
@@ -121,7 +136,7 @@ describe('sending', () => {
 
   it('at most 100 per call, oldest first; one per application and call, in the order they were made', async () => {
     const ids = await forms(100);
-    await request(app).post(`${BASE}/approve`).set(auth(pune.token)).send({ ids });
+    await request(app).post(`${BASE}/approve`).set(auth(pune.token)).send({ ids, reason: 'Documents match the originals' });
     const more = await approved(5);
     await approve(coep, ids[0]);
     expect(await runIppLinkCycle()).toMatchObject({ sent: 106 });

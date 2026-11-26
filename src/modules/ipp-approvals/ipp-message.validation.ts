@@ -90,6 +90,8 @@ const applicationSchema = z.object({
   submitted_at: moment,
   auditor_approved_at: optionalMoment,
   auditor_approved_by: optional(200),
+  /* Why the Auditor approved it (IPP sends it since approval reasons; an older IPP does not): kept when 3–500 characters. */
+  auditor_approval_reason: optional(500).transform((v) => (v && [...v].length >= 3 ? v : null)),
   fields: z
     .array(
       z.object({

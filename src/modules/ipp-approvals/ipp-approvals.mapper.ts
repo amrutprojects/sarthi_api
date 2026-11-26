@@ -31,13 +31,16 @@ export interface ApplicationRowDto {
   documents: { uploaded: number; verified: number };
   lastEvent: EventDto | null;
   canDecide: boolean;
+  /* Mine to decide now, and decided at this level before: approving it again needs a reason. */
+  reasonRequired: boolean;
 }
 
 export interface ApplicationDetailDto extends ApplicationRowDto {
   aadhaarMasked: string | null;
   formDistrict: string | null;
   submittedAt: string;
-  auditor: { approvedAt: string | null; by: string | null };
+  /* The Auditor's approval in IPP, with its reason (null for one approved before reasons were asked). */
+  auditor: { approvedAt: string | null; by: string | null; reason: string | null };
   fields: { key: string; step: 1 | 2; labelEn: string; labelMr: string; type: string; text: string }[];
   documentList: {
     code: string;
@@ -106,6 +109,7 @@ export const toApplicationRowDto = (r: ApplicationListRow): ApplicationRowDto =>
   documents: { uploaded: r.documents.filter((d) => d.file).length, verified: r.documents.filter((d) => d.verified).length },
   lastEvent: r.lastEvent ? toEventDto(r.lastEvent) : null,
   canDecide: r.canDecide,
+  reasonRequired: r.canDecide && r.decidedHere,
 });
 
 export function toApplicationDetailDto(r: ApplicationDetailRow, history: EventRow[], headOffice: boolean): ApplicationDetailDto {
@@ -115,7 +119,7 @@ export function toApplicationDetailDto(r: ApplicationDetailRow, history: EventRo
     aadhaarMasked: r.aadhaarMasked,
     formDistrict: r.formDistrict,
     submittedAt: iso(r.submittedAt),
-    auditor: { approvedAt: isoOrNull(r.auditorApprovedAt), by: r.auditorApprovedBy },
+    auditor: { approvedAt: isoOrNull(r.auditorApprovedAt), by: r.auditorApprovedBy, reason: r.auditorApprovalReason },
     fields: r.fields.map((f) => ({ key: f.key, step: f.step, labelEn: f.label_en, labelMr: f.label_mr, type: f.type, text: f.text })),
     documentList: r.documents.map((d) => ({
       code: d.code,

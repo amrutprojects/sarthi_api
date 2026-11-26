@@ -32,15 +32,16 @@ export const ippApprovalsController = {
   }),
 
   approveMany: asyncHandler(async (req: Request, res: Response) => {
-    const result = await service.approveMany(req, body<{ ids: string[] }>(req).ids);
+    const { ids, reason } = body<{ ids: string[]; reason?: string }>(req);
+    const result = await service.approveMany(req, ids, reason ?? null);
     ApiResponse.ok(res, result, decided(result));
   }),
   approveBatch: asyncHandler(async (req: Request, res: Response) => {
-    const result = await service.approveBatch(req, params<Id>(req).id);
+    const result = await service.approveBatch(req, params<Id>(req).id, body<{ reason?: string }>(req).reason ?? null);
     ApiResponse.ok(res, result, decided(result));
   }),
   approve: asyncHandler(async (req: Request, res: Response) => {
-    ApiResponse.ok(res, await service.approve(req, params<Id>(req).id), 'Form approved');
+    ApiResponse.ok(res, await service.approve(req, params<Id>(req).id, body<{ reason?: string }>(req).reason ?? null), 'Form approved');
   }),
   reject: asyncHandler(async (req: Request, res: Response) => {
     ApiResponse.ok(res, await service.reject(req, params<Id>(req).id, body<{ reason: string }>(req).reason), 'Form sent back');

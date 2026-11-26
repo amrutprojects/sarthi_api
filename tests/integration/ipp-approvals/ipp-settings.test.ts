@@ -62,7 +62,8 @@ beforeEach(resetIpp);
 
 const get = (who: TestActor, path: string) => request(app).get(`${BASE}${path}`).set(auth(who.token));
 const put = (who: TestActor, path: string, body: object) => request(app).put(`${BASE}${path}`).set(auth(who.token)).send(body);
-const approve = (who: TestActor, id: string) => request(app).post(`${BASE}/applications/${id}/approve`).set(auth(who.token));
+const approve = (who: TestActor, id: string) =>
+  request(app).post(`${BASE}/applications/${id}/approve`).set(auth(who.token)).send({ reason: 'Documents match the originals' });
 const headOffice = (enabled: boolean, who = admin) => put(who, '/head-office', { enabled });
 
 describe('Head Office approval', () => {
@@ -144,7 +145,7 @@ describe('Head Office approval', () => {
       wireBatch(),
       Array.from({ length: 12 }, () => wireApplication()),
     );
-    await request(app).post(`${BASE}/approve`).set(auth(pune.token)).send({ ids });
+    await request(app).post(`${BASE}/approve`).set(auth(pune.token)).send({ ids, reason: 'Documents match the originals' });
     const answers = await Promise.all([...ids.map((id) => approve(coep, id)), headOffice(false)]);
     expect(answers.map((r) => r.status)).toEqual(Array(13).fill(200));
     expect(new Set(await Promise.all(ids.map(stageOf)))).toEqual(new Set(['SUPER_ADMIN']));

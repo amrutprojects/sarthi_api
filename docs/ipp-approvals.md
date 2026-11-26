@@ -6,7 +6,7 @@ the contract in IPP's repository: `ipp_backend/docs/SARTHI_LINK.md`. This file d
 
 ## Who decides what
 
-| Stage | Who | Approve → | Reject (reason required) → |
+| Stage | Who | Approve (reason required for a second approval) → | Reject (reason required) → |
 |---|---|---|---|
 | `DIVISION` | Divisional Officer (only the districts assigned to the user) | `COEP` | `AUDITOR` (back in IPP) |
 | `COEP` | COEP (all districts) | `HEAD_OFFICE`, or `SUPER_ADMIN` while Head Office is off | `DIVISION` |
@@ -42,9 +42,9 @@ Officer, With COEP, With Head Office, With Super Admin, Final approved.
 | `GET /applications` | view | list (below) |
 | `GET /applications/:id` | view | detail (below) |
 | `GET /applications/:id/documents/:code` | view | the file, fetched from IPP and streamed (`private, no-store`, nosniff, attachment); 404 no file; 502 `IPP_UNAVAILABLE`; audited |
-| `POST /approve` | any stage permission | body `{ ids: uuid[] }` (1–500, unique) → `{ approved, skipped, applications: { id, stage, stageLabel }[] }`; not mine to decide now = skipped |
-| `POST /batches/:id/approve` | any stage permission | all applications of the batch that are mine to decide now → same answer |
-| `POST /applications/:id/approve` | any stage permission | one → detail; not mine / other stage → 409 `NOT_YOURS_TO_DECIDE` |
+| `POST /approve` | any stage permission | body `{ ids: uuid[], reason? }` (1–500, unique; reason 3–500 after trim, kept for each, required — 422 — when any is a second approval) → `{ approved, skipped, applications: { id, stage, stageLabel }[] }`; not mine to decide now = skipped |
+| `POST /batches/:id/approve` | any stage permission | body `{ reason? }` (as above); all applications of the batch that are mine to decide now → same answer |
+| `POST /applications/:id/approve` | any stage permission | body `{ reason? }` (3–500 after trim; required — 422 — for a second approval: `reasonRequired`) → detail; not mine / other stage → 409 `NOT_YOURS_TO_DECIDE` |
 | `POST /applications/:id/reject` | any stage permission | body `{ reason }` (3–500 after trim) → detail; same 409 |
 | `GET /batches` · `GET /batches/:id` | view | batches (below) |
 | `GET /districts` | view or `ipp-officers.view` | `{ id, name, code }[]` active districts, for filters and the officers' page |
@@ -72,10 +72,11 @@ interface ApplicationRow {
   documents: { uploaded: number; verified: number };
   lastEvent: { event: string; from: Stage | null; to: Stage; reason: string | null; by: string; role: string | null; at: string } | null;  // latest that is not CORRECTED
   canDecide: boolean;                          // by me, now
+  reasonRequired: boolean;                     // mine now, and my level decided it before: a second approval needs a reason
 }
 interface ApplicationDetail extends ApplicationRow {
   aadhaarMasked: string | null; formDistrict: string | null; submittedAt: string;
-  auditor: { approvedAt: string | null; by: string | null };
+  auditor: { approvedAt: string | null; by: string | null; reason: string | null };  // reason: the IPP Auditor's (null before approval reasons)
   fields: { key: string; step: 1 | 2; labelEn: string; labelMr: string; type: string; text: string }[];
   documentList: { code: string; name: string; nameMr: string | null; required: boolean; kind: 'DOCUMENT' | 'VIDEO';
     file: { name: string; mime: string; size: number; uploadedAt: string } | null; verified: boolean; verifiedAt: string | null; verifiedBy: string | null }[];

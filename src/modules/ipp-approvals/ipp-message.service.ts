@@ -161,8 +161,8 @@ class IppMessageService {
       await m.query(
         `INSERT INTO "ipp_applications" ("id", "batchId", "registrationId", "registrationNumber", "name", "email", "mobile", "aadhaarMasked",
            "formDistrict", "category", "centre", "technology", "submittedAt", "auditorApprovedAt", "auditorApprovedBy", "fields", "documents",
-           "edits", "lastSeq", "stage", "stageEvent", "stageUpdatedAt", "reached")
-         VALUES ($1, $19, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18,
+           "edits", "lastSeq", "auditorApprovalReason", "stage", "stageEvent", "stageUpdatedAt", "reached")
+         VALUES ($1, $20, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18, $19,
            'DIVISION', 'RECEIVED', clock_timestamp(), ${STAGE_RANK.DIVISION})
          ON CONFLICT ("id") DO NOTHING RETURNING "id"`,
         [...this.snapshot(message.seq, a), batchId],
@@ -178,13 +178,13 @@ class IppMessageService {
       `UPDATE "ipp_applications" SET "registrationId" = $2, "registrationNumber" = $3, "name" = $4, "email" = $5, "mobile" = $6,
          "aadhaarMasked" = $7, "formDistrict" = $8, "category" = $9, "centre" = $10, "technology" = $11, "submittedAt" = $12,
          "auditorApprovedAt" = $13, "auditorApprovedBy" = $14, "fields" = $15::jsonb, "documents" = $16::jsonb, "edits" = $17::jsonb,
-         "lastSeq" = $18
+         "lastSeq" = $18, "auditorApprovalReason" = $19
        WHERE "id" = $1`,
       this.snapshot(seq, a),
     );
   }
 
-  /* $1 … $18 of both statements above. */
+  /* $1 … $19 of both statements above. */
   private snapshot(seq: number, a: IppMessageApplication): unknown[] {
     return [
       a.id,
@@ -205,10 +205,14 @@ class IppMessageService {
       JSON.stringify(a.documents),
       JSON.stringify(a.edits),
       seq,
+      a.auditor_approval_reason,
     ];
   }
 
-  /* Who did it in IPP: whoever corrected the form last, or the Auditor who approved it. */
+  /*
+   * Who did it in IPP: whoever corrected the form last, or the Auditor who approved it. A form that comes (again) from IPP
+   * carries the Auditor's approval reason in the history; a correction has none.
+   */
   private async event(
     m: EntityManager,
     messageId: string,
@@ -218,10 +222,11 @@ class IppMessageService {
     to: Stage,
   ): Promise<void> {
     const by = (event === 'CORRECTED' ? a.edits[0]?.by : null) ?? a.auditor_approved_by ?? IPP_ROLE;
+    const reason = event === 'CORRECTED' ? null : a.auditor_approval_reason;
     await m.query(
-      `INSERT INTO "ipp_approval_events" ("applicationId", "event", "fromStage", "toStage", "byName", "byRole", "messageId", "at")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, clock_timestamp())`,
-      [a.id, event, from, to, by, IPP_ROLE, messageId],
+      `INSERT INTO "ipp_approval_events" ("applicationId", "event", "fromStage", "toStage", "reason", "byName", "byRole", "messageId", "at")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, clock_timestamp())`,
+      [a.id, event, from, to, reason, by, IPP_ROLE, messageId],
     );
   }
 }

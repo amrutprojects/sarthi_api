@@ -71,7 +71,9 @@ beforeEach(resetIpp);
 
 const get = (who: TestActor, path: string) => request(app).get(`${BASE}${path}`).set(auth(who.token));
 const post = (who: TestActor, path: string, body: object = {}) => request(app).post(`${BASE}${path}`).set(auth(who.token)).send(body);
-const approve = (who: TestActor, id: string) => post(who, `/applications/${id}/approve`);
+/* Every approval has its reason, as every rejection has. */
+const APPROVAL = 'Documents match the originals';
+const approve = (who: TestActor, id: string, reason: unknown = APPROVAL) => post(who, `/applications/${id}/approve`, { reason } as object);
 const reject = (who: TestActor, id: string, reason = 'The photo is not clear') => post(who, `/applications/${id}/reject`, { reason });
 const headOffice = (enabled: boolean) => request(app).put(`${BASE}/head-office`).set(auth(admin.token)).send({ enabled });
 const listed = async (who: TestActor, query = ''): Promise<string[]> => {
@@ -113,9 +115,9 @@ describe('the whole chain', () => {
       ['RECEIVED', null, 'DIVISION', 'Synthetic Auditor', 'IPP Auditor'],
     ]);
     expect((await decisions(id)).map((d) => [d.action, d.fromStage, d.toStage, d.reason, d.byName, d.byRole, d.status])).toEqual([
-      ['APPROVE', 'DIVISION', 'COEP', null, 'Officer Pune', 'Divisional Officer', 'PENDING'],
-      ['APPROVE', 'COEP', 'HEAD_OFFICE', null, 'Officer COEP', 'COEP', 'PENDING'],
-      ['APPROVE', 'HEAD_OFFICE', 'APPROVED', null, 'Officer Head', 'Head Officer', 'PENDING'],
+      ['APPROVE', 'DIVISION', 'COEP', APPROVAL, 'Officer Pune', 'Divisional Officer', 'PENDING'],
+      ['APPROVE', 'COEP', 'HEAD_OFFICE', APPROVAL, 'Officer COEP', 'COEP', 'PENDING'],
+      ['APPROVE', 'HEAD_OFFICE', 'APPROVED', APPROVAL, 'Officer Head', 'Head Officer', 'PENDING'],
     ]);
     const trail = await audits('ipp.application.approve');
     expect(trail.map((a) => [a.actorUserId, a.resourceId, a.details])).toEqual([
@@ -248,6 +250,101 @@ describe('rejection: one level back, with a reason', () => {
   });
 });
 
+describe('approval reason: asked on a second approval, as a rejection always has one', () => {
+  const BAD: [string, object][] = [
+    ['not text', { reason: 5 }],
+    ['too short after trimming', { reason: '  ab  ' }],
+    ['501 characters', { reason: 'a'.repeat(501) }],
+    ['only control characters', { reason: '\u0000\u0001\u0002\u0003' }],
+  ];
+  /* At DIVISION again: the Divisional Officer approved it, COEP rejected it back. */
+  const backAtDivision = async (): Promise<string> => {
+    const id = await one();
+    await approve(pune, id);
+    await reject(coep, id, 'Marks do not match');
+    return id;
+  };
+
+  it.each(BAD)('a reason that is given: %s → 422, nothing decided (one, several, a batch)', async (_name, body) => {
+    const id = await one();
+    expect((await post(pune, `/applications/${id}/approve`, body)).status).toBe(422);
+    expect((await post(pune, '/approve', { ids: [id], ...body })).status).toBe(422);
+    const batchId = ((await get(pune, '/batches')).body.data as { id: string }[])[0].id;
+    expect((await post(pune, `/batches/${batchId}/approve`, body)).status).toBe(422);
+    expect(await stageOf(id)).toBe('DIVISION');
+    expect(await decisions(id)).toEqual([]);
+  });
+
+  it('a first approval needs none: approved without a reason, nothing asked', async () => {
+    const id = await one();
+    expect((await get(pune, `/applications/${id}`)).body.data).toMatchObject({ canDecide: true, reasonRequired: false });
+    const res = await post(pune, `/applications/${id}/approve`, {});
+    expect(res.status).toBe(200);
+    check(envelope(IppApplicationDetailDto), res.body);
+    expect(res.body.data.history[0]).toMatchObject({ event: 'APPROVED', reason: null });
+    expect((await decisions(id))[0]).toMatchObject({ action: 'APPROVE', reason: null });
+    const [a, b] = await submit(app, wireBatch(), [wireApplication(), wireApplication()]);
+    expect((await post(pune, '/approve', { ids: [a, b] })).body.data.approved).toBe(2);
+  });
+
+  it('a second approval needs the reason: 422 without it, nothing decided; then kept in the history and sent to IPP', async () => {
+    const id = await backAtDivision();
+    const listedRow = ((await get(pune, '/applications?limit=100')).body.data as { id: string; reasonRequired: boolean }[]).find(
+      (r) => r.id === id,
+    )!;
+    expect(listedRow.reasonRequired).toBe(true);
+    expect((await get(pune, `/applications/${id}`)).body.data).toMatchObject({ canDecide: true, reasonRequired: true });
+    const res = await post(pune, `/applications/${id}/approve`, {});
+    expect(res.status).toBe(422);
+    expect(res.body.error.details).toEqual([
+      { field: 'body.reason', message: 'Approval reason is required: the application was rejected before, so this is its second approval.' },
+    ]);
+    expect(await stageOf(id)).toBe('DIVISION');
+
+    const ok = await approve(pune, id, '  Marks corrected and checked  ');
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.history[0]).toMatchObject({
+      event: 'APPROVED',
+      from: 'DIVISION',
+      to: 'COEP',
+      reason: 'Marks corrected and checked',
+      by: 'Officer Pune',
+      role: 'Divisional Officer',
+    });
+    expect((await decisions(id)).at(-1)).toMatchObject({ action: 'APPROVE', reason: 'Marks corrected and checked' });
+    /* Free text stays out of the audit, as a rejection's. */
+    expect(JSON.stringify(await audits('ipp.application.approve'))).not.toContain('Marks corrected');
+    /* COEP rejected it before: COEP's approval now is a second one too. */
+    expect((await get(coep, `/applications/${id}`)).body.data.reasonRequired).toBe(true);
+    expect((await post(coep, `/applications/${id}/approve`, {})).status).toBe(422);
+    expect((await approve(coep, id, 'Correction accepted')).body.data.stage).toBe('HEAD_OFFICE');
+    /* Head Office sees it for the first time: no reason needed. */
+    expect((await get(head, `/applications/${id}`)).body.data.reasonRequired).toBe(false);
+    expect((await post(head, `/applications/${id}/approve`, {})).status).toBe(200);
+  });
+
+  it('several forms and a whole batch: one reason when any of them is a second approval, kept for each', async () => {
+    const again = await backAtDivision();
+    const [fresh] = await submit(app, wireBatch(), [wireApplication()]);
+    const without = await post(pune, '/approve', { ids: [again, fresh] });
+    expect(without.status).toBe(422);
+    expect(without.body.error.details[0].message).toBe(
+      'Approval reason is required: 1 of these applications were rejected before, so this is their second approval.',
+    );
+    expect(await decisions(fresh)).toEqual([]);
+    expect((await post(pune, '/approve', { ids: [again, fresh], reason: 'Checked in the district office' })).body.data.approved).toBe(2);
+    for (const id of [again, fresh]) expect((await events(id)).at(-1)).toMatchObject({ event: 'APPROVED', reason: 'Checked in the district office' });
+    expect(JSON.stringify(await audits('ipp.application.approve-many'))).not.toContain('district office');
+
+    const batchAgain = await backAtDivision();
+    const batchId = ((await get(pune, `/applications/${batchAgain}`)).body.data as { batch: { id: string } }).batch.id;
+    expect((await post(pune, `/batches/${batchId}/approve`, {})).status).toBe(422);
+    expect((await post(pune, `/batches/${batchId}/approve`, { reason: 'Whole batch checked' })).body.data.approved).toBeGreaterThan(0);
+    expect((await events(batchAgain)).at(-1)).toMatchObject({ event: 'APPROVED', reason: 'Whole batch checked' });
+    expect(JSON.stringify(await audits('ipp.batch.approve'))).not.toContain('Whole batch');
+  });
+});
+
 describe('who sees what', () => {
   it('a Divisional Officer sees and decides only the forms of batches of their districts, whatever the form says', async () => {
     const inPune = await one();
@@ -267,7 +364,7 @@ describe('who sees what', () => {
     }
     expect((await approve(pune, inNashik)).status).toBe(404);
     expect((await reject(pune, inNashik)).status).toBe(404);
-    const bulk = await post(pune, '/approve', { ids: [inPune, inNashik] });
+    const bulk = await post(pune, '/approve', { reason: APPROVAL, ids: [inPune, inNashik] });
     expect(bulk.body.data).toEqual({ approved: 1, skipped: 1, applications: [{ id: inPune, stage: 'COEP', stageLabel: 'With COEP' }] });
     expect(await stageOf(inNashik)).toBe('DIVISION');
     /* A filter of somebody else's district or batch opens nothing. */
@@ -326,7 +423,7 @@ describe('who sees what', () => {
     for (const who of [admin, sumago]) {
       expect((await approve(who, id)).body.error.code).toBe('NOT_YOURS_TO_DECIDE');
       expect((await reject(who, id)).status).toBe(409);
-      expect((await post(who, '/approve', { ids: [id] })).body.data).toEqual({ approved: 0, skipped: 1, applications: [] });
+      expect((await post(who, '/approve', { reason: APPROVAL, ids: [id] })).body.data).toEqual({ approved: 0, skipped: 1, applications: [] });
     }
     expect((await approve(viewer, id)).status).toBe(403);
     expect(await stageOf(id)).toBe('DIVISION');
@@ -572,7 +669,7 @@ describe('deciding many', () => {
     const [a, b, c] = await submit(app, wireBatch(), [wireApplication(), wireApplication(), wireApplication()]);
     const other = await one(NASHIK);
     await approve(pune, c);
-    const res = await post(pune, '/approve', { ids: [a, b, c, other, randomUUID()] });
+    const res = await post(pune, '/approve', { reason: APPROVAL, ids: [a, b, c, other, randomUUID()] });
     expect(res.status).toBe(200);
     check(envelope(IppDecidedManyDto), res.body);
     expect(res.body.data).toMatchObject({ approved: 2, skipped: 3 });
@@ -586,14 +683,15 @@ describe('deciding many', () => {
     const id = await one();
     for (const body of [
       {},
-      { ids: [] },
-      { ids: ['x'] },
-      { ids: [id, id] },
-      { ids: [id, id.toUpperCase()] },
-      { ids: Array.from({ length: 501 }, () => randomUUID()) },
+      { reason: APPROVAL, ids: [] },
+      { reason: APPROVAL, ids: ['x'] },
+      { reason: APPROVAL, ids: [id, id] },
+      { reason: APPROVAL, ids: [id, id.toUpperCase()] },
+      { reason: APPROVAL, ids: Array.from({ length: 501 }, () => randomUUID()) },
+      { ids: [id], reason: 'ok' },
     ])
       expect((await post(pune, '/approve', body)).status).toBe(422);
-    const res = await post(pune, '/approve', { ids: [id, ...Array.from({ length: 499 }, () => randomUUID())] });
+    const res = await post(pune, '/approve', { reason: APPROVAL, ids: [id, ...Array.from({ length: 499 }, () => randomUUID())] });
     expect(res.body.data).toMatchObject({ approved: 1, skipped: 499 });
   });
 
@@ -602,20 +700,20 @@ describe('deciding many', () => {
     const [a, b, c] = await submit(app, batch, [wireApplication(), wireApplication(), wireApplication()]);
     await approve(pune, a);
     const batchId = ((await get(pune, '/batches')).body.data as { id: string }[])[0].id;
-    let res = await post(pune, `/batches/${batchId}/approve`);
+    let res = await post(pune, `/batches/${batchId}/approve`, { reason: APPROVAL });
     expect(res.body.data).toMatchObject({ approved: 2, skipped: 0 });
     expect((res.body.data.applications as { id: string }[]).map((x) => x.id).sort()).toEqual([b, c].sort());
-    res = await post(coep, `/batches/${batchId}/approve`);
+    res = await post(coep, `/batches/${batchId}/approve`, { reason: APPROVAL });
     expect(res.body.data).toMatchObject({ approved: 3, skipped: 0 });
-    expect((await post(coep, `/batches/${batchId}/approve`)).body.data).toEqual({ approved: 0, skipped: 0, applications: [] });
-    expect((await post(nashik, `/batches/${batchId}/approve`)).status).toBe(404);
-    expect((await post(pune, `/batches/${randomUUID()}/approve`)).status).toBe(404);
+    expect((await post(coep, `/batches/${batchId}/approve`, { reason: APPROVAL })).body.data).toEqual({ approved: 0, skipped: 0, applications: [] });
+    expect((await post(nashik, `/batches/${batchId}/approve`, { reason: APPROVAL })).status).toBe(404);
+    expect((await post(pune, `/batches/${randomUUID()}/approve`, { reason: APPROVAL })).status).toBe(404);
     expect(await audits('ipp.batch.approve')).toHaveLength(2);
   });
 
   it('a retry with the same Idempotency-Key gets the first answer', async () => {
     const id = await one();
-    const send = () => post(pune, '/approve', { ids: [id] }).set('Idempotency-Key', 'ipp-bulk-0001');
+    const send = () => post(pune, '/approve', { reason: APPROVAL, ids: [id] }).set('Idempotency-Key', 'ipp-bulk-0001');
     const first = await send();
     expect(first.body.data.approved).toBe(1);
     await new Promise((r) => setTimeout(r, 200));
@@ -645,7 +743,7 @@ describe('nobody decides twice', () => {
       wireBatch(),
       Array.from({ length: 30 }, () => wireApplication()),
     );
-    const answers = await Promise.all([post(pune, '/approve', { ids }), post(colleague, '/approve', { ids: [...ids].reverse() })]);
+    const answers = await Promise.all([post(pune, '/approve', { reason: APPROVAL, ids }), post(colleague, '/approve', { reason: APPROVAL, ids: [...ids].reverse() })]);
     expect(answers.map((r) => r.status)).toEqual([200, 200]);
     expect(answers[0].body.data.approved + answers[1].body.data.approved).toBe(30);
     expect(await decisions()).toHaveLength(30);

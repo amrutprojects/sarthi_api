@@ -98,6 +98,8 @@ export class IppApplication {
   @Column({ type: 'timestamptz', name: 'submittedAt' }) submittedAt!: Date;
   @Column({ type: 'timestamptz', name: 'auditorApprovedAt', nullable: true }) auditorApprovedAt!: Date | null;
   @Column({ type: 'varchar', length: 200, name: 'auditorApprovedBy', nullable: true }) auditorApprovedBy!: string | null;
+  /* Why the Auditor approved it (null when IPP did not say: approved before reasons were asked). */
+  @Column({ type: 'varchar', length: 500, name: 'auditorApprovalReason', nullable: true }) auditorApprovalReason!: string | null;
   @Column({ type: 'jsonb' }) fields!: SnapshotField[];
   @Column({ type: 'jsonb' }) documents!: SnapshotDocument[];
   @Column({ type: 'jsonb' }) edits!: SnapshotEdit[];

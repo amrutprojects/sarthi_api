@@ -3,7 +3,9 @@ import { documentEndpoint, envelope, pagedEnvelope, registry } from '../../share
 import { P } from '../roles-permissions';
 import { DECIDE_PERMISSIONS, DECISION_ACTIONS, EVENTS, STAGES } from './ipp-approvals.constants';
 import {
+  approveBatchSchema,
   approveManySchema,
+  approveSchema,
   documentSchema,
   headOfficeSchema,
   idSchema,
@@ -61,6 +63,7 @@ export const IppApplicationRowDto = registry.register(
       documents: z.object({ uploaded: count, verified: count }).strict(),
       lastEvent: EventDtoSchema.nullable().describe('The latest one that is not CORRECTED; history has them all'),
       canDecide: z.boolean().describe('By me, now'),
+      reasonRequired: z.boolean().describe('Mine to decide now and decided at this level before: approving it again needs a reason'),
     })
     .strict(),
 );
@@ -72,7 +75,13 @@ export const IppApplicationDetailDto = registry.register(
     aadhaarMasked: z.string().nullable().describe('XXXX-XXXX-1234'),
     formDistrict: z.string().nullable(),
     submittedAt: ts,
-    auditor: z.object({ approvedAt: ts.nullable(), by: z.string().nullable() }).strict(),
+    auditor: z
+      .object({
+        approvedAt: ts.nullable(),
+        by: z.string().nullable(),
+        reason: z.string().nullable().describe("Why the Auditor approved it; null when approved before reasons were asked"),
+      })
+      .strict(),
     fields: z.array(
       z
         .object({
@@ -292,7 +301,8 @@ documentEndpoint({
   path: '/ipp-approvals/approve',
   tag,
   summary: 'Approve several forms',
-  description: 'What is not mine to decide now (another stage, not visible, unknown) is skipped.',
+  description:
+    'One reason (3–500 characters) for all, kept for each form approved; required (422) when any of them is a second approval at my level. What is not mine to decide now (another stage, not visible, unknown) is skipped.',
   permission: decide,
   request: { body: approveManySchema.body },
   response: envelope(IppDecidedManyDto),
@@ -304,8 +314,9 @@ documentEndpoint({
   path: '/ipp-approvals/batches/:id/approve',
   tag,
   summary: 'Approve all forms of a batch that are mine to decide now',
+  description: 'One reason (3–500 characters) for all, kept for each form approved; required (422) when any of them is a second approval at my level.',
   permission: decide,
-  request: { params: idSchema.params },
+  request: { params: approveBatchSchema.params, body: approveBatchSchema.body },
   response: envelope(IppDecidedManyDto),
   status: 200,
   idempotent: true,
@@ -316,9 +327,10 @@ documentEndpoint({
   path: '/ipp-approvals/applications/:id/approve',
   tag,
   summary: 'Approve one form',
-  description: '409 NOT_YOURS_TO_DECIDE when it is at another stage, or not mine.',
+  description:
+    'A reason (3–500 characters) is required (422) for a second approval: my level decided it before. 409 NOT_YOURS_TO_DECIDE when it is at another stage, or not mine.',
   permission: decide,
-  request: { params: idSchema.params },
+  request: { params: approveSchema.params, body: approveSchema.body },
   response: envelope(IppApplicationDetailDto),
   status: 200,
   errors: [404, 409],

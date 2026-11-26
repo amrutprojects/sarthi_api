@@ -42,6 +42,8 @@ export interface ApplicationListRow {
   districtName: string;
   lastEvent: (Omit<EventRow, 'at'> & { at: string }) | null;
   canDecide: boolean;
+  /* The level it is at decided it before: its next approval there needs a reason. */
+  decidedHere: boolean;
 }
 
 export interface ApplicationDetailRow extends ApplicationListRow {
@@ -50,6 +52,7 @@ export interface ApplicationDetailRow extends ApplicationListRow {
   submittedAt: Date;
   auditorApprovedAt: Date | null;
   auditorApprovedBy: string | null;
+  auditorApprovalReason: string | null;
   fields: SnapshotField[];
   edits: SnapshotEdit[];
 }
@@ -79,6 +82,13 @@ const FROM = `
   JOIN "ipp_batches" b ON b."id" = a."batchId"
   JOIN "districts" d ON d."id" = b."districtId"`;
 
+/*
+ * The level the form is at decided it before (approved it and it came back after a rejection, or rejected it): approving it
+ * now is a second approval, which needs a reason (a first one does not). Over ipp_applications `a`.
+ */
+const DECIDED_HERE = `EXISTS (SELECT 1 FROM "ipp_approval_events" de WHERE de."applicationId" = a."id"
+  AND de."event" IN ('APPROVED', 'REJECTED') AND de."fromStage" = a."stage")`;
+
 /* lastEvent: the latest one that moved the form, so a correction does not hide why it was sent back (a."stageEvent" is the same event). */
 const ROW = `
   a."id", a."registrationId", a."registrationNumber", a."name", a."mobile", a."email", a."category", a."centre", a."technology",
@@ -86,10 +96,11 @@ const ROW = `
   d."id" AS "districtId", d."name" AS "districtName",
   (SELECT jsonb_build_object('event', e."event", 'from', e."fromStage", 'to', e."toStage", 'reason', e."reason", 'by', e."byName",
                              'role', e."byRole", 'at', e."at")
-     FROM "ipp_approval_events" e WHERE e."applicationId" = a."id" AND e."event" <> 'CORRECTED' ORDER BY e."seq" DESC LIMIT 1) AS "lastEvent"`;
+     FROM "ipp_approval_events" e WHERE e."applicationId" = a."id" AND e."event" <> 'CORRECTED' ORDER BY e."seq" DESC LIMIT 1) AS "lastEvent",
+  ${DECIDED_HERE} AS "decidedHere"`;
 
 const DETAIL = `
-  a."aadhaarMasked", a."formDistrict", a."submittedAt", a."auditorApprovedAt", a."auditorApprovedBy", a."fields", a."edits"`;
+  a."aadhaarMasked", a."formDistrict", a."submittedAt", a."auditorApprovedAt", a."auditorApprovedBy", a."auditorApprovalReason", a."fields", a."edits"`;
 
 const APPLICATION_SORT = { stageUpdatedAt: 'a."stageUpdatedAt"', name: 'lower(a."name")', registrationId: 'a."registrationId"' } as const;
 const BATCH_SORT = { receivedAt: 'b."receivedAt"', name: 'lower(b."name")' } as const;
@@ -244,11 +255,11 @@ class IppApprovalsRepository {
     m: EntityManager,
     access: IppAccess,
     which: { ids: string[] } | { batchId: string },
-  ): Promise<{ id: string; stage: Level }[]> {
+  ): Promise<{ id: string; stage: Level; decidedHere: boolean }[]> {
     const p = new SqlParams();
     const filter = 'ids' in which ? `a."id" = ANY(${p.add(which.ids)}::uuid[])` : `a."batchId" = ${p.add(which.batchId)}::uuid`;
     return m.query(
-      `SELECT a."id", a."stage" FROM "ipp_applications" a JOIN "ipp_batches" b ON b."id" = a."batchId"
+      `SELECT a."id", a."stage", ${DECIDED_HERE} AS "decidedHere" FROM "ipp_applications" a JOIN "ipp_batches" b ON b."id" = a."batchId"
         WHERE ${filter} AND ${canDecideSql(access, p)} ORDER BY a."id" FOR UPDATE OF a`,
       p.values,
     );

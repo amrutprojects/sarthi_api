@@ -40,12 +40,9 @@ const uniqueIds = (max: number) =>
     .refine((ids) => new Set(ids.map((i) => i.toLowerCase())).size === ids.length, 'The same id is there twice')
     .transform((ids) => ids.map((i) => i.toLowerCase()));
 
-export const approveManySchema = {
-  body: z.object({ ids: uniqueIds(BULK_MAX).refine((ids) => ids.length > 0, 'At least one') }).strict(),
-};
-
 /*
- * 3–500 characters after trimming. Counted as the reader sees them for the minimum and as JSON / IPP count them for the
+ * Why the officer decides: a rejection's reason (mandatory), and an approval's (mandatory for a second approval, which the
+ * service checks: 422; a first approval may have one). 3–500 characters after trimming. Counted as the reader sees them for the minimum and as JSON / IPP count them for the
  * maximum, so a reason accepted here is never refused later by the database or by IPP.
  */
 const reason = z
@@ -53,6 +50,14 @@ const reason = z
   .transform(typedText)
   .refine((v) => [...v].length >= REASON_MIN, `Must be at least ${REASON_MIN} characters`)
   .refine((v) => v.length <= REASON_MAX, `Must be at most ${REASON_MAX} characters`);
+
+export const approveManySchema = {
+  /* One reason for every application approved together. */
+  body: z.object({ ids: uniqueIds(BULK_MAX).refine((ids) => ids.length > 0, 'At least one'), reason: reason.optional() }).strict(),
+};
+
+export const approveSchema = { params: idParams, body: z.object({ reason: reason.optional() }).strict() };
+export const approveBatchSchema = { params: idParams, body: z.object({ reason: reason.optional() }).strict() };
 
 export const rejectSchema = { params: idParams, body: z.object({ reason }).strict() };
 

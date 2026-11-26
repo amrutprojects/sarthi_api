@@ -7,7 +7,9 @@ import { P } from '../roles-permissions';
 import { DECIDE_PERMISSIONS } from './ipp-approvals.constants';
 import { ippApprovalsController as c } from './ipp-approvals.controller';
 import {
+  approveBatchSchema,
   approveManySchema,
+  approveSchema,
   documentSchema,
   headOfficeSchema,
   idSchema,
@@ -49,8 +51,8 @@ ippApprovalsRouter.get('/districts', authorizePermission([P.IPP_APPROVALS_VIEW, 
  * (not to be kept in idempotency_keys) and cannot be made twice anyway: the second one finds another stage.
  */
 ippApprovalsRouter.post('/approve', decide, validateRequest(approveManySchema), idempotent, c.approveMany);
-ippApprovalsRouter.post('/batches/:id/approve', decide, validateRequest(idSchema), idempotent, c.approveBatch);
-ippApprovalsRouter.post('/applications/:id/approve', decide, validateRequest(idSchema), c.approve);
+ippApprovalsRouter.post('/batches/:id/approve', decide, validateRequest(approveBatchSchema), idempotent, c.approveBatch);
+ippApprovalsRouter.post('/applications/:id/approve', decide, validateRequest(approveSchema), c.approve);
 ippApprovalsRouter.post('/applications/:id/reject', decide, validateRequest(rejectSchema), c.reject);
 
 ippApprovalsRouter.get('/head-office', authorizePermission([P.IPP_APPROVALS_VIEW, 'settings.view'], { any: true }), c.headOffice);
