@@ -48,10 +48,10 @@ const SETTINGS = {
  */
 const COLUMNS = [
   {
-    headingMr: 'अमृत कलश',
-    headingEn: 'AMRUT Kalash',
+    headingMr: 'सारथी',
+    headingEn: 'Sarthi',
     links: [
-      { kind: 'INTERNAL' as const, labelMr: 'अमृत कलश', labelEn: 'AMRUT Kalash', href: '/programme' },
+      { kind: 'INTERNAL' as const, labelMr: 'सारथी', labelEn: 'Sarthi', href: '/programme' },
       { kind: 'INTERNAL' as const, labelMr: 'मॉड्यूल्स', labelEn: 'Modules', href: '/modules' },
       { kind: 'INTERNAL' as const, labelMr: 'पात्रता', labelEn: 'Eligibility', href: '/eligibility' },
       { kind: 'INTERNAL' as const, labelMr: 'अर्ज कसा करावा', labelEn: 'How to Apply', href: '/apply' },

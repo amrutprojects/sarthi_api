@@ -2,7 +2,7 @@
 
 - Status: Accepted (supersedes the sessionStorage bearer-token design)
 - Date: 2026-10-19
-- Applies to: amrut-kalash-api and amrut-kalash-admin
+- Applies to: sarthi-api and sarthi-admin
 
 ## Context
 

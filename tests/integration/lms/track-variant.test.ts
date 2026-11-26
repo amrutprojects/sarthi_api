@@ -96,10 +96,10 @@ beforeAll(async () => {
   for (const r of rows) tracks[r.code] = r.id;
 
   const entity = await ok<{ id: string }>(
-    await post(`${API}/lms/entities`, { name: 'Amrut Kalash', code: 'AMK', defaultLanguage: 'en', trackIds: [tracks.T01, tracks.T03, tracks.T07, tracks.T12] }),
+    await post(`${API}/lms/entities`, { name: 'Sarthi', code: 'AMK', defaultLanguage: 'en', trackIds: [tracks.T01, tracks.T03, tracks.T07, tracks.T12] }),
   );
   entityId = entity.id;
-  courseId = (await ok<{ id: string }>(await post(`${API}/lms/courses`, { entityId, code: 'AMK-COURSE', title: 'Amrut Kalash Programme' }))).id;
+  courseId = (await ok<{ id: string }>(await post(`${API}/lms/courses`, { entityId, code: 'AMK-COURSE', title: 'Sarthi Programme' }))).id;
   module1 = (await ok<{ id: string }>(await post(`${API}/lms/course-modules`, { courseId, moduleNumber: 1, title: 'Personality Development' }))).id;
   module3 = (
     await ok<{ id: string }>(
@@ -126,7 +126,7 @@ describe('Track Variant Master — create and read', () => {
     expect(res.body.data).toMatchObject({
       courseModuleId: module3,
       trackId: tracks.T07,
-      course: { id: courseId, code: 'AMK-COURSE', title: 'Amrut Kalash Programme', entityId },
+      course: { id: courseId, code: 'AMK-COURSE', title: 'Sarthi Programme', entityId },
       courseModule: { id: module3, moduleNumber: 3, coreHours: 300, oftHoursMin: 210, oftHoursMax: 240 },
       /* L-07: the track name equals the Admin Panel reference record. */
       track: { id: tracks.T07, code: 'T07', name: 'Cyber Security', isActive: true },

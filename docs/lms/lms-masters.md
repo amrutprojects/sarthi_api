@@ -1,7 +1,7 @@
 # LMS Admin — core masters
 
 The eight core masters of the LMS Admin (AMRUT_KALASH_03 LMS Admin Functional & Technical Specification), built in this
-backend (`src/lms/*`) and the admin frontend (`amrut-kalash-admin/src/features/lms/*`).
+backend (`src/lms/*`) and the admin frontend (`sarthi-admin/src/features/lms/*`).
 
 | # | Master | Spec | Backend | API base (`/api/v1/lms`) | Frontend folder |
 |---|---|---|---|---|---|
@@ -113,7 +113,7 @@ POST /api/v1/lms/courses
 Content-Type: application/json
 Cookie: amrut_session=…
 
-{ "entityId": "6f0c…", "code": "AMK-COURSE", "title": "AMRUT KALASH Digital Skills Programme",
+{ "entityId": "6f0c…", "code": "AMK-COURSE", "title": "SARTHI Digital Skills Programme",
   "description": "<p>Four modules and one <strong>technology track</strong>.</p>", "languages": ["en"] }
 ```
 
@@ -121,7 +121,7 @@ Response `201` (abridged: `entity`, `publishedReleaseNo`, `createdAt` and `updat
 
 ```json
 { "success": true, "message": "Course created successfully",
-  "data": { "id": "9b1e…", "entityId": "6f0c…", "code": "AMK-COURSE", "title": "AMRUT KALASH Digital Skills Programme",
+  "data": { "id": "9b1e…", "entityId": "6f0c…", "code": "AMK-COURSE", "title": "SARTHI Digital Skills Programme",
             "status": "DRAFT", "publishedReleaseId": null, "languages": ["en"], "isActive": true,
             "modules": [], "missingModuleNumbers": [1, 2, 3, 4], "hasAllModules": false, "references": [] } }
 ```
@@ -156,7 +156,7 @@ npm run seed               # idempotent: adds the lms-* permissions; SUPER_ADMIN
 npm run dev                # API on PORT (5001)
 ```
 
-Frontend: `npm run dev` in `amrut-kalash-admin`. The screens are under **LMS Admin** in the sidebar.
+Frontend: `npm run dev` in `sarthi-admin`. The screens are under **LMS Admin** in the sidebar.
 
 Order of use:
 1. Create an entity, enabling its centres and tracks.
@@ -179,7 +179,7 @@ Order of use:
 
 These are kept configurable or left empty rather than invented:
 
-- **OQ-009:** the entity model and the single "AMRUT KALASH" entity. Nothing is seeded; create the entity on screen.
+- **OQ-009:** the entity model and the single "SARTHI" entity. Nothing is seeded; create the entity on screen.
 - **OQ-012:** the syllabus values are pending approval. The values used are the confirmed figures from §2.1. Syllabus reference text and module descriptions are not in the spec; you enter them.
 - **OQ-013:** assessment methodology, weights, gate minimum band, pass marks and progression. All empty and marked "To Be Confirmed".
 - **OQ-014 / OQ-015:** attendance and certification rules. Learning-configuration keys with no value, marked "To Be Confirmed".

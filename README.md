@@ -1,6 +1,6 @@
 # AMRUT × SUMAGO Admin API
 
-REST API for the AMRUT × SUMAGO admin panel ([amrut-kalash-admin](https://github.com/amrutprojects/amrut-kalash-admin)).
+REST API for the AMRUT × SUMAGO admin panel ([sarthi-admin](https://github.com/amrutprojects/sarthi-admin)).
 Node.js, Express and TypeScript on PostgreSQL, organised as feature modules.
 
 | Concern | Choice |

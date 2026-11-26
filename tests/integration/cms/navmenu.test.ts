@@ -277,7 +277,7 @@ describe('Naming an item', () => {
   });
 
   it('records which fields were sent in the audit entry', async () => {
-    const name = { mr: 'अमृत कलश योजना', en: 'The Programme' };
+    const name = { mr: 'सारथी योजना', en: 'The Programme' };
     await set('programme', { label: name }).expect(200);
     await set('programme', { show: false, label: null }).expect(200);
     const entries = (await AppDataSource.query(

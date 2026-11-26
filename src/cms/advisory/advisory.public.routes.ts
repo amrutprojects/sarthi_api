@@ -4,7 +4,7 @@ import { advisoryController } from './advisory.controller';
 import { photoFileSchema } from './advisory.validator';
 
 /*
- * /api/v1/public/advisory-committee — the AMRUT Kalash Advisory Committee page, for the public website.
+ * /api/v1/public/advisory-committee — the Sarthi Advisory Committee page, for the public website.
  *
  * Unauthenticated for the same reasons as the other public feeds: the site has no session. GET only;
  * hidden members are filtered out by getPublic(); the payload is projected to what the cards print;

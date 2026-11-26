@@ -70,7 +70,7 @@ afterAll(teardownTestApp);
 describe('Entity Master — create and read', () => {
   it('creates an entity with normalised values, defaults and the enabled centres / tracks resolved', async () => {
     const res = await create({
-      name: '  Amrut   Kalash  ',
+      name: '  Sarthi  ',
       code: 'amk-01',
       description: '  Operational boundary of the programme  ',
       defaultLanguage: 'mr',
@@ -79,7 +79,7 @@ describe('Entity Master — create and read', () => {
     });
     expect(res.status).toBe(201);
     expect(res.body.data).toMatchObject({
-      name: 'Amrut Kalash',
+      name: 'Sarthi',
       code: 'AMK-01',
       description: 'Operational boundary of the programme',
       defaultLanguage: 'mr',
@@ -135,7 +135,7 @@ describe('Entity Master — create and read', () => {
   });
 
   it('enforces unique name (case-insensitive) and code, answering 409 with the field', async () => {
-    const name = await create({ name: 'AMRUT KALASH', code: 'OTHER', defaultLanguage: 'en' });
+    const name = await create({ name: 'SARTHI', code: 'OTHER', defaultLanguage: 'en' });
     expect(name.status).toBe(409);
     expect(name.body.error.details).toEqual([{ field: 'name', message: 'This name is already used.' }]);
 

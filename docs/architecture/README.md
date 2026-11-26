@@ -4,8 +4,8 @@
 
 Two repositories, deployed independently:
 
-- **amrut-kalash-api** (this repository): the REST API and the only component that talks to PostgreSQL.
-- **amrut-kalash-admin**: the React admin panel, a static single-page app that calls this API.
+- **sarthi-api** (this repository): the REST API and the only component that talks to PostgreSQL.
+- **sarthi-admin**: the React admin panel, a static single-page app that calls this API.
 
 ```
 Browser ──HTTPS──> Admin panel (static files)

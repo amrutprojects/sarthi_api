@@ -5,7 +5,7 @@
 
 ## Context
 
-The architecture brief describes one `admin-panel/` folder holding `frontend/` and `backend/`. The project already has two GitHub repositories — `amrut-kalash-api` (backend) and `amrut-kalash-admin` (frontend) — each with its own history, and the team asked to keep them separate. The backend was organised by technical layer (`controllers/`, `services/`, `repositories/`…), which scales poorly when several developers work on different features.
+The architecture brief describes one `admin-panel/` folder holding `frontend/` and `backend/`. The project already has two GitHub repositories — `sarthi-api` (backend) and `sarthi-admin` (frontend) — each with its own history, and the team asked to keep them separate. The backend was organised by technical layer (`controllers/`, `services/`, `repositories/`…), which scales poorly when several developers work on different features.
 
 ## Decision
 

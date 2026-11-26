@@ -11,7 +11,7 @@ export interface BrandBarSeedSummary {
  * seeding changes nothing a visitor sees; it only moves the source of truth into the database.
  */
 const SETTINGS = {
-  title: 'AMRUT KALASH',
+  title: 'SARTHI',
   fullNameMr: 'अमृत - महाराष्ट्र संशोधन, उन्नती व प्रशिक्षण प्रबोधिनी',
   fullNameEn: 'Academy of Maharashtra Research, Upliftment and Training',
   partnerLabelMr: 'अंमलबजावणी भागीदार',

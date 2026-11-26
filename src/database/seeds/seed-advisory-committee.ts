@@ -6,17 +6,17 @@ export interface AdvisorySeedSummary {
 }
 
 /*
- * The AMRUT Kalash Advisory Committee page (अमृत कलश सल्लागार समिती): its heading and subtitle only.
+ * The Sarthi Advisory Committee page (सारथी सल्लागार समिती): its heading and subtitle only.
  *
  * No members are seeded. The trainers and advisors are real people whose names, positions, profiles
  * and photos must come from the programme, not be invented, so the administrator adds them; until
  * then the website shows the heading over an empty list.
  */
 const SECTION = {
-  headingMr: 'अमृत कलश सल्लागार समिती',
-  headingEn: 'AMRUT Kalash Advisory Committee',
+  headingMr: 'सारथी सल्लागार समिती',
+  headingEn: 'Sarthi Advisory Committee',
   subtitleMr: 'कार्यक्रमाला मार्गदर्शन करणारे तज्ज्ञ प्रशिक्षक व सल्लागार.',
-  subtitleEn: 'The expert trainers and advisors who guide the AMRUT Kalash programme.',
+  subtitleEn: 'The expert trainers and advisors who guide the Sarthi programme.',
 };
 
 /*

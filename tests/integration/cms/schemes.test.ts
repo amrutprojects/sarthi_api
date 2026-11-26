@@ -48,7 +48,7 @@ const DEFAULT_LABEL = pair('अधिक जाणून घ्या', 'Learn m
 /* The six schemes the website showed before the section was managed (content/schemes.ts), in order. */
 const SEEDED = [
   {
-    title: pair('अमृत कलश - कौशल्य प्रशिक्षण', 'AMRUT Kalash - Skill Training'),
+    title: pair('सारथी - कौशल्य प्रशिक्षण', 'Sarthi - Skill Training'),
     description: pair(
       'महाराष्ट्रातील खुल्या प्रवर्गातील आर्थिकदृष्ट्या दुर्बल घटकातील युवकांना २१ व्या शतकातील रोजगारक्षम कौशल्ये, संगणक कौशल्ये व इंग्रजी संभाषण कौशल्ये यांचे प्रशिक्षण देऊन रोजगार व स्वयंरोजगारक्षम बनविणे.',
       'Equipping economically weaker youth from the open category with 21st-century job-readiness skills, digital skills and English communication skills for employment and self-employment.',

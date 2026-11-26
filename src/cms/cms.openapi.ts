@@ -402,9 +402,9 @@ documentEndpoint({
   method: 'get',
   path: '/public/advisory-committee',
   tag,
-  summary: 'AMRUT Kalash Advisory Committee page',
+  summary: 'Sarthi Advisory Committee page',
   description:
-    'The "अमृत कलश सल्लागार समिती" page: its heading and subtitle, and the visible trainers and advisors in display order, in ' +
+    'The "सारथी सल्लागार समिती" page: its heading and subtitle, and the visible trainers and advisors in display order, in ' +
     'Marathi and English, each with the profile behind its "View Profile" button (experience and five lists, any of which may ' +
     'be filled in one language only). Members in no group come in `members`; the rest under their group headings in `groups`. ' +
     'Managed in the admin panel under CMS → Advisory Committee Management. `data` is null when the section has not been configured.',
@@ -656,7 +656,7 @@ documentEndpoint({
 const BrandBar = z.object({
   /* false: the website leaves the whole bar out. */
   showSection: z.boolean(),
-  /* The bold title on the left of the bar, e.g. "AMRUT KALASH". Never blank. */
+  /* The bold title on the left of the bar, e.g. "SARTHI". Never blank. */
   title: z.string(),
   /* The organisation's full name, printed as two lines (Marathi above English) in every language. A blank half is a line not shown. */
   fullName: Bilingual,

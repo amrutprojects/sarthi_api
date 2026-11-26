@@ -63,7 +63,7 @@ const SEEDED_CHECK_STATUS = pair('अर्जाची स्थिती प�
 const SEEDED_SLIDES = [
   {
     tag: pair('प्रवेश सुरू', 'Admissions open'),
-    title: pair('अमृत कलश - कौशल्य प्रशिक्षणासाठी ऑनलाइन अर्ज करा', 'AMRUT Kalash - apply online for skill training'),
+    title: pair('सारथी - कौशल्य प्रशिक्षणासाठी ऑनलाइन अर्ज करा', 'Sarthi - apply online for skill training'),
     description: pair(
       'खुल्या प्रवर्गातील आर्थिकदृष्ट्या दुर्बल घटकातील युवकांसाठी ४८० तासांचा डिप्लोमा कार्यक्रम.',
       'A 480-hour diploma programme for economically weaker youth from the open category.',

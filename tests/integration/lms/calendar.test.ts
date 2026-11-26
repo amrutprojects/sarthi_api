@@ -75,7 +75,7 @@ beforeAll(async () => {
   centres.b = await makeCentre(districtId, 'Bravo Centre');
   centres.c = await makeCentre(districtId, 'Charlie Centre');
 
-  entityId = await makeEntity({ name: 'Amrut Kalash', code: 'AMK', centreIds: [centres.a, centres.b] });
+  entityId = await makeEntity({ name: 'Sarthi', code: 'AMK', centreIds: [centres.a, centres.b] });
   otherEntityId = await makeEntity({ name: 'Other Entity', code: 'OTH', centreIds: [centres.c] });
   inactiveEntityId = await makeEntity({ name: 'Dormant Entity', code: 'DOR', isActive: false });
 });
@@ -100,7 +100,7 @@ describe('Academic calendar — create and read', () => {
     expect(res.body.data).toMatchObject({
       name: 'Academic Year 2026',
       entityId,
-      entity: { id: entityId, name: 'Amrut Kalash', code: 'AMK', isActive: true },
+      entity: { id: entityId, name: 'Sarthi', code: 'AMK', isActive: true },
       centreId: null,
       centre: null,
       type: 'ENTITY',

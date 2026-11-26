@@ -15,8 +15,8 @@ const PUBLIC = `${API}/public/eligibility`;
 const SEEDED_TEXT = {
   pageTitle: { mr: 'पात्रता', en: 'Eligibility' },
   pageSubtitle: {
-    mr: 'अमृत कलशसाठी पात्रता निकष व आवश्यक कागदपत्रे.',
-    en: 'Eligibility criteria and required documents for AMRUT Kalash.',
+    mr: 'सारथीसाठी पात्रता निकष व आवश्यक कागदपत्रे.',
+    en: 'Eligibility criteria and required documents for Sarthi.',
   },
   criteriaHeading: { mr: 'पात्रता निकष', en: 'Eligibility criteria' },
   documentsHeading: { mr: 'आवश्यक कागदपत्रे', en: 'Required documents' },

@@ -2,7 +2,7 @@ import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm
 import { AppBaseEntity } from '../../database/base.entity';
 
 /*
- * The Modules page of the AMRUT Kalash programme.
+ * The Modules page of the Sarthi programme.
  *
  * The business rules these tables hold, which is what their shapes are for:
  *

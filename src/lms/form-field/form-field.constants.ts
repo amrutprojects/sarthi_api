@@ -24,7 +24,7 @@ export const LMS_CONFIGURABLE_FORMS = [
       { code: 'C', label: 'Technology expertise' },
       { code: 'D', label: 'Experience' },
       { code: 'E', label: 'Projects / implementation exposure' },
-      { code: 'F', label: 'AMRUT KALASH responsibilities' },
+      { code: 'F', label: 'SARTHI responsibilities' },
       { code: 'G', label: 'Trainer competency snapshot' },
       { code: 'H', label: 'Professional summary' },
       { code: 'VERIFICATION', label: 'Verification and sign-off' },

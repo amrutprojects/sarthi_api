@@ -7,7 +7,7 @@ import type { CourseStatus } from './course.constants';
  * Course — the course and its four programme modules (AMRUT_KALASH_03 L-06 / FR-306, form F-LMS-06 Table 31,
  * table DB-310 "course"). The modules are lms_course_modules (course-module.model.ts).
  *
- * The spec recommends one course for AMRUT KALASH; nothing is seeded — the course is created on screen.
+ * The spec recommends one course for SARTHI; nothing is seeded — the course is created on screen.
  *
  * `status` is the spec lifecycle (F-LMS-06-06, DRAFT → PUBLISHED → RETIRED). `isActive` is the platform's
  * on/off switch every master carries (AppBaseEntity); delete is the soft delete of a DRAFT course.

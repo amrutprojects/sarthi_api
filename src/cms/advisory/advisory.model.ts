@@ -2,7 +2,7 @@ import { Column, Entity } from 'typeorm';
 import { AppBaseEntity } from '../../database/base.entity';
 
 /*
- * The "AMRUT Kalash Advisory Committee" page (अमृत कलश सल्लागार समिती): its heading and subtitle. A
+ * The "Sarthi Advisory Committee" page (सारथी सल्लागार समिती): its heading and subtitle. A
  * singleton — the trainers and advisors are rows of AdvisoryMember, so the page's own words can be
  * edited without touching any member.
  *

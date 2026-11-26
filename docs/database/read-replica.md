@@ -96,7 +96,7 @@ The replica has the same users and passwords as the primary (it is a copy), so `
 `DB_READ_PASSWORD` are not needed. Then restart and check:
 
 ```bash
-pm2 restart amrut-kalash-api --update-env
+pm2 restart sarthi-api --update-env
 curl -s http://127.0.0.1:5001/api/v1/health
 ```
 
@@ -111,7 +111,7 @@ primary to asynchronous and send reads back to the primary:
 sudo -u postgres psql -c "ALTER SYSTEM SET synchronous_standby_names = '';" -c "SELECT pg_reload_conf();"
 ```
 
-Then remove `DB_READ_HOST` from `.env` and run `pm2 restart amrut-kalash-api --update-env`. Undo both once the replica
+Then remove `DB_READ_HOST` from `.env` and run `pm2 restart sarthi-api --update-env`. Undo both once the replica
 is back (`ALTER SYSTEM RESET synchronous_standby_names;` and reload).
 
 ## Removing the replica

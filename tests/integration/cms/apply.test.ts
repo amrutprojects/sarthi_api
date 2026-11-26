@@ -55,8 +55,8 @@ const SEEDED_STEPS = [
   {
     title: { mr: 'ऑनलाइन अर्ज', en: 'Online application' },
     description: {
-      mr: 'इच्छित बॅचसाठी अमृत कलश पोर्टलवर ऑनलाइन अर्ज करा व पात्रतेच्या कागदपत्रांच्या स्कॅन प्रती अपलोड करा. पसंतीचे केंद्र निवडा.',
-      en: 'Apply online on the AMRUT Kalash portal for your desired batch, upload scanned proofs of eligibility and indicate your preferred centre.',
+      mr: 'इच्छित बॅचसाठी सारथी पोर्टलवर ऑनलाइन अर्ज करा व पात्रतेच्या कागदपत्रांच्या स्कॅन प्रती अपलोड करा. पसंतीचे केंद्र निवडा.',
+      en: 'Apply online on the Sarthi portal for your desired batch, upload scanned proofs of eligibility and indicate your preferred centre.',
     },
   },
   {

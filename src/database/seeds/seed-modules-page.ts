@@ -29,8 +29,8 @@ export interface ModulesSeedSummary {
  * Marathi first, as on the AMRUT portal. Course titles are published in English only.
  */
 const SETTINGS = {
-  pageTitleMr: 'मॉड्यूल्स — अमृत कलश',
-  pageTitleEn: 'Modules — AMRUT KALASH',
+  pageTitleMr: 'मॉड्यूल्स — सारथी',
+  pageTitleEn: 'Modules — SARTHI',
   pageSubtitleMr: 'चार मॉड्यूल्स, प्रत्येकी १२० तास. मॉड्यूल ३ व ४ मध्ये १० पैकी एक रोजगार क्षेत्र निवडावे लागते.',
   pageSubtitleEn:
     'Four modules of 120 hours each. In Modules 3 and 4 the candidate selects one of 10 employment domains.',

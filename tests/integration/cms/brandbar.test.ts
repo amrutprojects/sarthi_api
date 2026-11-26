@@ -44,7 +44,7 @@ interface Detail {
 const pair = (mr: string, en: string): Pair => ({ mr, en });
 const BLANK = pair('', '');
 /* What the website's brand bar carried before it was managed, word for word. */
-const TITLE = 'AMRUT KALASH';
+const TITLE = 'SARTHI';
 const FULL_NAME = pair('अमृत - महाराष्ट्र संशोधन, उन्नती व प्रशिक्षण प्रबोधिनी', 'Academy of Maharashtra Research, Upliftment and Training');
 const PARTNER_LABEL = pair('अंमलबजावणी भागीदार', 'Implementation Partner');
 const PARTNER_NAME = 'SUMAGO INFOTECH PVT LTD';
@@ -104,7 +104,7 @@ describe('Editing the Brand Bar', () => {
   it('saves every field, collapsing stray whitespace, and the website reads it', async () => {
     const current = await getBar();
     const res = await put({
-      title: '  AMRUT   KALASH 2.0 ',
+      title: '  SARTHI   2.0 ',
       fullName: pair(' नवीन   नाव ', 'New  name'),
       partnerLabel: pair('भागीदार', 'Partner'),
       partnerName: ' Example Partner Ltd ',
@@ -112,14 +112,14 @@ describe('Editing the Brand Bar', () => {
     });
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({
-      title: 'AMRUT KALASH 2.0',
+      title: 'SARTHI 2.0',
       fullName: pair('नवीन नाव', 'New name'),
       partnerLabel: pair('भागीदार', 'Partner'),
       partnerName: 'Example Partner Ltd',
     });
     expect(await publicFeed()).toEqual({
       showSection: true,
-      title: 'AMRUT KALASH 2.0',
+      title: 'SARTHI 2.0',
       fullName: pair('नवीन नाव', 'New name'),
       partner: { label: pair('भागीदार', 'Partner'), name: 'Example Partner Ltd' },
     });

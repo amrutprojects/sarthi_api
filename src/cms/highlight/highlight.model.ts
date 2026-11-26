@@ -28,7 +28,7 @@ export interface HighlightRowLabel {
 export type HighlightRowLabels = Partial<Record<HighlightRowKey, HighlightRowLabel>>;
 
 /*
- * The home page's programme section: the band headed "AMRUT KALASH — Skill Development Diploma",
+ * The home page's programme section: the band headed "SARTHI — Skill Development Diploma",
  * its tagline, its objectives and the certification line.
  *
  * The fact sheet beside it on the page is NOT here. Its totals are summed from the modules, and its
@@ -37,7 +37,7 @@ export type HighlightRowLabels = Partial<Record<HighlightRowKey, HighlightRowLab
  */
 @Entity({ name: 'programme_highlight' })
 export class ProgrammeHighlight extends AppBaseEntity {
-  /* The section heading, in full — "AMRUT KALASH — Skill Development Diploma". */
+  /* The section heading, in full — "SARTHI — Skill Development Diploma". */
   @Column({ type: 'varchar', length: 200, name: 'headingMr' })
   headingMr!: string;
 

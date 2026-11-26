@@ -52,7 +52,7 @@ const SEEDED = [
   { name: pair('अमृत पर्यटन', 'AMRUT Tourism'), description: pair('पाहा महाराष्ट्र.. अमृतच्या नजरेतून', 'See Maharashtra through AMRUT'), icon: 'globe', link: null },
   { name: pair('अमृत वर्ग', 'AMRUT Varg'), description: pair('विशेष गट उपक्रम', 'Special group initiative'), icon: 'layers', link: null },
   { name: pair('अमृत ड्रोन मिशन', 'AMRUT Drone Mission'), description: pair('भारतीय आकाशाला सशक्त करणे', 'Empowering Indian skies'), icon: 'play', link: null },
-  { name: pair('अमृत कलश', 'AMRUT Kalash'), description: pair('कौशल्य विकास व रोजगारक्षमता', 'Skill development & employability'), icon: 'award', link: '/programme' },
+  { name: pair('सारथी', 'Sarthi'), description: pair('कौशल्य विकास व रोजगारक्षमता', 'Skill development & employability'), icon: 'award', link: '/programme' },
 ];
 
 const programme = (n: number, extra: Record<string, unknown> = {}) => ({
@@ -135,10 +135,10 @@ describe('Adding a programme', () => {
   });
 
   it('refuses a duplicate name (either language, any case)', async () => {
-    const res = await create(programme(9, { name: pair('अमृत कलश', 'Something else') }));
+    const res = await create(programme(9, { name: pair('सारथी', 'Something else') }));
     expect(res.status).toBe(409);
-    expect(res.body.message).toBe('A programme named "अमृत कलश" / "AMRUT Kalash" already exists.');
-    expect((await create(programme(9, { name: pair('नवीन', 'amrut KALASH') }))).status).toBe(409);
+    expect(res.body.message).toBe('A programme named "सारथी" / "Sarthi" already exists.');
+    expect((await create(programme(9, { name: pair('नवीन', 'sARTHI') }))).status).toBe(409);
   });
 
   it('replays a double-submitted form (same Idempotency-Key) instead of adding the card twice', async () => {

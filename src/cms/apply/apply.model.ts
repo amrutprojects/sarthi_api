@@ -23,7 +23,7 @@ import { AppBaseEntity } from '../../database/base.entity';
 /*
  * What one list row is:
  *   STEP — one numbered step of the application ladder: a title and a description
- *          ("Online application" — "Apply online on the AMRUT Kalash portal …")
+ *          ("Online application" — "Apply online on the Sarthi portal …")
  *   FACT — one label/value row in the "At a glance" card ("Security deposit" — "₹2,000 (refundable)")
  * Both carry a value, so unlike the eligibility items there is no value-by-kind rule.
  */

@@ -76,10 +76,10 @@ afterAll(async () => {
 
 describe('Branding and Settings — read', () => {
   it('lists the F-LMS-04 catalogue for a new entity with its defaults and the missing required support email', async () => {
-    const id = await makeEntity('Amrut Kalash', 'AMK', 'mr');
+    const id = await makeEntity('Sarthi', 'AMK', 'mr');
     const res = await get(id);
     expect(res.status).toBe(200);
-    expect(res.body.data.entity).toMatchObject({ id, name: 'Amrut Kalash', code: 'AMK', defaultLanguage: 'mr', isActive: true });
+    expect(res.body.data.entity).toMatchObject({ id, name: 'Sarthi', code: 'AMK', defaultLanguage: 'mr', isActive: true });
     expect(res.body.data.settings.map((s: SettingView) => s.key)).toEqual([
       'display_name',
       'logo_storage_key',
@@ -97,7 +97,7 @@ describe('Branding and Settings — read', () => {
       sensitive: false,
       hasValue: false,
       value: null,
-      effectiveValue: 'Amrut Kalash',
+      effectiveValue: 'Sarthi',
       updatedAt: null,
     });
     expect(setting(res, 'languages')).toMatchObject({ group: 'settings', hasValue: false, value: null, effectiveValue: ['mr'] });
@@ -132,7 +132,7 @@ describe('Branding and Settings — update', () => {
   it('stores normalised typed values and audits branding and each setting with before / after', async () => {
     const id = await makeEntity('Update Entity', 'UPD');
     const res = await patch(id, {
-      display_name: '  Amrut   Kalash LMS ',
+      display_name: '  Sarthi   LMS ',
       colours: { primary: '#0a3d62' },
       support_email: ' Help@Example.ORG ',
       support_phone: '+91 20 1234-5678',
@@ -140,7 +140,7 @@ describe('Branding and Settings — update', () => {
       languages: ['mr', 'en'],
     });
     expect(res.status).toBe(200);
-    expect(setting(res, 'display_name')).toMatchObject({ hasValue: true, value: 'Amrut Kalash LMS', effectiveValue: 'Amrut Kalash LMS' });
+    expect(setting(res, 'display_name')).toMatchObject({ hasValue: true, value: 'Sarthi LMS', effectiveValue: 'Sarthi LMS' });
     expect(setting(res, 'colours').value).toEqual({ primary: '#0A3D62', accent: null });
     expect(setting(res, 'support_email').value).toBe('help@example.org');
     expect(setting(res, 'support_phone').value).toBe('+912012345678');
@@ -155,7 +155,7 @@ describe('Branding and Settings — update', () => {
       event: 'entity.branding.updated',
       fields: ['display_name', 'colours'],
       before: { display_name: null, colours: null },
-      after: { display_name: 'Amrut Kalash LMS', colours: { primary: '#0A3D62', accent: null } },
+      after: { display_name: 'Sarthi LMS', colours: { primary: '#0A3D62', accent: null } },
     });
     const settings = await auditRows(id, 'lms.setting.update');
     /* One record per key (same transaction, so same timestamp: compared as a set). */

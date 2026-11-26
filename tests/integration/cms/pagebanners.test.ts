@@ -41,7 +41,7 @@ const KEYS = ['about', 'faq', 'programme', 'track', 'verify'];
 const ALL_DEFAULT = KEYS.map((key) => ({ key, title: null, subtitle: null }));
 
 const TITLE = { mr: 'नेहमीचे प्रश्न', en: 'Common questions' };
-const SUBTITLE = { mr: 'अमृत कलश कार्यक्रमाविषयी उत्तरे', en: 'Answers about the AMRUT Kalash programme' };
+const SUBTITLE = { mr: 'सारथी कार्यक्रमाविषयी उत्तरे', en: 'Answers about the Sarthi programme' };
 
 const details = (res: { body: { error: { details: Detail[] } } }) => res.body.error.details;
 const list = async (token = admin.token): Promise<Item[]> => (await request(app).get(ADMIN_URL).set(auth(token)).expect(200)).body.data;

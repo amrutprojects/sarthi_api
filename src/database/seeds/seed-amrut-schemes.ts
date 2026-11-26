@@ -17,7 +17,7 @@ export interface AmrutSchemesSeedSummary {
  * Two representational changes: the link was written as a hash route ('#/programme') and is stored
  * as the page itself ('/programme'), which is what the website already resolved it to; and the
  * "हा कार्यक्रम" / "This programme" tag, which the site printed on any `featured` card, is now that
- * card's own badge text. Only AMRUT Kalash had a destination, a badge and the highlighted style; the
+ * card's own badge text. Only Sarthi had a destination, a badge and the highlighted style; the
  * others keep none.
  */
 const SECTION = {
@@ -32,8 +32,8 @@ const SECTION = {
 
 const SCHEMES = [
   {
-    titleMr: 'अमृत कलश - कौशल्य प्रशिक्षण',
-    titleEn: 'AMRUT Kalash - Skill Training',
+    titleMr: 'सारथी - कौशल्य प्रशिक्षण',
+    titleEn: 'Sarthi - Skill Training',
     descriptionMr:
       'महाराष्ट्रातील खुल्या प्रवर्गातील आर्थिकदृष्ट्या दुर्बल घटकातील युवकांना २१ व्या शतकातील रोजगारक्षम कौशल्ये, संगणक कौशल्ये व इंग्रजी संभाषण कौशल्ये यांचे प्रशिक्षण देऊन रोजगार व स्वयंरोजगारक्षम बनविणे.',
     descriptionEn:

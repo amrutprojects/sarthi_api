@@ -43,7 +43,7 @@ describe('seeded content', () => {
     const res = await request(app).get(`${API}/public/faqs`);
     expect(res.status).toBe(200);
     expect(res.body.data.slice(0, 7).map((f: { question: { en: string } }) => f.question.en)).toEqual([
-      'What is AMRUT Kalash?',
+      'What is Sarthi?',
       'How long does the programme take?',
       'What does it cost?',
       'What is the difference between offline and online training?',
@@ -52,7 +52,7 @@ describe('seeded content', () => {
       'Which domains can I choose in Module 3?',
     ]);
     expect(res.body.data[0]).toEqual({
-      question: { mr: 'अमृत कलश म्हणजे काय?', en: 'What is AMRUT Kalash?' },
+      question: { mr: 'सारथी म्हणजे काय?', en: 'What is Sarthi?' },
       answer: expect.objectContaining({ mr: expect.any(String), en: expect.any(String) }),
     });
   });

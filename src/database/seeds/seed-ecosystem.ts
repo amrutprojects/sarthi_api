@@ -14,7 +14,7 @@ export interface EcosystemSeedSummary {
  * and link label — so seeding changes nothing a visitor sees; it only moves the source of truth into
  * the database. The one representational change is the link: the bundled copy wrote it as a hash
  * route ('#/programme'), and the database stores the page itself ('/programme'), which is what the
- * website already resolved it to. Only AMRUT Kalash had a destination; the others keep none.
+ * website already resolved it to. Only Sarthi had a destination; the others keep none.
  */
 const SECTION = {
   headingMr: 'अमृत प्रणाली',
@@ -34,7 +34,7 @@ const PROGRAMMES = [
   { nameMr: 'अमृत पर्यटन', nameEn: 'AMRUT Tourism', descriptionMr: 'पाहा महाराष्ट्र.. अमृतच्या नजरेतून', descriptionEn: 'See Maharashtra through AMRUT', icon: 'globe', link: null },
   { nameMr: 'अमृत वर्ग', nameEn: 'AMRUT Varg', descriptionMr: 'विशेष गट उपक्रम', descriptionEn: 'Special group initiative', icon: 'layers', link: null },
   { nameMr: 'अमृत ड्रोन मिशन', nameEn: 'AMRUT Drone Mission', descriptionMr: 'भारतीय आकाशाला सशक्त करणे', descriptionEn: 'Empowering Indian skies', icon: 'play', link: null },
-  { nameMr: 'अमृत कलश', nameEn: 'AMRUT Kalash', descriptionMr: 'कौशल्य विकास व रोजगारक्षमता', descriptionEn: 'Skill development & employability', icon: 'award', link: '/programme' },
+  { nameMr: 'सारथी', nameEn: 'Sarthi', descriptionMr: 'कौशल्य विकास व रोजगारक्षमता', descriptionEn: 'Skill development & employability', icon: 'award', link: '/programme' },
 ];
 
 /*

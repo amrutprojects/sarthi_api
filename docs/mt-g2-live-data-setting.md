@@ -39,7 +39,7 @@ the screens show an error state with a Retry. `GET /status` (M1 probe) is unchan
 Storage: table `panel_settings (key PK, value jsonb, updatedByUserId, createdAt, updatedAt)`, migration
 `1798700000000-PanelSettings` (no row inserted: absence = off).
 
-## Screens (amrut-kalash-admin, module `src/modules/lms-live`)
+## Screens (sarthi-admin, module `src/modules/lms-live`)
 
 Each covered screen shows a badge: **Local data**, or **Live from LMS** with the time of the live fetch.
 

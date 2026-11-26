@@ -135,10 +135,10 @@ describe('Advisory Committee seed', () => {
   it('seeds the heading and subtitle only, and is idempotent', async () => {
     expect(await seedAdvisoryCommittee(AppDataSource)).toEqual({ created: true });
     expect(await publicFeed()).toEqual({
-      heading: pair('अमृत कलश सल्लागार समिती', 'AMRUT Kalash Advisory Committee'),
+      heading: pair('सारथी सल्लागार समिती', 'Sarthi Advisory Committee'),
       subtitle: pair(
         'कार्यक्रमाला मार्गदर्शन करणारे तज्ज्ञ प्रशिक्षक व सल्लागार.',
-        'The expert trainers and advisors who guide the AMRUT Kalash programme.',
+        'The expert trainers and advisors who guide the Sarthi programme.',
       ),
       members: [],
       groups: [],

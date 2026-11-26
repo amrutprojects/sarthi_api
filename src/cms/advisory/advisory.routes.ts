@@ -20,7 +20,7 @@ import {
 } from './advisory.validator';
 
 /*
- * /api/v1/cms/advisory-committee — the AMRUT Kalash Advisory Committee page (Advisory Committee
+ * /api/v1/cms/advisory-committee — the Sarthi Advisory Committee page (Advisory Committee
  * Management).
  *
  * authenticate() is applied once by the parent CMS router, and each route declares the permission it

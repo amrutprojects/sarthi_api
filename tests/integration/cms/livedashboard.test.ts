@@ -75,6 +75,7 @@ const pair = (mr: string, en: string): Pair => ({ mr, en });
 
 /* What the home page printed from its bundled demo dataset before it was managed — the rows the migration inserts. */
 const HEADING = pair('कार्यक्रम प्रगती - थेट माहितीफलक', 'Programme Progress - Live Dashboard');
+/* As migration 1797600000000-CmsLiveDashboard wrote it (a migration that has run is not changed). */
 const SUBTITLE = pair(
   'अमृत कलश अंतर्गत महाराष्ट्रातील ३६ जिल्ह्यांमधील प्रशिक्षण प्रगतीचा सार्वजनिक आढावा.',
   'Public view of AMRUT Kalash training progress across all 36 districts of Maharashtra.',

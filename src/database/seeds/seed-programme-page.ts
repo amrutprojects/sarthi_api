@@ -8,7 +8,7 @@ export interface ProgrammeSeedSummary {
 /*
  * Initial Programme page content.
  *
- * Exactly what the public site displayed before the page became CMS-managed (amrut-kalash-web
+ * Exactly what the public site displayed before the page became CMS-managed (sarthi-web
  * public-site/content/kalash.ts: tagline, objectives, methodology, assessment, proctoring, certification), in both
  * languages, so seeding changes nothing a visitor sees. Idempotent: once the page exists, nothing is written, so
  * content edited in the admin panel is never overwritten.
@@ -74,8 +74,8 @@ const PAGE = {
       en: 'A module-wise certificate is issued on completing each module and passing its final examination.',
     },
     {
-      mr: 'चारही मॉड्यूल्स उत्तीर्ण झाल्यावर "अमृत कलश डिप्लोमा" प्रमाणपत्र मिळते.',
-      en: 'On passing all four modules, the AMRUT-KALASH Diploma certificate is awarded.',
+      mr: 'चारही मॉड्यूल्स उत्तीर्ण झाल्यावर "सारथी डिप्लोमा" प्रमाणपत्र मिळते.',
+      en: 'On passing all four modules, the SARTHI Diploma certificate is awarded.',
     },
     {
       mr: 'सर्व प्रमाणपत्रे अमृत व सुमागो इन्फोटेक यांच्याकडून संयुक्तरीत्या दिली जातात.',

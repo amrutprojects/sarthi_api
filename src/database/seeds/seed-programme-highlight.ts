@@ -22,8 +22,8 @@ export interface HighlightSeedSummary {
  * figures live with the Programme page content, rather than being stored twice.
  */
 const SECTION = {
-  headingMr: 'अमृत कलश — कौशल्य विकास डिप्लोमा',
-  headingEn: 'AMRUT KALASH — Skill Development Diploma',
+  headingMr: 'सारथी — कौशल्य विकास डिप्लोमा',
+  headingEn: 'SARTHI — Skill Development Diploma',
   subheadingMr: 'अमृत - कौशल्य सुसंवादाद्वारे ज्ञानवृद्धी व शिकण्याची क्षमता',
   subheadingEn: 'AMRUT - Knowledge Advancement and Learning Abilities through Skill Harmonization',
   taglineMr: 'कौशल्यातील तफावत भरून काढून युवकांची रोजगारक्षमता व स्वयंरोजगारक्षमता वाढविणे.',

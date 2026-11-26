@@ -54,20 +54,20 @@ beforeAll(async () => {
   viewer = await actorWith(['lms-courses.view']);
   nobody = await actorWith(['lms-entities.view']);
   moduleViewer = await actorWith(['lms-course-modules.view']);
-  entityA = await makeEntity('Amrut Kalash', 'AMK', 'mr');
+  entityA = await makeEntity('Sarthi', 'AMK', 'mr');
   entityB = await makeEntity('Second Entity', 'SEC');
 });
 afterAll(teardownTestApp);
 
 describe('Course Master — create and read', () => {
   it('creates a DRAFT course with normalised values, the entity default language and an empty module summary', async () => {
-    const res = await create({ entityId: entityA.id, code: 'amk-course', title: '  AMRUT   KALASH Programme ', description: '  Four-module journey ' });
+    const res = await create({ entityId: entityA.id, code: 'amk-course', title: '  SARTHI   Programme ', description: '  Four-module journey ' });
     expect(res.status).toBe(201);
     expect(res.body.data).toMatchObject({
       entityId: entityA.id,
-      entity: { id: entityA.id, name: 'Amrut Kalash', code: 'AMK' },
+      entity: { id: entityA.id, name: 'Sarthi', code: 'AMK' },
       code: 'AMK-COURSE',
-      title: 'AMRUT KALASH Programme',
+      title: 'SARTHI Programme',
       description: 'Four-module journey',
       languages: ['mr'],
       status: 'DRAFT',
