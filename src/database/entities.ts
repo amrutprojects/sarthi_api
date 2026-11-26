@@ -21,6 +21,7 @@ import { EDP_ENTITIES } from '../modules/students/edp/edp.entities';
 import { StudentLmsLink } from '../modules/lms-sync/student-lms-link.entity';
 import { ApiKey } from '../modules/api-keys/api-key.entity';
 import { PanelSetting } from '../modules/lms-reads/panel-setting.entity';
+import { IPP_APPROVAL_ENTITIES } from '../modules/ipp-approvals/ipp-approvals.entity';
 import { LmsStudentRequest, LmsStudentReview } from '../modules/students/lms-integration/lms-integration.entities';
 
 export { AppBaseEntity } from './base.entity';
@@ -76,4 +77,6 @@ export const ENTITIES = [
   LmsStudentReview,
   /* G-2: Panel settings changed at run time ("Show live LMS data"). */
   PanelSetting,
+  /* Approval of the student forms of IPP: batches, applications, history, outbox, messages, officers' districts. */
+  ...IPP_APPROVAL_ENTITIES,
 ];

@@ -2,6 +2,7 @@ import { InitialSchema1792000000000 } from './1792000000000-InitialSchema';
 import { LmsIntegrationKeysAndStudents1798600000000 } from './1798600000000-LmsIntegrationKeysAndStudents';
 import { PanelSettings1798700000000 } from './1798700000000-PanelSettings';
 import { RemoveDemoDataset1798800000000 } from './1798800000000-RemoveDemoDataset';
+import { IppApprovals1798900000000 } from './1798900000000-IppApprovals';
 import { RoleMenuVisibility1792100000000 } from './1792100000000-RoleMenuVisibility';
 import { StudentImport1792200000000 } from './1792200000000-StudentImport';
 import { IdempotencyKeys1792300000000 } from './1792300000000-IdempotencyKeys';
@@ -203,4 +204,6 @@ export const MIGRATIONS = [
   PanelSettings1798700000000,
   /* Removes the demo-dataset Live Dashboard figures and training centres (23 Nov 2026). */
   RemoveDemoDataset1798800000000,
+  /* Approval of the student forms of IPP (docs/ipp-approvals.md). */
+  IppApprovals1798900000000,
 ];

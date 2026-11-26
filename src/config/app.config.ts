@@ -61,4 +61,12 @@ export const appConfig = {
     /* Accepted clock difference between the LMS and this API, in seconds. */
     maxSkewSeconds: 300,
   },
+  /* Link with IPP (contract section 1 and 2); the switches and the address are read from env by src/modules/ipp-approvals. */
+  ippLink: {
+    /* Accepted clock difference between IPP and this API, in seconds. */
+    maxSkewSeconds: 300,
+    bodyLimit: '5mb',
+    /* Largest document passed on to an officer. */
+    documentMaxBytes: 60 * 1024 * 1024,
+  },
 } as const;

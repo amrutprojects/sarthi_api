@@ -4,6 +4,7 @@ import { appConfig } from './config/app.config';
 import { AppDataSource, initializeDatabase } from './config/database.config';
 import { logger } from './observability/logger';
 import { createApp } from './app';
+import { startIppLinkPoller, stopIppLinkPoller } from './modules/ipp-approvals';
 import { startLmsSyncPoller, stopLmsSyncPoller } from './modules/lms-sync';
 
 async function main() {
@@ -22,12 +23,14 @@ async function main() {
 
   /* M1 Amrut → LMS student sync: polls the students table when LMS_SYNC_ENABLED=true (no-op otherwise). */
   startLmsSyncPoller();
+  /* Officers' decisions to IPP: sent at once and looked for again every IPP_LINK_INTERVAL_SECONDS (no-op while the link is off). */
+  startIppLinkPoller();
 
   /* Graceful shutdown: stop accepting connections, finish in-flight requests, close the pool. */
   const shutdown = (signal: string) => {
     logger.info({ signal }, 'shutting down');
     server.close(() => {
-      stopLmsSyncPoller()
+      Promise.all([stopLmsSyncPoller(), stopIppLinkPoller()])
         .then(() => AppDataSource.destroy())
         .catch((err) => logger.error({ err }, 'error closing database'))
         .finally(() => process.exit(0));

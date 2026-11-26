@@ -16,5 +16,8 @@ const defaults: Record<string, string> = {
   BCRYPT_ROUNDS: '4',
   LOG_LEVEL: 'silent',
   LMS_INTEGRATION_SECRET: 'unit-test-lms-integration-secret-0123456789',
+  IPP_LINK_ENABLED: 'false',
+  IPP_API_URL: '',
+  IPP_LINK_SECRET: '',
 };
 for (const [k, v] of Object.entries(defaults)) process.env[k] = v;

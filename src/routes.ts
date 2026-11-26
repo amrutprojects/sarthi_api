@@ -18,6 +18,7 @@ import { lmsReferenceRouter } from './modules/lms-access/lms-reference.routes';
 import { lmsSyncRouter } from './modules/lms-sync/lms-sync.routes';
 import { lmsReadsRouter } from './modules/lms-reads/lms-reads.routes';
 import { attendanceReportsRouter } from './modules/attendance-reports/attendance-reports.routes';
+import { ippApprovalsRouter } from './modules/ipp-approvals/ipp-approvals.routes';
 import {
   cmsRouter,
   publicContactRouter,
@@ -72,6 +73,8 @@ apiRouter.use('/lms-integration-reviews', lmsReviewRouter);
 apiRouter.use('/lms-reads', lmsReadsRouter);
 /* M3: attendance reports by division, district, centre and batch, read from the LMS (src/modules/attendance-reports). */
 apiRouter.use('/attendance-reports', attendanceReportsRouter);
+/* Approval of the student forms of IPP (src/modules/ipp-approvals). */
+apiRouter.use('/ipp-approvals', ippApprovalsRouter);
 for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
 
 /* CMS content, geography masters and the Masters group. Every route under /cms requires a session (see src/cms/index.ts). */
@@ -96,6 +99,8 @@ apiRouter.use('/public/apply', publicApplyRouter);
  * authenticates its caller by request signature.
  */
 export const integrationRouter = Router();
+/* Calls of IPP, at /integration/v1/ipp: mounted by app.ts on its own, with its own body limit. */
+export { ippIntegrationRouter } from './modules/ipp-approvals/ipp-integration.routes';
 integrationRouter.use('/lms', lmsIntegrationRouter);
 integrationRouter.use('/reference', lmsReferenceRouter);
 apiRouter.use('/public/hero', publicHeroRouter);

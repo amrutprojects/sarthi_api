@@ -5,6 +5,7 @@
 import path from 'path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { ippLinkConfigIssues } from './ipp-link-config';
 import { lmsLinkConfigIssues } from './lms-link-config';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'development';
@@ -174,6 +175,28 @@ const schema = z.object({
   LMS_READS_CACHE_SECONDS: z.coerce.number().int().min(0).max(600).default(30),
 
   /*
+   * Link with IPP, the 3 Month Internship Placement Program portal (src/modules/ipp-approvals, docs/ipp-approvals.md;
+   * contract ipp_backend/docs/SARTHI_LINK.md). Off by default: IPP's calls answer 503, officers still read and decide
+   * and the decisions wait. IPP_LINK_ENABLED=true needs the URL and the secret (src/config/ipp-link-config.ts).
+   */
+  IPP_LINK_ENABLED: bool,
+  /* Where IPP's API answers, with its path, e.g. https://ippapi.sumago.ai/api/v1. */
+  IPP_API_URL: blankAsUnset(
+    z
+      .string()
+      .trim()
+      .url('IPP_API_URL must be a URL')
+      .refine((v) => /^https?:\/\//i.test(v) && !/[?#@]/.test(v), 'IPP_API_URL must be an http(s) address without user, query or #')
+      .optional(),
+  ),
+  /* Shared with IPP (SARTHI_LINK_SECRET there), at least 32 characters. Signs the calls both ways; never sent or logged. */
+  IPP_LINK_SECRET: blankAsUnset(z.string().trim().optional()),
+  /* Timeout of one HTTP call to IPP; for a document, the longest wait without any data. */
+  IPP_HTTP_TIMEOUT_MS: z.coerce.number().int().min(500).max(120_000).default(15_000),
+  /* Seconds between two looks for decisions to send (a new decision is also sent at once). */
+  IPP_LINK_INTERVAL_SECONDS: z.coerce.number().int().min(5).max(3_600).default(15),
+
+  /*
    * EDP portal (edp.sumago.ai). EDP_JWT_SECRET signs the portal's and its tracking panel's tokens; unset = a key derived
    * from JWT_SECRET. Either way it differs from JWT_SECRET, so portal tokens are never accepted by the admin API.
    */
@@ -299,6 +322,13 @@ const lmsLinkIssues = lmsLinkConfigIssues(raw);
 if (lmsLinkIssues.length) {
   // eslint-disable-next-line no-console
   console.error(`Invalid environment configuration:\n${lmsLinkIssues.map((i) => `  - ${i}`).join('\n')}`);
+  process.exit(1);
+}
+
+const ippLinkIssues = ippLinkConfigIssues(raw);
+if (ippLinkIssues.length) {
+  // eslint-disable-next-line no-console
+  console.error(`Invalid environment configuration:\n${ippLinkIssues.map((i) => `  - ${i}`).join('\n')}`);
   process.exit(1);
 }
 

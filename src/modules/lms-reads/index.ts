@@ -15,6 +15,8 @@ export {
   type LiveDataState,
 } from './live-data-setting.service';
 export { LIVE_DATA_SETTING_PERMISSIONS } from './lms-reads.constants';
+/* panel_settings: run-time settings of the Panel (also used by src/modules/ipp-approvals). */
+export { PanelSetting } from './panel-setting.entity';
 /* M3 attendance reports (src/modules/attendance-reports) read through this service. */
 export type { LmsReadResult } from './lms-reads.service';
 export type { LmsAttendance, LmsAttendanceRow, LmsBatch } from './lms-reads.mappers';

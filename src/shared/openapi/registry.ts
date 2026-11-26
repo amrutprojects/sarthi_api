@@ -65,6 +65,8 @@ const ERROR_TEXT: Record<number, string> = {
   409: 'Conflict with the current state',
   422: 'Validation failed',
   429: 'Rate limited',
+  502: 'Another service did not answer',
+  503: 'Service unavailable or not configured',
 };
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';

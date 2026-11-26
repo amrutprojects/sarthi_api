@@ -12,7 +12,7 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.middle
 import { requestId } from './middleware/request-id.middleware';
 import swaggerUi from 'swagger-ui-express';
 import { openApiDocument } from './openapi';
-import { apiRouter, integrationRouter } from './routes';
+import { apiRouter, integrationRouter, ippIntegrationRouter } from './routes';
 import { ApiResponse } from './utils/api-response';
 
 /* Builds the Express app (no listening, no DB connection) so tests can drive it with Supertest. */
@@ -55,6 +55,8 @@ export function createApp(): Express {
       },
     }),
   );
+  /* IPP's messages (up to 5 MB): before the 10 kb parser below; the router checks the signature before it parses the body. */
+  app.use('/integration/v1/ipp', ippIntegrationRouter);
   /* Before the general JSON parser: integration calls keep their exact body bytes for the signature check. */
   app.use(
     '/integration/v1',

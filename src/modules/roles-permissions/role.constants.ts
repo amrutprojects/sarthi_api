@@ -26,6 +26,10 @@ export const ROLE_CODES = {
   SUMAGO_SUPER_ADMIN: 'SUMAGO_SUPER_ADMIN',
   /* Public website content only: confined to WEBSITE_MENUS and never combined with another role (RbacService rules 6 and 7). */
   WEBSITE_ADMIN: 'WEBSITE_ADMIN',
+  /* The officers who approve the student forms of IPP (docs/ipp-approvals.md). */
+  DIVISIONAL_OFFICER: 'DIVISIONAL_OFFICER',
+  COEP: 'COEP',
+  HEAD_OFFICER: 'HEAD_OFFICER',
 } as const;
 
 /* The website's singleton pages are viewed and edited; its list pages and the geography masters also add and delete. */
@@ -120,6 +124,27 @@ export const ROLES: RoleDefinition[] = [
     isSystem: true,
     description: 'Public website content (the CMS menu) only; no programme data, masters or administration',
     permissions: [...menuCodes(WEBSITE_PAGES, ['view', 'update']), ...menuCodes(WEBSITE_LISTS, ['view', 'create', 'update', 'delete'])],
+  },
+  {
+    code: ROLE_CODES.DIVISIONAL_OFFICER,
+    name: 'Divisional Officer',
+    isSystem: true,
+    description: 'Approves the IPP forms of the assigned districts (first level)',
+    permissions: [P.IPP_APPROVALS_VIEW, P.IPP_APPROVALS_DIVISION_OFFICER],
+  },
+  {
+    code: ROLE_CODES.COEP,
+    name: 'COEP',
+    isSystem: true,
+    description: 'Approves the IPP forms the Divisional Officers approved (second level, all districts)',
+    permissions: [P.IPP_APPROVALS_VIEW, P.IPP_APPROVALS_COEP],
+  },
+  {
+    code: ROLE_CODES.HEAD_OFFICER,
+    name: 'Head Officer',
+    isSystem: true,
+    description: 'Gives the final approval of IPP forms while Head Office approval is on',
+    permissions: [P.IPP_APPROVALS_VIEW, P.IPP_APPROVALS_HEAD_OFFICE],
   },
   {
     code: 'AMRUT_ADMIN',

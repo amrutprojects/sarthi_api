@@ -71,6 +71,7 @@ src/
     roles-permissions/   Roles, permissions, role assignments, RBAC service, menu visibility
     audit/               Append-only audit log
     students/            Approved-student import (import/) and register (register/)
+    ipp-approvals/       Approval of the student forms of IPP and the link with it (docs/ipp-approvals.md)
     health/              Liveness and readiness
   shared/                errors, http (envelope), validation, utils, idempotency, openapi registry, types
   observability/         Logger
@@ -118,6 +119,8 @@ Validated at startup (`src/config/env.config.ts`); the process exits listing eve
 | `STORAGE_DIR` | storage | private folder for student documents (relative to the backend folder); back it up |
 | `DOCUMENT_MAX_FILE_MB` / `DOCUMENTS_ZIP_MAX_MB` / `DOCUMENTS_ZIP_MAX_FILES` | 5 / 500 / 20000 | documents ZIP limits |
 | `LMS_SYNC_ENABLED` / `LMS_EXTERNAL_BASE_URL` / `LMS_TENANT_API_KEY` / `LMS_TENANT_CODE` | false / — / — / — | Amrut → LMS student sync ([docs/lms-sync/README.md](docs/lms-sync/README.md)). No value is preset: all are entered by hand when the Amrut tenant and its LMS link are set up; all three required once the sync is on |
+| `IPP_LINK_ENABLED` / `IPP_API_URL` / `IPP_LINK_SECRET` | false / — / — | Link with IPP for the approval of its student forms ([docs/ipp-approvals.md](docs/ipp-approvals.md)). Once on, both the URL (with path, e.g. `https://…/api/v1`) and the secret shared with IPP (≥ 32 characters) are required |
+| `IPP_HTTP_TIMEOUT_MS` / `IPP_LINK_INTERVAL_SECONDS` | 15000 / 15 | one call to IPP / how often waiting decisions are looked for |
 
 ## Student documents (ZIP upload)
 

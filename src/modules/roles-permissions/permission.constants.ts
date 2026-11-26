@@ -27,6 +27,8 @@ export const MENUS = {
   atrisk: 'At-Risk Engine',
   imports: 'Student Import',
   registrations: 'Student Registration',
+  'ipp-approvals': 'IPP Approvals',
+  'ipp-officers': 'IPP Officers',
   districts: 'Districts',
   map: 'District Map',
   centres: 'Training Centres',
@@ -332,6 +334,26 @@ export const PERMISSIONS = {
   LMS_TRACK_VARIANTS_CREATE: def('lms-track-variants.create', 'Add Track Variant Master', 'Add in the Track Variant Master menu'),
   LMS_TRACK_VARIANTS_UPDATE: def('lms-track-variants.update', 'Update Track Variant Master', 'Update in the Track Variant Master menu'),
   LMS_TRACK_VARIANTS_DELETE: def('lms-track-variants.delete', 'Delete Track Variant Master', 'Delete in the Track Variant Master menu'),
+
+  /*
+   * Approval of the student forms of IPP (src/modules/ipp-approvals, docs/ipp-approvals.md). The menu codes are the ones
+   * MENU_PERMISSIONS generates; the three office codes say at which level a user decides. They give the Super Admin roles
+   * nothing: those hold every permission and decide only at the Super Admin's own level.
+   */
+  IPP_APPROVALS_VIEW: def('ipp-approvals.view', 'View IPP Approvals', 'View in the IPP Approvals menu'),
+  IPP_APPROVALS_DIVISION_OFFICER: def(
+    'ipp-approvals.division-officer',
+    'Decide as Divisional Officer',
+    'Approve or reject IPP forms of the districts assigned to the user (IPP Officers)',
+  ),
+  IPP_APPROVALS_COEP: def('ipp-approvals.coep', 'Decide as COEP', 'Approve or reject IPP forms the Divisional Officers approved'),
+  IPP_APPROVALS_HEAD_OFFICE: def(
+    'ipp-approvals.head-office',
+    'Decide as Head Office',
+    'Give the final approval of IPP forms, or reject them, while Head Office approval is on',
+  ),
+  IPP_OFFICERS_VIEW: def('ipp-officers.view', 'View IPP Officers', 'View in the IPP Officers menu'),
+  IPP_OFFICERS_UPDATE: def('ipp-officers.update', 'Update IPP Officers', 'Update in the IPP Officers menu'),
 } as const satisfies Record<string, PermissionDefinition>;
 
 /* The CMS sidebar keys, in menu order: website content, geography, then the Masters group. */
