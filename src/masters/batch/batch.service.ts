@@ -6,13 +6,15 @@ import { auditService } from '../../modules/audit';
 import { AppError } from '../../shared/errors/app-error';
 import type { Paginated } from '../../shared/utils/pagination';
 import { BatchAssignment } from '../batch-assignment/batch-assignment.model';
-import { assertNoRefs, assertUsableRef, countRefs, plural } from '../shared/master-refs';
+import { assertUsableRef, countRefs, plural } from '../shared/master-refs';
 import { TrainingCentre } from '../training-centre/training-centre.model';
 import type { Batch } from './batch.model';
 import { batchRepository } from './batch.repository';
 import type {
   BatchAssignmentCounts, BatchListQuery, BatchOption, CreateBatchInput, PublicBatchDetail, UpdateBatchInput,
 } from './batch.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { BATCH_DEPENDENCIES } from '../masters.dependencies';
 
 const NO_ASSIGNMENTS: BatchAssignmentCounts = { assignedCount: 0, assignmentCount: 0 };
 
@@ -261,7 +263,7 @@ export class BatchService {
     await AppDataSource.transaction(async (m) => {
       const batch = await batchRepository.findByIdForUpdate(id, m);
       if (!batch) throw AppError.notFound('Batch not found');
-      assertNoRefs('batch', [{ count: await assignmentsOf(m, id), one: 'student assignment' }]);
+      await assertNoDependencies(BATCH_DEPENDENCIES, id, m);
       await batchRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.BATCH_DELETE,

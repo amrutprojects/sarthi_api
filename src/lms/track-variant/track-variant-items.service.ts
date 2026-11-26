@@ -3,7 +3,7 @@ import type { DeepPartial, EntityManager, EntityTarget, FindOptionsWhere } from 
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { AppDataSource } from '../../config/database.config';
 import type { AppBaseEntity } from '../../database/base.entity';
-import { assertNoRefs, countRefs, lockForUpdate } from '../../masters/shared/master-refs';
+import { lockForUpdate } from '../../masters/shared/master-refs';
 import { TechnologyTrack } from '../../masters/technology-track/technology-track.model';
 import { auditService } from '../../modules/audit';
 import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
@@ -16,6 +16,8 @@ import { LmsTrackVariantModule } from './track-variant-module.model';
 import { LmsTrackVariantOftCard } from './track-variant-oft-card.model';
 import { LmsTrackVariantPhase } from './track-variant-phase.model';
 import { LmsTrackVariant } from './track-variant.model';
+import { assertNoDependencies, defineDependencies, rowsWhere, type DependencyKind, type DependencyRule } from '../../shared/dependencies/dependencies';
+import { P } from '../../modules/roles-permissions/permission.constants';
 
 /*
  * The curriculum of a Module 3 track variant — nested CRUD under /track-variants/:id/<path>:
@@ -109,9 +111,6 @@ const PHASES: ItemKind = {
   async prepare(_ctx, input) {
     return sent(input, this.fields);
   },
-  async guardDelete(ctx, row) {
-    assertNoRefs('phase', [{ count: await countRefs(ctx.m, LmsTrackVariantModule, 'phaseId', row.id as string), one: 'track module' }]);
-  },
 };
 
 const TRACK_MODULES: ItemKind = {
@@ -128,14 +127,6 @@ const TRACK_MODULES: ItemKind = {
   async prepare(ctx, input) {
     if (input.phaseId !== undefined) await assertSameVariant(ctx, LmsTrackVariantPhase, input.phaseId as string, 'phaseId', 'Select a phase of this variant.');
     return sent(input, this.fields);
-  },
-  async guardDelete(ctx, row) {
-    const id = row.id as string;
-    assertNoRefs('track module', [
-      { count: await countRefs(ctx.m, LmsTrackVariantReadinessGate, 'heldAfterTrackModuleId', id), one: 'readiness gate' },
-      { count: await countRefs(ctx.m, LmsTrackVariantOftCard, 'linkedTrackModuleId', id), one: 'OFT card' },
-      { count: await countRefs(ctx.m, LmsTrackVariantComponent, 'trackModuleId', id), one: 'learning component' },
-    ]);
   },
   async afterWrite(ctx) {
     await assertGateOrder(ctx, (d) => conflict('This position would put the readiness gates out of track-module order.', 'sortOrder', d));
@@ -255,6 +246,41 @@ const READINESS_GATES: ItemKind = {
 
 export const ITEM_KINDS = { PHASES, TRACK_MODULES, LEARNING_COMPONENTS, OFT_CARDS, ASSESSMENT_COMPONENTS, READINESS_GATES } as const;
 export type ItemKindName = keyof typeof ITEM_KINDS;
+
+/*
+ * Delete rules of the curriculum items (shared/dependencies): a phase is used by its track modules, a track module by
+ * the readiness gates, OFT cards and learning components linked to it; the other items are used by nothing. Asked as
+ * GET /dependencies/lms-track-variant-<path>/:itemId.
+ */
+const ITEM_TABLES: Record<ItemKindName, string> = {
+  PHASES: 'lms_track_variant_phases',
+  TRACK_MODULES: 'lms_track_variant_modules',
+  LEARNING_COMPONENTS: 'lms_track_variant_components',
+  OFT_CARDS: 'lms_track_variant_oft_cards',
+  ASSESSMENT_COMPONENTS: 'lms_track_variant_assessment_components',
+  READINESS_GATES: 'lms_track_variant_readiness_gates',
+};
+const ITEM_RULES: Partial<Record<ItemKindName, DependencyRule[]>> = {
+  PHASES: [rowsWhere('track modules', 'lms_track_variant_modules', 'phaseId')],
+  TRACK_MODULES: [
+    rowsWhere('readiness gates', 'lms_track_variant_readiness_gates', 'heldAfterTrackModuleId'),
+    rowsWhere('OFT cards', 'lms_track_variant_oft_cards', 'linkedTrackModuleId'),
+    rowsWhere('learning components', 'lms_track_variant_components', 'trackModuleId'),
+  ],
+};
+export const ITEM_DEPENDENCIES = Object.fromEntries(
+  (Object.keys(ITEM_KINDS) as ItemKindName[]).map((name) => [
+    name,
+    defineDependencies({
+      kind: `lms-track-variant-${ITEM_KINDS[name].path}`,
+      noun: ITEM_KINDS[name].one,
+      table: ITEM_TABLES[name],
+      permission: P.LMS_TRACK_VARIANTS_DELETE,
+      hint: 'Remove those records first.',
+      rules: ITEM_RULES[name] ?? [],
+    }),
+  ]),
+) as Record<ItemKindName, DependencyKind>;
 
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -377,6 +403,7 @@ export class TrackVariantItemsService {
       const lockedReason = kind.locked?.(row);
       if (lockedReason) throw AppError.conflict(lockedReason);
       await kind.guardDelete?.(ctx, row);
+      await assertNoDependencies(ITEM_DEPENDENCIES[kindName], itemId, m);
       await m.getRepository(kind.target).update({ id: itemId }, { isDelete: true, isActive: false } as QueryDeepPartialEntity<Row>);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.LMS_VARIANT_ITEM_DELETE,

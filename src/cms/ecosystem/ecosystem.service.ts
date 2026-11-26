@@ -16,6 +16,8 @@ import type {
   UpdateEcosystemSectionInput,
   UpdateProgrammeInput,
 } from './ecosystem.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { ECOSYSTEM_PROGRAMME_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Programme not found';
 const NOT_CONFIGURED = 'The AMRUT Ecosystem section has not been configured yet. Run the database seed to create it.';
@@ -151,6 +153,7 @@ export class EcosystemService {
     await AppDataSource.transaction(async (m) => {
       const current = await ecosystemProgrammeRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(ECOSYSTEM_PROGRAMME_DEPENDENCIES, id, m);
       await ecosystemProgrammeRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.ECOSYSTEM_PROGRAMME_DELETE,

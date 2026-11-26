@@ -21,6 +21,8 @@ import type { EditRegistrationBody, ListRegistrationsQuery } from './registratio
 import { registrationService, resolveMasters, type PreparedDocument } from './registration.service';
 import { validateCandidate } from '../import/row-validator';
 import { adminRegistrationData, barcodeMap } from './registration-admin.validation';
+import { assertNoDependencies } from '../../../shared/dependencies/dependencies';
+import { STUDENT_DEPENDENCIES } from '../student.dependencies';
 
 /*
  * The detail page lists documents from DOCUMENTS (the import's list). Document types added to the master since (e.g.
@@ -332,10 +334,10 @@ export const registrationAdminService = {
 
   /*
    * Soft delete: the row (and its documents) stay for history; the student disappears from lists and lookups.
-   * Refused (409) while a non-deleted batch assignment references the student, so no live assignment is left
-   * holding a seat for a deleted student. The student row is locked FOR UPDATE before the count: Assign Batch
-   * reads the student FOR SHARE, so a concurrent assignment either commits first (and is counted here) or waits
-   * and then finds the student deleted. Raw SQL on batch_assignments keeps this module free of the masters code.
+   * Refused (409 HAS_DEPENDENCIES) while anything still uses the student (student.dependencies.ts): a batch assignment
+   * holding a seat, the LMS link, import rows, LMS reviews or requests, EDP applications. The student row is locked
+   * FOR UPDATE before the count: Assign Batch reads the student FOR SHARE, so a concurrent assignment either commits
+   * first (and is counted here) or waits and then finds the student deleted.
    */
   async remove(req: Request, id: string) {
     await AppDataSource.transaction(async (m) => {
@@ -344,13 +346,7 @@ export const registrationAdminService = {
         [id],
       );
       if (!rows.length) throw AppError.notFound(MESSAGES.notFound('Student'));
-      const [{ n }]: { n: number }[] = await m.query(
-        `SELECT count(*)::int AS "n" FROM "batch_assignments" WHERE "studentId" = $1 AND "isDelete" = false`,
-        [id],
-      );
-      if (n > 0) {
-        throw AppError.conflict('This student cannot be deleted while a batch assignment references it. Remove the assignment first.');
-      }
+      await assertNoDependencies(STUDENT_DEPENDENCIES, id, m);
       await m.getRepository(Student).update({ id, isDelete: false }, { isDelete: true, isActive: false });
       await auditService.recordInTx(m, req, { action: 'student.delete', resource: 'student', resourceId: id, details: { code: rows[0].code } });
     });

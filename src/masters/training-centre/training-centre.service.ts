@@ -16,13 +16,15 @@ import { District } from '../../cms/masters/district/district.model';
 import { MasterDocument } from '../document/document.model';
 import { State } from '../../cms/masters/state/state.model';
 import { Taluka } from '../../cms/masters/taluka/taluka.model';
-import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate } from '../shared/master-refs';
+import { assertUsableRef, countRefs, lockForUpdate } from '../shared/master-refs';
 import { TrainingCentre } from './training-centre.model';
 import { trainingCentreRepository } from './training-centre.repository';
 import type {
   CentreCodeSuggestion, CreateTrainingCentreInput, PublicTrainingCentreDetail, TrainingCentreListQuery,
   TrainingCentreOptionalColumns, TrainingCentreRelated, UpdateTrainingCentreInput,
 } from './training-centre.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { TRAINING_CENTRE_DEPENDENCIES } from '../masters.dependencies';
 
 /* Requires district + state (inner) and centre type + taluka (left) to be joined, as every read path does. */
 const toPublic = (c: TrainingCentre): PublicTrainingCentreDetail => ({
@@ -314,12 +316,7 @@ export class TrainingCentreService {
     await AppDataSource.transaction(async (m) => {
       const centre = await lockForUpdate(m, TrainingCentre, id);
       if (!centre) throw AppError.notFound('Training centre not found');
-      assertNoRefs('training centre', [
-        { count: await countRefs(m, CentreLocation, 'centreId', id), one: 'location information record' },
-        { count: await countRefs(m, CentreInfrastructure, 'centreId', id), one: 'capacity & infrastructure record' },
-        { count: await countRefs(m, Batch, 'centreId', id), one: 'batch', many: 'batches' },
-        { count: await countRefs(m, MasterDocument, 'centreId', id), one: 'document' },
-      ]);
+      await assertNoDependencies(TRAINING_CENTRE_DEPENDENCIES, id, m);
       await trainingCentreRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.TRAINING_CENTRE_DELETE,

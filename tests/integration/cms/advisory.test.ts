@@ -831,11 +831,23 @@ describe('Groups', () => {
     expect(await auditCount('cms.advisory-groups.reorder')).toBe(1);
   });
 
-  it('deleting a group keeps its members, now ungrouped, and frees its name', async () => {
+  it('a group with members cannot be deleted; once they have moved out it can, and its name is free again', async () => {
+    /* Both members — the hidden one too — keep it from being deleted, and the refused delete changes nothing. */
+    const refused = await request(app).delete(`${GROUPS_URL}/${amrut.id}`).set(auth(admin.token));
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('HAS_DEPENDENCIES');
+    expect(refused.body.message).toBe(
+      'Unable to delete this group because it is associated with existing advisory committee members (2). ' +
+        'This group cannot be deleted while these dependencies exist. Move its members to another group, or out of every group, first.',
+    );
+    expect((await listAll()).filter((x) => x.groupId === amrut.id).map((x) => x.id).sort()).toEqual([a.id, b.id].sort());
+    expect((await groupOf(amrut.id)).memberCount).toBe(2);
+
+    await patchJson(a.id, { groupId: null }).expect(200);
+    await patchJson(b.id, { groupId: null }).expect(200);
     const res = await request(app).delete(`${GROUPS_URL}/${amrut.id}`).set(auth(admin.token));
     expect(res.status).toBe(200);
-    /* Both members — the hidden one too. */
-    expect(res.body.data).toEqual({ membersUngrouped: 2 });
+    expect(res.body.data).toEqual({ membersUngrouped: 0 });
 
     const all = await listAll();
     expect(all.find((x) => x.id === a.id)).toMatchObject({ groupId: null, group: null, isActive: true });

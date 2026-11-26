@@ -9,12 +9,14 @@ import { districtRepository } from '../district/district.repository';
 import { districtService } from '../district/district.service';
 import { Centre } from '../../../masters/centre/centre.model';
 import { College } from '../../../masters/college/college.model';
-import { assertNoRefs, countRefs, lockForUpdate, plural } from '../../../masters/shared/master-refs';
+import { countRefs, lockForUpdate, plural } from '../../../masters/shared/master-refs';
 import { TrainingCentre } from '../../../masters/training-centre/training-centre.model';
 import { stateRepository } from '../state/state.repository';
 import { Taluka } from './taluka.model';
 import { talukaRepository } from './taluka.repository';
 import type { CreateTalukaInput, PublicTalukaDetail, TalukaListQuery, UpdateTalukaInput } from './taluka.types';
+import { assertNoDependencies } from '../../../shared/dependencies/dependencies';
+import { TALUKA_DEPENDENCIES } from '../geography.dependencies';
 
 /* Requires the district and state relations to be joined (every read path joins both). */
 const toPublic = (t: Taluka): PublicTalukaDetail => ({
@@ -196,12 +198,8 @@ export class TalukaService {
     await AppDataSource.transaction(async (m) => {
       const taluka = await lockForUpdate(m, Taluka, id);
       if (!taluka) throw AppError.notFound('Taluka not found');
-      /* Colleges and training centres may name the taluka; soft delete must not leave them pointing at a deleted row. */
-      assertNoRefs('taluka', [
-        { count: await countRefs(m, College, 'talukaId', id), one: 'college' },
-        { count: await countRefs(m, TrainingCentre, 'talukaId', id), one: 'training centre' },
-        { count: await countRefs(m, Centre, 'talukaId', id), one: 'center' },
-      ]);
+      /* Colleges, training centres, centers, students and imports may name the taluka (geography.dependencies.ts). */
+      await assertNoDependencies(TALUKA_DEPENDENCIES, id, m);
       await talukaRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.TALUKA_DELETE,

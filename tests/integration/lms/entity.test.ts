@@ -280,7 +280,7 @@ describe('Entity Master — update, selections and status', () => {
 
       const del = await request(app).delete(`${BASE}/${e.id}`).set(auth(admin.token));
       expect(del.status).toBe(409);
-      expect(del.body.message).toMatch(/2 courses reference it/);
+      expect(del.body.message).toMatch(/associated with existing courses \(2\)/);
     } finally {
       ENTITY_REFERENCES.splice(ENTITY_REFERENCES.indexOf(stub), 1);
     }

@@ -364,7 +364,7 @@ describe('Academic calendar — update, status, delete and restore', () => {
   it('blocks deleting an entity that has calendars (ENTITY_REFERENCES)', async () => {
     const res = await request(app).delete(`${API}/lms/entities/${otherEntityId}`).set(auth(admin.token));
     expect(res.status).toBe(409);
-    expect(res.body.message).toContain('1 calendar');
+    expect(res.body.message).toContain('associated with existing calendars (1)');
   });
 
   it('soft-deletes and restores (inactive), refusing a restore whose name or period is taken meanwhile', async () => {

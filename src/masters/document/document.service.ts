@@ -18,6 +18,8 @@ import type {
   CreateDocumentInput, DocumentListQuery, PublicDocumentDetail, StoredDocumentFile, UpdateDocumentInput, UploadedFile,
   VerifyDocumentInput,
 } from './document.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { DOCUMENT_DEPENDENCIES } from '../masters.dependencies';
 
 /* Requires the district / centre / user joins (every read path in DocumentRepository makes them). The storage key never leaves the server. */
 const toPublic = (d: DocumentRow): PublicDocumentDetail => ({
@@ -239,6 +241,7 @@ export class DocumentService {
     await AppDataSource.transaction(async (m) => {
       const document = await documentRepository.findById(id, { manager: m });
       if (!document) throw AppError.notFound('Document not found');
+      await assertNoDependencies(DOCUMENT_DEPENDENCIES, id, m);
       await documentRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.DOCUMENT_DELETE,

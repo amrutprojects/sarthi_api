@@ -17,6 +17,7 @@ import './modules/lms-reads/lms-reads.openapi';
 import './modules/attendance-reports/attendance-reports.openapi';
 import './modules/ipp-approvals/ipp-approvals.openapi';
 import './cms/cms.openapi';
+import './shared/dependencies/dependency.openapi';
 
 export { documentedRoutes } from './shared/openapi/registry';
 

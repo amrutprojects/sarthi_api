@@ -25,6 +25,21 @@ import { lmsTrackVariantRepository, type VariantContext } from './track-variant.
 import type {
   CreateTrackVariantInput, PublicTrackVariant, TrackVariantCounts, TrackVariantFormOptions, TrackVariantListQuery, UpdateTrackVariantInput,
 } from './track-variant.types';
+import { assertNoDependencies, defineDependencies } from '../../shared/dependencies/dependencies';
+import { P } from '../../modules/roles-permissions/permission.constants';
+
+/*
+ * The track variant's delete rule (shared/dependencies). Nothing outside it points at a variant; its curriculum (phases,
+ * modules, components, cards, gates) is part of it and stays with it. A record that comes to store a trackVariantId adds
+ * its rule here.
+ */
+export const LMS_TRACK_VARIANT_DEPENDENCIES = defineDependencies({
+  kind: 'lms-track-variant',
+  noun: 'track variant',
+  table: 'lms_track_variants',
+  permission: P.LMS_TRACK_VARIANTS_DELETE,
+  rules: [],
+});
 
 const NOT_FOUND = 'Track variant not found';
 
@@ -280,6 +295,7 @@ export class LmsTrackVariantService {
       if (variant.status !== 'DRAFT') {
         throw conflict('A published track variant is retired, never deleted.', 'status', 'Retire the variant instead.');
       }
+      await assertNoDependencies(LMS_TRACK_VARIANT_DEPENDENCIES, id, m);
       await lmsTrackVariantRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.LMS_VARIANT_DELETE,

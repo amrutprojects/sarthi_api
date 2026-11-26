@@ -46,6 +46,8 @@ import type {
   UpdateDistrictOfficeInput,
   UpdateOrganizationInput,
 } from './contact.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { CONTACT_COORDINATOR_DEPENDENCIES, CONTACT_DISTRICT_OFFICE_DEPENDENCIES, CONTACT_TRAINING_CENTRE_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_CONFIGURED = 'The Contact page has not been configured yet. Run the database seed to create it.';
 const COORDINATOR_NOT_FOUND = 'Coordinator not found';
@@ -675,6 +677,7 @@ export class ContactService {
     await AppDataSource.transaction(async (m) => {
       const settings = await this.requireSettings(m);
       await this.requireCoordinator(m, settings.id, id);
+      await assertNoDependencies(CONTACT_COORDINATOR_DEPENDENCIES, id, m);
       await m.getRepository(ContactCoordinatorDistrict).delete({ coordinatorId: id });
       await contactRepository.coordinators(m).update(id, { isDelete: true, isActive: false });
       await this.recordSectionChange(m, req, settings.id, 'coordinators', 'delete', id);
@@ -752,6 +755,7 @@ export class ContactService {
     await AppDataSource.transaction(async (m) => {
       const settings = await this.requireSettings(m);
       await this.requireOffice(m, settings.id, id);
+      await assertNoDependencies(CONTACT_DISTRICT_OFFICE_DEPENDENCIES, id, m);
       await m.getRepository(ContactDistrictOffice).update(id, { isDelete: true, isActive: false });
       await this.recordSectionChange(m, req, settings.id, 'district-offices', 'delete', id);
     });
@@ -834,6 +838,7 @@ export class ContactService {
     await AppDataSource.transaction(async (m) => {
       const settings = await this.requireSettings(m);
       await this.requireCentre(m, settings.id, id);
+      await assertNoDependencies(CONTACT_TRAINING_CENTRE_DEPENDENCIES, id, m);
       await m.getRepository(ContactTrainingCentre).update(id, { isDelete: true, isActive: false });
       await this.recordSectionChange(m, req, settings.id, 'training-centres', 'delete', id);
     });

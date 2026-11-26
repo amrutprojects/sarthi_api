@@ -442,7 +442,7 @@ describe('Module Master — delete and restore', () => {
       expect(detail.body.data.references).toEqual([{ label: '2 track variants', count: 2 }]);
       const del = await request(app).delete(`${BASE}/${m.id}`).set(auth(admin.token));
       expect(del.status).toBe(409);
-      expect(del.body.message).toMatch(/2 track variants reference it/);
+      expect(del.body.message).toMatch(/associated with existing track variants \(2\)/);
     } finally {
       COURSE_MODULE_REFERENCES.splice(COURSE_MODULE_REFERENCES.indexOf(stub), 1);
     }

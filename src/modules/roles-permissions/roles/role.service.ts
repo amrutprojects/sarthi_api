@@ -13,6 +13,8 @@ import type { ListQuery, Paginated } from '../../../shared/utils/pagination';
 import { auditService } from '../../audit';
 import { rbacService } from '../rbac.service';
 import type { RolePlatform } from '../role.constants';
+import { assertNoDependencies } from '../../../shared/dependencies/dependencies';
+import { ROLE_DEPENDENCIES } from '../role.dependencies';
 
 export interface PublicRoleDetail {
   id: string;
@@ -145,6 +147,7 @@ export class RoleService {
       if (!role) throw AppError.notFound(MESSAGES.notFound('Role'));
       rbacService.assertNotProtectedRole(role, 'deleted');
       if (role.isSystem) throw new AppError(HTTP_STATUS.FORBIDDEN, 'System roles cannot be deleted', ERROR_CODES.PROTECTED_ROLE);
+      await assertNoDependencies(ROLE_DEPENDENCIES, id, m);
       const holders = await roleRepository.countActiveHolders(id, m);
       await roleRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {

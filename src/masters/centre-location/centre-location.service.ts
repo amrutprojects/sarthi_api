@@ -12,6 +12,8 @@ import { centreLocationRepository } from './centre-location.repository';
 import type {
   CentreLocationListQuery, CreateCentreLocationInput, PublicCentreLocationDetail, UpdateCentreLocationInput,
 } from './centre-location.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { CENTRE_LOCATION_DEPENDENCIES } from '../masters.dependencies';
 
 /* Requires the centre relation to be joined (every read path in CentreLocationRepository joins it). */
 const toPublic = (l: CentreLocation): PublicCentreLocationDetail => ({
@@ -131,6 +133,7 @@ export class CentreLocationService {
     await AppDataSource.transaction(async (m) => {
       const location = await centreLocationRepository.findById(id, { manager: m });
       if (!location) throw AppError.notFound('Location information not found');
+      await assertNoDependencies(CENTRE_LOCATION_DEPENDENCIES, id, m);
       await centreLocationRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.CENTRE_LOCATION_DELETE,

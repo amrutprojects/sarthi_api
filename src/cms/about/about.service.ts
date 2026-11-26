@@ -18,6 +18,8 @@ import type {
   PublicAbout,
   UpdateAboutSectionInput,
 } from './about.types';
+import { assertNoDependencies, type DependencyKind } from '../../shared/dependencies/dependencies';
+import { ABOUT_CARD_DEPENDENCIES, ABOUT_FACT_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_CONFIGURED = 'The About AMRUT section has not been configured yet. Run the database seed to create it.';
 const STALE = 'This was changed after you opened it. Reload to see the latest version, then make your changes again.';
@@ -39,6 +41,8 @@ interface ItemSpec<T extends Item, A> {
   toAdmin: (row: T) => A;
   /* Why this record may not be deleted or hidden, or null when it may. */
   protectedReason?: (row: T) => string | null;
+  /* What may keep it from being deleted (shared/dependencies, cms.dependencies.ts). */
+  dependencies: DependencyKind;
 }
 
 /*
@@ -142,6 +146,7 @@ class AboutItems<T extends Item, A> {
       const current = await this.spec.repo.findForUpdate(id, m);
       if (!current) throw AppError.notFound(`${this.spec.noun} not found`);
       this.guard(current, 'deleted');
+      await assertNoDependencies(this.spec.dependencies, id, m);
       await this.spec.repo.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: this.spec.audit.delete,
@@ -210,6 +215,7 @@ export const aboutFacts = new AboutItems<AboutFact, AdminAboutFact>({
   second: 'value',
   noun: 'Information row',
   resource: 'about-fact',
+  dependencies: ABOUT_FACT_DEPENDENCIES,
   audit: {
     create: AUDIT_ACTIONS.ABOUT_FACT_CREATE,
     update: AUDIT_ACTIONS.ABOUT_FACT_UPDATE,
@@ -226,6 +232,7 @@ export const aboutCards = new AboutItems<AboutCard, AdminAboutCard>({
   second: 'description',
   noun: 'About card',
   resource: 'about-card',
+  dependencies: ABOUT_CARD_DEPENDENCIES,
   audit: {
     create: AUDIT_ACTIONS.ABOUT_CARD_CREATE,
     update: AUDIT_ACTIONS.ABOUT_CARD_UPDATE,

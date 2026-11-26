@@ -18,6 +18,8 @@ import type {
   UpdateEligibilityItemInput,
   UpdateEligibilitySettingsInput,
 } from './eligibility.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { ELIGIBILITY_ITEM_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Eligibility item not found';
 const NOT_CONFIGURED = 'The Eligibility page has not been configured yet. Run the database migrations.';
@@ -260,6 +262,7 @@ export class EligibilityService {
     await AppDataSource.transaction(async (m) => {
       const item = await eligibilityItemRepository.findById(id, { manager: m });
       if (!item) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(ELIGIBILITY_ITEM_DEPENDENCIES, id, m);
       await eligibilityItemRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.ELIGIBILITY_ITEM_DELETE,

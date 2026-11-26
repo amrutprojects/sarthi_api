@@ -8,6 +8,8 @@ import { AppError } from '../../../shared/errors/app-error';
 import type { ListQuery, Paginated } from '../../../shared/utils/pagination';
 import { auditService } from '../../audit';
 import { rbacService } from '../rbac.service';
+import { assertNoDependencies } from '../../../shared/dependencies/dependencies';
+import { PERMISSION_DEPENDENCIES } from '../role.dependencies';
 
 export interface PublicPermission {
   id: string;
@@ -117,6 +119,7 @@ export class PermissionService {
     await AppDataSource.transaction(async (m) => {
       const p = await permissionRepository.findById(id, { manager: m });
       if (!p) throw AppError.notFound(MESSAGES.notFound('Permission'));
+      await assertNoDependencies(PERMISSION_DEPENDENCIES, id, m);
       await permissionRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.PERMISSION_DELETE,

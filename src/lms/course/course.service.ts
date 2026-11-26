@@ -6,7 +6,7 @@ import { auditService } from '../../modules/audit';
 import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { AppError } from '../../shared/errors/app-error';
 import type { Paginated } from '../../shared/utils/pagination';
-import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate, plural } from '../../masters/shared/master-refs';
+import { assertUsableRef, countRefs, lockForUpdate, plural } from '../../masters/shared/master-refs';
 import type { BrandingKey } from '../branding/branding.constants';
 import { lmsEntitySettingRepository } from '../branding/branding.repository';
 import { MODULE_NUMBERS } from '../course-module/course-module.constants';
@@ -20,6 +20,8 @@ import type {
   CourseModuleSummary, CreateLmsCourseInput, LmsCourseLanguageOptions, LmsCourseListQuery, LmsCourseOption, LmsCourseReference,
   PublicLmsCourse, PublicLmsCourseDetail, UpdateLmsCourseInput,
 } from './course.types';
+import { assertNoDependencies, defineDependencies, fromReferences } from '../../shared/dependencies/dependencies';
+import { P } from '../../modules/roles-permissions/permission.constants';
 
 /* A COURSE_REFERENCES entry counting `target` rows whose `column` holds the course id. */
 export const courseRef = <T extends AppBaseEntity>(
@@ -38,6 +40,16 @@ export const courseRef = <T extends AppBaseEntity>(
 export const COURSE_REFERENCES: EntityReferenceSource[] = [
   courseRef(LmsCourseModule, 'courseId', 'programme module'),
 ];
+
+/* The course's delete rule (shared/dependencies), made from the guard list above. */
+export const LMS_COURSE_DEPENDENCIES = defineDependencies({
+  kind: 'lms-course',
+  noun: 'course',
+  table: 'lms_courses',
+  permission: P.LMS_COURSES_DELETE,
+  hint: 'Deactivate it instead, or remove those records first.',
+  rules: () => fromReferences(COURSE_REFERENCES),
+});
 
 const CODE_LOCKED = 'The code cannot be changed.';
 
@@ -305,9 +317,7 @@ export class LmsCourseService {
       if (course.status !== 'DRAFT') {
         throw AppError.conflict('A course that is in a published release is retired, never deleted.');
       }
-      const refs = [];
-      for (const ref of COURSE_REFERENCES) refs.push({ count: await ref.count(m, id), one: ref.one, many: ref.many });
-      assertNoRefs('course', refs);
+      await assertNoDependencies(LMS_COURSE_DEPENDENCIES, id, m);
       await lmsCourseRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.LMS_COURSE_DELETE,

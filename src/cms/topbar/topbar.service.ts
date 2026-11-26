@@ -16,6 +16,8 @@ import type {
   UpdateTopBarLinkInput,
   UpdateTopBarSettingsInput,
 } from './topbar.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { TOP_BAR_LINK_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Top Bar link not found';
 const NOT_CONFIGURED = 'The Top Bar has not been configured yet. Run the database seed to create it.';
@@ -144,6 +146,7 @@ export class TopBarService {
     await AppDataSource.transaction(async (m) => {
       const current = await topBarLinkRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(TOP_BAR_LINK_DEPENDENCIES, id, m);
       await topBarLinkRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.TOPBAR_LINK_DELETE,

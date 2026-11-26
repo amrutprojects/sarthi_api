@@ -21,6 +21,8 @@ import type {
   UpdateBoardMemberInput,
   UpdateBoardSectionInput,
 } from './board.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { BOARD_MEMBER_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Board member not found';
 const NOT_CONFIGURED = 'The board members section has not been configured yet. Run the database seed to create it.';
@@ -216,6 +218,7 @@ export class BoardService {
     const photoKey = await AppDataSource.transaction(async (m) => {
       const current = await boardMemberRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(BOARD_MEMBER_DEPENDENCIES, id, m);
       await boardMemberRepository.updateWhere({ id }, { isDelete: true, isActive: false, photoKey: null }, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.BOARD_MEMBER_DELETE,

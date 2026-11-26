@@ -30,6 +30,8 @@ import {
   type UpdateAdvisorySectionInput,
 } from './advisory.types';
 import { CHOOSE_GROUP } from './advisory.validator';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { ADVISORY_GROUP_DEPENDENCIES, ADVISORY_MEMBER_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Advisory committee member not found';
 const GROUP_NOT_FOUND = 'Advisory committee group not found';
@@ -280,6 +282,7 @@ export class AdvisoryService {
     const photoKey = await AppDataSource.transaction(async (m) => {
       const current = await advisoryMemberRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(ADVISORY_MEMBER_DEPENDENCIES, id, m);
       await advisoryMemberRepository.updateWhere({ id }, { isDelete: true, isActive: false, photoKey: null }, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.ADVISORY_MEMBER_DELETE,
@@ -417,14 +420,17 @@ export class AdvisoryService {
   }
 
   /*
-   * Soft-deletes a group. Its members are not deleted: they are ungrouped in the same transaction and
-   * stay on the website (if visible) under no heading. The row lock makes a concurrent save that files
-   * a member under this group wait (see findForShare), so no member is left in a deleted group.
+   * Soft-deletes a group that no member uses any more (shared/dependencies, cms.dependencies.ts): a group with
+   * members is refused (409 HAS_DEPENDENCIES) and its members are never ungrouped or changed by the delete; move
+   * them to another group, or out of every group, first. The row lock makes a concurrent save that files a member
+   * under this group wait (see findForShare), so no member is left in a deleted group. `membersUngrouped` stays in the
+   * answer for the admin panel and is 0 now.
    */
   async removeGroup(id: string, req?: Request): Promise<{ membersUngrouped: number }> {
     return AppDataSource.transaction(async (m) => {
       const current = await advisoryGroupRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(GROUP_NOT_FOUND);
+      await assertNoDependencies(ADVISORY_GROUP_DEPENDENCIES, id, m);
       await advisoryGroupRepository.softDelete(id, m);
       const membersUngrouped = await advisoryMemberRepository.ungroup(id, m);
       await auditService.recordInTx(m, req, {

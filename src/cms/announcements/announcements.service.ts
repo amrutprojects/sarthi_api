@@ -16,6 +16,8 @@ import type {
   UpdateAnnouncementInput,
   UpdateAnnouncementSettingsInput,
 } from './announcements.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { ANNOUNCEMENT_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Announcement not found';
 const NOT_CONFIGURED = 'The announcement ticker has not been configured yet. Run the database seed to create it.';
@@ -150,6 +152,7 @@ export class AnnouncementsService {
     await AppDataSource.transaction(async (m) => {
       const current = await announcementRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(ANNOUNCEMENT_DEPENDENCIES, id, m);
       await announcementRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.ANNOUNCEMENT_DELETE,

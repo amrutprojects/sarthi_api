@@ -4,17 +4,15 @@ import { AppDataSource } from '../../../config/database.config';
 import { AUDIT_ACTIONS } from '../../../shared/constants/app.constants';
 import { District } from './district.model';
 import { districtRepository } from './district.repository';
-import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate } from '../../../masters/shared/master-refs';
-import { Centre } from '../../../masters/centre/centre.model';
-import { College } from '../../../masters/college/college.model';
-import { MasterDocument } from '../../../masters/document/document.model';
-import { TrainingCentre } from '../../../masters/training-centre/training-centre.model';
+import { assertUsableRef, lockForUpdate } from '../../../masters/shared/master-refs';
 import { stateRepository } from '../state/state.repository';
 import { AppError } from '../../../shared/errors/app-error';
 import type { Paginated } from '../../../shared/utils/pagination';
 import { auditService } from '../../../modules/audit/audit.service';
 import { assertUsableState } from '../state/state.service';
 import type { CreateDistrictInput, DistrictListQuery, PublicDistrictDetail, UpdateDistrictInput } from './district.types';
+import { assertNoDependencies } from '../../../shared/dependencies/dependencies';
+import { DISTRICT_DEPENDENCIES } from '../geography.dependencies';
 
 /* Requires the state relation to be joined (every read path in DistrictRepository joins it). */
 const toPublic = (d: District): PublicDistrictDetail => ({
@@ -159,20 +157,8 @@ export class DistrictService {
     await AppDataSource.transaction(async (m) => {
       const district = await lockForUpdate(m, District, id);
       if (!district) throw AppError.notFound('District not found');
-      const talukas = await districtRepository.countTalukas(id, { manager: m });
-      if (talukas > 0) {
-        const plural = talukas === 1 ? 'taluka' : 'talukas';
-        throw AppError.conflict(
-          `This district cannot be deleted while ${talukas} ${plural} ${talukas === 1 ? 'references' : 'reference'} it. Deactivate it instead, or move or delete the talukas first.`,
-        );
-      }
-      /* The Masters group also points at districts; soft delete must not leave them referencing a deleted row. */
-      assertNoRefs('district', [
-        { count: await countRefs(m, College, 'districtId', id), one: 'college' },
-        { count: await countRefs(m, TrainingCentre, 'districtId', id), one: 'training centre' },
-        { count: await countRefs(m, Centre, 'districtId', id), one: 'center' },
-        { count: await countRefs(m, MasterDocument, 'districtId', id), one: 'document' },
-      ]);
+      /* Talukas, the Masters group, students, contact page, IPP and every other user (geography.dependencies.ts). */
+      await assertNoDependencies(DISTRICT_DEPENDENCIES, id, m);
       await districtRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.DISTRICT_DELETE,

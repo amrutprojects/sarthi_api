@@ -57,12 +57,21 @@ describe('role CRUD', () => {
     expect((await request(app).patch(`${API}/roles/${role.id}`).set(auth(admin.token)).send({ code: 'NEW_CODE' })).status).toBe(422);
   });
 
-  it('soft-deletes a role and it stops granting access immediately', async () => {
+  it('a role a user holds cannot be deleted; taken from the user it stops granting access, and is then soft-deleted', async () => {
     const role = await createRoleWith(['users.view']);
     const user = await createUser({ roleCodes: [role.code] });
     const token = await login(user.email);
     expect((await request(app).get(`${API}/users`).set(auth(token))).status).toBe(200);
 
+    /* Refused while assigned (shared/dependencies): nothing changes, the holder keeps access. */
+    const refused = await request(app).delete(`${API}/roles/${role.id}`).set(auth(admin.token));
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('HAS_DEPENDENCIES');
+    expect(refused.body.message).toContain('associated with existing user role assignments (1)');
+    expect((await request(app).get(`${API}/users`).set(auth(token))).status).toBe(200);
+
+    await request(app).put(`${API}/users/${user.id}/roles`).set(auth(admin.token)).send({ roleIds: [] }).expect(200);
+    expect((await request(app).get(`${API}/users`).set(auth(token))).status).toBe(403);
     expect((await request(app).delete(`${API}/roles/${role.id}`).set(auth(admin.token))).status).toBe(200);
     expect((await request(app).get(`${API}/roles/${role.id}`).set(auth(admin.token))).status).toBe(404);
     expect(await AppDataSource.getRepository(Role).findOneByOrFail({ id: role.id })).toMatchObject({ isDelete: true, isActive: false });

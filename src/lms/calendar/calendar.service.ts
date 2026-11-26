@@ -15,6 +15,20 @@ import type {
   CalendarHolidayInput, CalendarRef, CreateLmsCalendarInput, LmsCalendarFormOptions, LmsCalendarListQuery, LmsCalendarOption,
   PublicCalendarHoliday, PublicLmsCalendar, UpdateLmsCalendarInput,
 } from './calendar.types';
+import { assertNoDependencies, defineDependencies } from '../../shared/dependencies/dependencies';
+import { P } from '../../modules/roles-permissions/permission.constants';
+
+/*
+ * The calendar's delete rule (shared/dependencies). Nothing uses a calendar yet (sessions do not exist); its holidays are
+ * part of it and stay with it. A record that comes to store a calendarId adds its rule here.
+ */
+export const LMS_CALENDAR_DEPENDENCIES = defineDependencies({
+  kind: 'lms-calendar',
+  noun: 'calendar',
+  table: 'lms_academic_calendars',
+  permission: P.LMS_CALENDARS_DELETE,
+  rules: [],
+});
 
 const conflict = (message: string, field: string, detail: string) => new AppError(409, message, 'CONFLICT', [{ field, message: detail }]);
 
@@ -312,6 +326,7 @@ export class LmsCalendarService {
     await AppDataSource.transaction(async (m) => {
       const calendar = await lockForUpdate(m, LmsAcademicCalendar, id);
       if (!calendar) throw AppError.notFound('Calendar not found');
+      await assertNoDependencies(LMS_CALENDAR_DEPENDENCIES, id, m);
       await lmsCalendarRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.LMS_CALENDAR_DELETE,

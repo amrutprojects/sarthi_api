@@ -21,6 +21,8 @@ import type {
   PublicCentreDetail,
   UpdateCentreInput,
 } from './centre.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { CENTRE_DEPENDENCIES } from '../masters.dependencies';
 
 /* Requires the district, state and taluka relations to be joined. */
 const toPublic = (c: Centre, technologies: CentreTechnologyRef[]): PublicCentreDetail => ({
@@ -304,13 +306,8 @@ export class CentreService {
     await AppDataSource.transaction(async (m) => {
       const centre = await m.getRepository(Centre).findOne({ where: { id, isDelete: false }, lock: { mode: 'pessimistic_write' } });
       if (!centre) throw AppError.notFound('Center not found');
-      const [used] = await m.query(
-        `SELECT EXISTS (SELECT 1 FROM "students" WHERE "isDelete" = false AND "centreId" = $1)
-             OR EXISTS (SELECT 1 FROM "edp_applications" WHERE "isDelete" = false AND "data"->>'centre_id' = $1::text)
-           AS "used"`,
-        [id],
-      );
-      if (used?.used) throw AppError.conflict('This center is used by EDP applications or registrations. Deactivate it instead.');
+      /* Student registrations and EDP applications that chose it (masters.dependencies.ts). */
+      await assertNoDependencies(CENTRE_DEPENDENCIES, id, m);
       await centreRepository.softDelete(id, m);
       await m.getRepository(CentreTechnology).update({ centreId: id, isDelete: false }, { isDelete: true, isActive: false });
       await auditService.recordInTx(m, req, {

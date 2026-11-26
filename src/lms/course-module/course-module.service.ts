@@ -6,7 +6,7 @@ import { auditService } from '../../modules/audit';
 import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { AppError, type ErrorDetail } from '../../shared/errors/app-error';
 import type { Paginated } from '../../shared/utils/pagination';
-import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate, plural } from '../../masters/shared/master-refs';
+import { assertUsableRef, countRefs, lockForUpdate, plural } from '../../masters/shared/master-refs';
 import { LmsCourse } from '../course/course.model';
 import type { EntityReferenceSource } from '../entity/entity.service';
 import { PRESCRIBED_MODULES } from './course-module.constants';
@@ -17,6 +17,8 @@ import type {
   CreateLmsCourseModuleInput, LmsCourseModuleListQuery, LmsCourseModuleOption, ModuleHours, PrescribedModulesResponse,
   PrescribedModulesResult, PublicLmsCourseModule, UpdateLmsCourseModuleInput,
 } from './course-module.types';
+import { assertNoDependencies, defineDependencies, fromReferences } from '../../shared/dependencies/dependencies';
+import { P } from '../../modules/roles-permissions/permission.constants';
 
 /* A COURSE_MODULE_REFERENCES entry counting `target` rows whose `column` holds the module id. */
 export const courseModuleRef = <T extends AppBaseEntity>(
@@ -38,6 +40,16 @@ export const COURSE_MODULE_REFERENCES: EntityReferenceSource[] = [
   /* ↓ LMS masters append their courseModuleRef(...) line here ↓ */
   courseModuleRef(LmsTrackVariant, 'courseModuleId', 'track variant'),
 ];
+
+/* The module's delete rule (shared/dependencies), made from the guard list above. */
+export const LMS_COURSE_MODULE_DEPENDENCIES = defineDependencies({
+  kind: 'lms-course-module',
+  noun: 'module',
+  table: 'lms_course_modules',
+  permission: P.LMS_COURSE_MODULES_DELETE,
+  hint: 'Deactivate it instead, or remove those records first.',
+  rules: () => fromReferences(COURSE_MODULE_REFERENCES),
+});
 
 const HOUR_KEYS = ['coreHours', 'syllabusRef', 'sessions', 'sessionHours', 'lectureHours', 'practicalHours', 'oftHoursMin', 'oftHoursMax'] as const;
 
@@ -318,9 +330,7 @@ export class LmsCourseModuleService {
       const cm = await lockForUpdate(m, LmsCourseModule, id);
       if (!cm) throw AppError.notFound('Module not found');
       if (cm.status !== 'DRAFT') throw AppError.conflict('A module that is in a published release is retired, never deleted.');
-      const refs = [];
-      for (const ref of COURSE_MODULE_REFERENCES) refs.push({ count: await ref.count(m, id), one: ref.one, many: ref.many });
-      assertNoRefs('module', refs);
+      await assertNoDependencies(LMS_COURSE_MODULE_DEPENDENCIES, id, m);
       await lmsCourseModuleRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.LMS_MODULE_DELETE,

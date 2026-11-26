@@ -8,6 +8,8 @@ import type { Paginated } from '../../shared/utils/pagination';
 import type { Faq } from './faq.model';
 import { faqRepository } from './faq.repository';
 import type { AdminFaq, Bilingual, CreateFaqInput, FaqListQuery, PublicFaq, UpdateFaqInput } from './faq.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { FAQ_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'FAQ not found';
 
@@ -140,6 +142,7 @@ export class FaqService {
     await AppDataSource.transaction(async (m) => {
       const faq = await faqRepository.findById(id, { manager: m });
       if (!faq) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(FAQ_DEPENDENCIES, id, m);
       await faqRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.FAQ_DELETE,

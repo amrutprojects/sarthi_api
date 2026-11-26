@@ -227,7 +227,7 @@ describe('Course Master — create and read', () => {
     expect(code.status).toBe(409);
     const del = await request(app).delete(`${ENTITIES}/${entityA.id}`).set(auth(admin.token));
     expect(del.status).toBe(409);
-    expect(del.body.message).toMatch(/1 course references it/);
+    expect(del.body.message).toMatch(/associated with existing courses \(1\)/);
   });
 });
 
@@ -333,7 +333,7 @@ describe('Course Master — modules summary', () => {
     /* Delete refused while modules exist. */
     const del = await request(app).delete(`${BASE}/${c.id}`).set(auth(admin.token));
     expect(del.status).toBe(409);
-    expect(del.body.message).toMatch(/4 programme modules reference it/);
+    expect(del.body.message).toMatch(/associated with existing programme modules \(4\)/);
   });
 });
 

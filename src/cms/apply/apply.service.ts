@@ -19,6 +19,8 @@ import type {
   UpdateApplyItemInput,
   UpdateApplySettingsInput,
 } from './apply.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { APPLY_ITEM_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Apply page item not found';
 const NOT_CONFIGURED = 'The Apply page has not been configured yet. Run the database migrations.';
@@ -252,6 +254,7 @@ export class ApplyService {
     await AppDataSource.transaction(async (m) => {
       const item = await applyItemRepository.findById(id, { manager: m });
       if (!item) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(APPLY_ITEM_DEPENDENCIES, id, m);
       await applyItemRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.APPLY_ITEM_DELETE,

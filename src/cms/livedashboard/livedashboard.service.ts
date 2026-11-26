@@ -28,6 +28,8 @@ import type {
   UpdateLiveDashboardDistrictInput,
   UpdateLiveDashboardSettingsInput,
 } from './livedashboard.types';
+import { assertNoDependencies, type DependencyKind } from '../../shared/dependencies/dependencies';
+import { LIVE_DASHBOARD_CARD_DEPENDENCIES, LIVE_DASHBOARD_STAT_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_CONFIGURED = 'The Live Dashboard has not been configured yet. Run the database migrations to create it.';
 const STALE_SETTINGS =
@@ -139,6 +141,8 @@ interface ListSpec<E extends LiveDashboardCard | LiveDashboardStat, A, C> {
   summary: (row: E) => Record<string, unknown>;
   notFound: string;
   actions: { create: AuditAction; update: AuditAction; status: AuditAction; remove: AuditAction; reorder: AuditAction };
+  /* What may keep a row from being deleted (shared/dependencies, cms.dependencies.ts). */
+  dependencies: DependencyKind;
 }
 
 class OrderedList<E extends LiveDashboardCard | LiveDashboardStat, A, C extends { displayOrder?: number; isActive?: boolean }> {
@@ -207,10 +211,11 @@ class OrderedList<E extends LiveDashboardCard | LiveDashboardStat, A, C extends 
   }
 
   async remove(id: string, req?: Request): Promise<void> {
-    const { repo, resource, summary, actions, notFound } = this.spec;
+    const { repo, resource, summary, actions, notFound, dependencies } = this.spec;
     await AppDataSource.transaction(async (m) => {
       const current = await repo.findForUpdate(id, m);
       if (!current) throw AppError.notFound(notFound);
+      await assertNoDependencies(dependencies, id, m);
       await repo.softDelete(id, m);
       await auditService.recordInTx(m, req, { action: actions.remove, resource, resourceId: id, details: summary(current) });
     });
@@ -253,6 +258,7 @@ export class LiveDashboardService {
     toAdmin: toAdminCard,
     columns: cardColumns,
     resource: 'live-dashboard-card',
+    dependencies: LIVE_DASHBOARD_CARD_DEPENDENCIES,
     summary: (c) => ({ label: c.labelEn, value: c.value }),
     notFound: 'Dashboard card not found',
     actions: {
@@ -269,6 +275,7 @@ export class LiveDashboardService {
     toAdmin: toAdminStat,
     columns: statColumns,
     resource: 'live-dashboard-stat',
+    dependencies: LIVE_DASHBOARD_STAT_DEPENDENCIES,
     summary: (s) => ({ label: s.labelEn, value: s.value }),
     notFound: 'Dashboard figure not found',
     actions: {

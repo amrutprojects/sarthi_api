@@ -15,6 +15,8 @@ import type {
   UpdateImpactSectionInput,
   UpdateImpactStatInput,
 } from './impact.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { IMPACT_STAT_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Impact card not found';
 const NOT_CONFIGURED = "The AMRUT's Impact section has not been configured yet. Run the database seed to create it.";
@@ -141,6 +143,7 @@ export class ImpactService {
     await AppDataSource.transaction(async (m) => {
       const current = await impactStatRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(IMPACT_STAT_DEPENDENCIES, id, m);
       await impactStatRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.IMPACT_STAT_DELETE,

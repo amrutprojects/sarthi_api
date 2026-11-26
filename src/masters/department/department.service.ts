@@ -9,6 +9,8 @@ import type { GeoOption } from '../../cms/masters/geography/geography.types';
 import type { Department } from './department.model';
 import { departmentRepository } from './department.repository';
 import type { CreateDepartmentInput, DepartmentListQuery, PublicDepartmentDetail, UpdateDepartmentInput } from './department.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { DEPARTMENT_DEPENDENCIES } from '../masters.dependencies';
 
 const toPublic = (d: Department): PublicDepartmentDetail => ({
   id: d.id,
@@ -109,6 +111,7 @@ export class DepartmentService {
     await AppDataSource.transaction(async (m) => {
       const department = await departmentRepository.findById(id, { manager: m });
       if (!department) throw AppError.notFound('Department not found');
+      await assertNoDependencies(DEPARTMENT_DEPENDENCIES, id, m);
       await departmentRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.DEPARTMENT_DELETE,

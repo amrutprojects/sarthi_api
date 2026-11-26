@@ -164,6 +164,11 @@ describe('seed carry-over of a kept code to its new counterpart (LEGACY_CODE_MAP
   it('does not re-grant a new code an admin deleted: it is re-created for the catalogue only', async () => {
     const role = await createRoleWith(['lms-calendars.update']);
     const deletedId = await permissionId('lms-learning-config.update');
+    /* A permission still granted to a role cannot be deleted (shared/dependencies): it is taken out of every role first. */
+    const refused = await request(app).delete(`${API}/permissions/${deletedId}`).set(auth(admin.token));
+    expect(refused.status).toBe(409);
+    expect(refused.body.message).toContain('associated with existing role permission grants');
+    await AppDataSource.query(`UPDATE "role_permissions" SET "isDelete" = true, "isActive" = false WHERE "permissionId" = $1`, [deletedId]);
     await request(app).delete(`${API}/permissions/${deletedId}`).set(auth(admin.token)).expect(200);
     const run = await seedRbac(AppDataSource);
     expect(run.permissionsCreated).toBe(1);

@@ -9,6 +9,8 @@ import { State } from './state.model';
 import { assertUsableRef, lockForUpdate } from '../../../masters/shared/master-refs';
 import { stateRepository } from './state.repository';
 import type { CreateStateInput, PublicStateDetail, StateListQuery, UpdateStateInput } from './state.types';
+import { assertNoDependencies } from '../../../shared/dependencies/dependencies';
+import { STATE_DEPENDENCIES } from '../geography.dependencies';
 
 const toPublic = (s: State): PublicStateDetail => ({
   id: s.id,
@@ -117,13 +119,7 @@ export class StateService {
     await AppDataSource.transaction(async (m) => {
       const state = await lockForUpdate(m, State, id);
       if (!state) throw AppError.notFound('State not found');
-      const districts = await stateRepository.countDistricts(id, { manager: m });
-      if (districts > 0) {
-        const plural = districts === 1 ? 'district' : 'districts';
-        throw AppError.conflict(
-          `This state cannot be deleted while ${districts} ${plural} ${districts === 1 ? 'references' : 'reference'} it. Deactivate it instead, or move or delete the districts first.`,
-        );
-      }
+      await assertNoDependencies(STATE_DEPENDENCIES, id, m);
       await stateRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.STATE_DELETE,

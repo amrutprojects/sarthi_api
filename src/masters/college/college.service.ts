@@ -14,6 +14,8 @@ import { Taluka } from '../../cms/masters/taluka/taluka.model';
 import type { College } from './college.model';
 import { collegeRepository } from './college.repository';
 import type { CollegeListQuery, CreateCollegeInput, PublicCollegeDetail, UpdateCollegeInput } from './college.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { COLLEGE_DEPENDENCIES } from '../masters.dependencies';
 
 /* Requires the district, state and taluka relations to be joined (every read path in CollegeRepository joins them). */
 const toPublic = (c: College): PublicCollegeDetail => ({
@@ -216,6 +218,7 @@ export class CollegeService {
     await AppDataSource.transaction(async (m) => {
       const college = await collegeRepository.findById(id, { manager: m });
       if (!college) throw AppError.notFound('College not found');
+      await assertNoDependencies(COLLEGE_DEPENDENCIES, id, m);
       await collegeRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.COLLEGE_DELETE,

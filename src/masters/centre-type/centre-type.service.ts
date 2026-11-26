@@ -6,11 +6,13 @@ import { auditService } from '../../modules/audit';
 import { AppError } from '../../shared/errors/app-error';
 import type { Paginated } from '../../shared/utils/pagination';
 import type { GeoOption } from '../../cms/masters/geography/geography.types';
-import { assertNoRefs, countRefs, lockForUpdate } from '../shared/master-refs';
+import { countRefs, lockForUpdate } from '../shared/master-refs';
 import { TrainingCentre } from '../training-centre/training-centre.model';
 import { CentreType } from './centre-type.model';
 import { centreTypeRepository } from './centre-type.repository';
 import type { CentreTypeListQuery, CreateCentreTypeInput, PublicCentreTypeDetail, UpdateCentreTypeInput } from './centre-type.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { CENTRE_TYPE_DEPENDENCIES } from '../masters.dependencies';
 
 const toPublic = (t: CentreType): PublicCentreTypeDetail => ({
   id: t.id,
@@ -121,9 +123,7 @@ export class CentreTypeService {
     await AppDataSource.transaction(async (m) => {
       const centreType = await lockForUpdate(m, CentreType, id);
       if (!centreType) throw AppError.notFound('Training centre type not found');
-      assertNoRefs('training centre type', [
-        { count: await countRefs(m, TrainingCentre, 'centreTypeId', id), one: 'training centre' },
-      ]);
+      await assertNoDependencies(CENTRE_TYPE_DEPENDENCIES, id, m);
       await centreTypeRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.CENTRE_TYPE_DELETE,

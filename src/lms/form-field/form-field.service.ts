@@ -19,6 +19,30 @@ import type {
   CreateLmsFormFieldInput, EffectiveFormConfiguration, EffectiveFormField, LmsFormFieldFormOptions, LmsFormFieldListQuery,
   LmsFormSectionSummary, PublicLmsFormField, UpdateLmsFormFieldInput,
 } from './form-field.types';
+import { assertNoDependencies, defineDependencies } from '../../shared/dependencies/dependencies';
+import { P } from '../../modules/roles-permissions/permission.constants';
+
+/*
+ * The form field's delete rule (shared/dependencies): the records that hold a value for it (FORM_FIELD_VALUE_SOURCES).
+ * remove() still answers its own FIELD_HAS_VALUES for them, which the admin panel and its tests know; this rule lets the
+ * delete dialog ask the same question first, and catches any rule added here later.
+ */
+export const LMS_FORM_FIELD_DEPENDENCIES = defineDependencies({
+  kind: 'lms-form-field',
+  noun: 'form field',
+  table: 'lms_form_fields',
+  permission: P.LMS_FORM_FIELDS_DELETE,
+  hint: 'Archive it instead.',
+  rules: [
+    {
+      label: 'records holding a value',
+      count: async (m, id) => {
+        const field = await m.getRepository(LmsFormField).findOne({ where: { id } });
+        return field ? countStoredValues(m, field.formCode, field.fieldCode) : 0;
+      },
+    },
+  ],
+});
 
 const conflict = (message: string, field: string, detail: string, code = 'CONFLICT') => new AppError(409, message, code, [{ field, message: detail }]);
 
@@ -391,6 +415,7 @@ export class LmsFormFieldService {
       if (values > 0) {
         throw new AppError(409, `This custom field cannot be deleted while ${plural(values, 'record holds a value', 'records hold a value')}. Archive it instead.`, 'FIELD_HAS_VALUES');
       }
+      await assertNoDependencies(LMS_FORM_FIELD_DEPENDENCIES, id, m);
       await lmsFormFieldRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.LMS_FORM_FIELD_DELETE,

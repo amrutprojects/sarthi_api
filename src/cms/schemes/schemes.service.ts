@@ -16,6 +16,8 @@ import type {
   UpdateSchemeInput,
   UpdateSchemesSectionInput,
 } from './schemes.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { SCHEME_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Scheme not found';
 const NOT_CONFIGURED = 'The AMRUT Schemes section has not been configured yet. Run the database seed to create it.';
@@ -159,6 +161,7 @@ export class SchemesService {
     await AppDataSource.transaction(async (m) => {
       const current = await amrutSchemeRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(SCHEME_DEPENDENCIES, id, m);
       await amrutSchemeRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.SCHEME_DELETE,

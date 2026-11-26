@@ -12,6 +12,8 @@ import { AppError } from '../../shared/errors/app-error';
 import type { ListQuery, Paginated } from '../../shared/utils/pagination';
 import { auditService } from '../audit';
 import { rbacService, roleAssignmentService } from '../roles-permissions';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { USER_DEPENDENCIES } from './user.dependencies';
 
 export interface CreateUserInput {
   name: string;
@@ -123,6 +125,7 @@ export class UserService {
     await AppDataSource.transaction(async (m) => {
       if (!(await userRepository.findById(id, { manager: m }))) throw AppError.notFound(MESSAGES.notFound('User'));
       await roleAssignmentService.assertNotLastSuperAdmin(id, m);
+      await assertNoDependencies(USER_DEPENDENCIES, id, m);
       await userRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, { action: AUDIT_ACTIONS.USER_DELETE, resource: 'user', resourceId: id });
     });

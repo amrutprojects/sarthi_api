@@ -340,10 +340,10 @@ describe('Track Variant Master — curriculum, completeness and publish (TC-359)
     /* A phase with track modules and a track module held by a gate cannot be deleted. */
     const phaseDel = await del(`${v}/phases/${built.phases[0]}`);
     expect(phaseDel.status).toBe(409);
-    expect(phaseDel.body.message).toMatch(/4 track modules reference it/);
+    expect(phaseDel.body.message).toMatch(/associated with existing track modules \(4\)/);
     const moduleDel = await del(`${v}/track-modules/${built.modules[3]}`);
     expect(moduleDel.status).toBe(409);
-    expect(moduleDel.body.message).toMatch(/1 readiness gate references it/);
+    expect(moduleDel.body.message).toMatch(/associated with existing readiness gates \(1\)/);
 
     /* Gate order follows track-module order (F-LMS-32-04). */
     const outOfOrder = await patch(`${v}/readiness-gates/${built.gates[1]}`, { heldAfterTrackModuleId: built.modules[0] });

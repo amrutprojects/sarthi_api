@@ -14,6 +14,8 @@ import type {
   PublicQuickActions,
   UpdateQuickActionInput,
 } from './quickactions.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { QUICK_ACTION_DEPENDENCIES } from '../cms.dependencies';
 
 const NOT_FOUND = 'Quick action not found';
 const STALE_ACTION = 'This quick action was changed after you opened it. Reload to see the latest version, then make your changes again.';
@@ -143,6 +145,7 @@ export class QuickActionsService {
     await AppDataSource.transaction(async (m) => {
       const current = await quickActionRepository.findForUpdate(id, m);
       if (!current) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(QUICK_ACTION_DEPENDENCIES, id, m);
       await quickActionRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.QUICK_ACTION_DELETE,

@@ -48,6 +48,7 @@ import {
 import { lmsRouter } from './lms';
 import { apiKeyRouter } from './modules/api-keys/api-key.routes';
 import { lmsIntegrationStudentRouter, lmsReviewRouter } from './modules/students/lms-integration/lms-integration.routes';
+import { dependencyRouter } from './shared/dependencies/dependency.routes';
 
 /* All routes are mounted under /api/v1 by app.ts. New modules register their router here. */
 export const apiRouter = Router();
@@ -76,6 +77,8 @@ apiRouter.use('/attendance-reports', attendanceReportsRouter);
 /* Approval of the student forms of IPP (src/modules/ipp-approvals). */
 apiRouter.use('/ipp-approvals', ippApprovalsRouter);
 for (const d of Object.values(MASTERS)) apiRouter.use(`/${d.path}`, masterRouter(d));
+/* What still uses a record, asked before a delete (src/shared/dependencies); every delete checks it again itself. */
+apiRouter.use('/dependencies', dependencyRouter);
 
 /* CMS content, geography masters and the Masters group. Every route under /cms requires a session (see src/cms/index.ts). */
 apiRouter.use('/cms', cmsRouter);

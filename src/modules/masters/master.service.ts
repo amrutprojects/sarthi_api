@@ -10,6 +10,8 @@ import { MASTER_LIST, type MasterDefinition, type MasterKey } from './master.def
 import type { MasterEntity } from './master.entity';
 import { buildMasterLookup, type MasterLookup, type MasterRecords, type MasterRef } from './master.lookup';
 import type { MasterInput, MasterSortField } from './master.validation';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { MASTER_DEPENDENCIES } from './master.dependencies';
 
 export interface MasterDto {
   id: string;
@@ -169,11 +171,11 @@ export class MasterService {
     return this.get(id);
   }
 
-  /* Soft delete only; a record still referenced by a student or a stored document cannot be deleted. */
+  /* Soft delete only; a record still used by a student, an application, an import or a review cannot be deleted. */
   async remove(id: string, req?: Request): Promise<void> {
     await AppDataSource.transaction(async (m) => {
       if (!(await this.repo.findById(id, { manager: m }))) throw AppError.notFound(MESSAGES.notFound(this.def.label));
-      if (await this.isReferenced(m, id)) throw AppError.conflict(`${this.def.label} is in use and cannot be deleted`);
+      await assertNoDependencies(MASTER_DEPENDENCIES[this.def.key], id, m);
       await this.repo.softDelete(id, m);
       await auditService.recordInTx(m, req, { action: `${this.def.audit}.delete`, resource: this.def.table, resourceId: id });
     });

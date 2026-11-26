@@ -15,6 +15,8 @@ import { ASSIGNABLE_STUDENT_STATUSES, batchAssignmentRepository as repo } from '
 import type {
   BatchAssignmentListQuery, CreateBatchAssignmentInput, PublicBatchAssignmentDetail, StudentOption, UpdateBatchAssignmentInput,
 } from './batch-assignment.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { BATCH_ASSIGNMENT_DEPENDENCIES } from '../masters.dependencies';
 
 const fullName = (s: { firstName: string; lastName: string }) => [s.firstName, s.lastName].filter(Boolean).join(' ');
 
@@ -259,6 +261,7 @@ export class BatchAssignmentService {
     await AppDataSource.transaction(async (m) => {
       const assignment = await repo.lockAssignment(id, m);
       if (!assignment) throw AppError.notFound('Batch assignment not found');
+      await assertNoDependencies(BATCH_ASSIGNMENT_DEPENDENCIES, id, m);
       await repo.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.BATCH_ASSIGNMENT_DELETE,

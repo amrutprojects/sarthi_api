@@ -13,6 +13,8 @@ import type {
   CentreInfrastructureListQuery, CentreInfrastructureSummary, CreateCentreInfrastructureInput,
   PublicCentreInfrastructureDetail, UpdateCentreInfrastructureInput,
 } from './centre-infrastructure.types';
+import { assertNoDependencies } from '../../shared/dependencies/dependencies';
+import { CENTRE_INFRASTRUCTURE_DEPENDENCIES } from '../masters.dependencies';
 
 /* Requires the centre relation to be joined (every read path in CentreInfrastructureRepository joins it). */
 const toPublic = (ci: CentreInfrastructure): PublicCentreInfrastructureDetail => ({
@@ -154,6 +156,7 @@ export class CentreInfrastructureService {
     await AppDataSource.transaction(async (m) => {
       const record = await centreInfrastructureRepository.findById(id, { manager: m });
       if (!record) throw AppError.notFound(NOT_FOUND);
+      await assertNoDependencies(CENTRE_INFRASTRUCTURE_DEPENDENCIES, id, m);
       await centreInfrastructureRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.CENTRE_INFRA_DELETE,

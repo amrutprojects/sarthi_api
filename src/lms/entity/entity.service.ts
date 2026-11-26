@@ -7,7 +7,7 @@ import { AUDIT_ACTIONS } from '../../shared/constants/app.constants';
 import { AppError } from '../../shared/errors/app-error';
 import type { Paginated } from '../../shared/utils/pagination';
 import type { GeoOption } from '../../cms/masters/geography/geography.types';
-import { assertNoRefs, assertUsableRef, countRefs, lockForUpdate, plural } from '../../masters/shared/master-refs';
+import { assertUsableRef, countRefs, lockForUpdate, plural } from '../../masters/shared/master-refs';
 import { TechnologyTrack } from '../../masters/technology-track/technology-track.model';
 import { TrainingCentre } from '../../masters/training-centre/training-centre.model';
 import {
@@ -22,6 +22,8 @@ import type {
   CreateLmsEntityInput, EnabledCentre, EnabledTrack, LmsEntityFormOptions, LmsEntityListQuery, LmsEntityReference,
   LmsEntityRelated, PublicLmsEntityDetail, UpdateLmsEntityInput,
 } from './entity.types';
+import { assertNoDependencies, defineDependencies, fromReferences } from '../../shared/dependencies/dependencies';
+import { P } from '../../modules/roles-permissions/permission.constants';
 
 /*
  * One kind of LMS record that stores an entityId. `count` returns its non-deleted rows for the entity.
@@ -59,6 +61,16 @@ export const ENTITY_REFERENCES: EntityReferenceSource[] = [
   entityRef(LmsCourse, 'entityId', 'course', { locksCode: true }),
   entityRef(LmsAcademicCalendar, 'entityId', 'calendar'),
 ];
+
+/* The entity's delete rule (shared/dependencies), made from the guard list above. */
+export const LMS_ENTITY_DEPENDENCIES = defineDependencies({
+  kind: 'lms-entity',
+  noun: 'entity',
+  table: 'lms_entities',
+  permission: P.LMS_ENTITIES_DELETE,
+  hint: 'Deactivate it instead, or remove those records first.',
+  rules: () => fromReferences(ENTITY_REFERENCES),
+});
 
 /* One kind of LMS record that stores a centreId next to its entityId. `count` returns its non-deleted rows for the pair. */
 export interface CentreReferenceSource {
@@ -374,10 +386,8 @@ export class LmsEntityService {
     await AppDataSource.transaction(async (m) => {
       const entity = await lockForUpdate(m, LmsEntity, id);
       if (!entity) throw AppError.notFound('Entity not found');
-      const refs = [];
       /* ENTITY GUARD: the counted tables are the ENTITY_REFERENCES list at the top of this file — add yours there. */
-      for (const ref of ENTITY_REFERENCES) refs.push({ count: await ref.count(m, id), one: ref.one, many: ref.many });
-      assertNoRefs('entity', refs);
+      await assertNoDependencies(LMS_ENTITY_DEPENDENCIES, id, m);
       await lmsEntityRepository.softDelete(id, m);
       await auditService.recordInTx(m, req, {
         action: AUDIT_ACTIONS.LMS_ENTITY_DELETE,
