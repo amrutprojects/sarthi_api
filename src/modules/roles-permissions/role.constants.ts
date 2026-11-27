@@ -32,6 +32,12 @@ export const ROLE_CODES = {
   HEAD_OFFICER: 'HEAD_OFFICER',
 } as const;
 
+/*
+ * The IPP officer roles. An account whose roles are all among these works in the Applications screen of IPP Approvals
+ * only (portal 'ipp'), and these roles hold only that menu's permissions (RbacService rule 8).
+ */
+export const IPP_OFFICER_ROLES: readonly string[] = [ROLE_CODES.DIVISIONAL_OFFICER, ROLE_CODES.COEP, ROLE_CODES.HEAD_OFFICER];
+
 /* The website's singleton pages are viewed and edited; its list pages and the geography masters also add and delete. */
 const WEBSITE_PAGES: MenuKey[] = [
   'cms-contact',

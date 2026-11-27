@@ -17,8 +17,11 @@ const MeDto = UserDto.extend({
   permissions: z.array(z.string()),
   hiddenMenus: z.array(z.string()),
   portal: z
-    .enum(['admin', 'website'])
-    .describe('website: the account holds the Website Admin role and works in the CMS menu only; admin: the full panel'),
+    .enum(['admin', 'website', 'ipp'])
+    .describe(
+      'website: the account holds the Website Admin role and works in the CMS menu only; ipp: every active role of the account ' +
+        'is an IPP officer role (Divisional Officer, COEP, Head Officer) and it works in IPP Approvals (Applications) only; admin: the full panel',
+    ),
   csrfToken: z.string(),
 });
 

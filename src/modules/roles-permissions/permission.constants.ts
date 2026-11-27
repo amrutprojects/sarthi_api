@@ -383,6 +383,15 @@ export const WEBSITE_MENUS = [
 /* True when the code belongs to one of the WEBSITE_MENUS (`<menu>.<action>`). */
 export const isWebsitePermission = (code: string): boolean => (WEBSITE_MENUS as readonly string[]).includes(code.split('.')[0]);
 
+/*
+ * The menus of an IPP officer account (role.constants.ts IPP_OFFICER_ROLES): the Applications screen of IPP Approvals.
+ * The officer roles are confined to it (RbacService rule 8), as the Website Admin is to the website's menus.
+ */
+export const IPP_OFFICER_MENUS = ['ipp-approvals'] as const satisfies readonly MenuKey[];
+
+/* True when the code belongs to one of the IPP_OFFICER_MENUS (`ipp-approvals.view`, `ipp-approvals.coep`, …). */
+export const isIppOfficerPermission = (code: string): boolean => (IPP_OFFICER_MENUS as readonly string[]).includes(code.split('.')[0]);
+
 export type PermissionKey = keyof typeof PERMISSIONS;
 export type PermissionCode = string;
 

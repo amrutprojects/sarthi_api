@@ -23,6 +23,10 @@ the contract in IPP's repository: `ipp_backend/docs/SARTHI_LINK.md`. This file d
   than one of these permissions sees all of what each allows. What a user may not see answers 404.
 - The switch "Head Office approval" (panel_settings `ipp.head_office_approval`, default on). Changing it moves everything waiting at the other final
   stage, in the same transaction (event `MOVED`, decision `MOVE` to IPP).
+- The roles `DIVISIONAL_OFFICER`, `COEP` and `HEAD_OFFICER` hold IPP Approvals permissions only (`ipp-approvals.*`; RbacService rule 8): Roles &
+  Permissions refuses any other code for them (400), and an account whose active roles are all among these gets only its `ipp-approvals.*` codes
+  and `portal: 'ipp'` from `GET /auth/me` (the admin panel then shows the Applications menu only). An officer who also holds another role keeps
+  that role's access. Migration `1799100000000-IppOfficerRolesScope` removed such grants from existing databases.
 
 ## Data
 

@@ -31,7 +31,11 @@ export const authController = {
     const auth = authOf(req);
     const user = await userService.get(auth.id);
     const hiddenMenus = await menuVisibilityService.hiddenMenusFor(auth.roleCodes);
-    const portal = rbacService.portalOf((user.roles ?? []).map((r) => r.code));
+    /* All assigned roles (inactive ones too) and the active ones: see RbacService.portalOf. */
+    const portal = rbacService.portalOf(
+      (user.roles ?? []).map((r) => r.code),
+      auth.roleCodes,
+    );
     res.setHeader('Cache-Control', 'no-store');
     ApiResponse.ok(
       res,

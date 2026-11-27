@@ -1,8 +1,8 @@
 import type { EntityManager } from 'typeorm';
 import { ERROR_CODES, HTTP_STATUS } from '../../constants/api-response.constants';
 import { appConfig } from '../../config/app.config';
-import { isWebsitePermission } from './permission.constants';
-import { ROLE_CODES } from './role.constants';
+import { isIppOfficerPermission, isWebsitePermission } from './permission.constants';
+import { IPP_OFFICER_ROLES, ROLE_CODES } from './role.constants';
 import type { Permission } from './permissions/permission.entity';
 import type { Role } from './roles/role.entity';
 import { permissionRepository } from './permissions/permission.repository';
@@ -16,8 +16,15 @@ interface CacheEntry {
   at: number;
 }
 
-/* The admin panel workspace an account signs in to: the full panel, or the CMS-only one of a Website Admin. */
-export type Portal = 'admin' | 'website';
+/*
+ * The admin panel workspace an account signs in to: the full panel, the CMS-only one of a Website Admin, or the
+ * IPP Approvals Applications screen of an IPP officer (Divisional Officer, COEP, Head Officer).
+ */
+export type Portal = 'admin' | 'website' | 'ipp';
+
+/* True when every role is an IPP officer role (and there is at least one). */
+export const isIppOfficerAccount = (roleCodes: readonly string[]): boolean =>
+  roleCodes.length > 0 && roleCodes.every((c) => IPP_OFFICER_ROLES.includes(c));
 
 /*
  * Database-driven RBAC.
@@ -37,6 +44,10 @@ export type Portal = 'admin' | 'website';
  * 6. The WEBSITE_ADMIN role grants website (CMS menu) permissions only.
  * 7. A Website Admin holds no other role. With rule 6 this keeps a Website Admin account inside the CMS; as a
  *    backstop, getAuthorization() drops any other code such an account would get (e.g. from a direct database edit).
+ * 8. The IPP officer roles (Divisional Officer, COEP, Head Officer) grant permissions of the IPP Approvals menu only. An
+ *    account whose active roles are all IPP officer roles works in that menu only (portal 'ipp'); as a backstop,
+ *    getAuthorization() drops any other code such an account would get. An officer who also holds another role (a
+ *    Super Admin, a PMO) keeps that role's access: the rule confines the officer roles, not the people.
  */
 export class RbacService {
   private cache = new Map<string, CacheEntry>();
@@ -50,8 +61,15 @@ export class RbacService {
       roleRepository.findUserAssignments(userId, manager),
     ]);
     const roleCodes = assignments.filter((a) => a.role && !a.role.isDelete && a.role.isActive).map((a) => a.role.code);
-    /* Rules 6 and 7, enforced again at the source: a Website Admin's effective permissions never leave the website. */
-    const effective = roleCodes.includes(ROLE_CODES.WEBSITE_ADMIN) ? codes.filter(isWebsitePermission) : codes;
+    /*
+     * Rules 6 and 7, enforced again at the source: a Website Admin's effective permissions never leave the website.
+     * Rule 8 likewise: an IPP officer account's never leave IPP Approvals.
+     */
+    const effective = roleCodes.includes(ROLE_CODES.WEBSITE_ADMIN)
+      ? codes.filter(isWebsitePermission)
+      : isIppOfficerAccount(roleCodes)
+        ? codes.filter(isIppOfficerPermission)
+        : codes;
     const entry: CacheEntry = { codes: new Set(effective), roleCodes, at: Date.now() };
     if (appConfig.permissionCacheTtlMs > 0) this.cache.set(userId, entry);
     return { permissions: entry.codes, roleCodes };
@@ -70,20 +88,32 @@ export class RbacService {
   }
 
   /*
-   * Workspace of an account from the codes of its assigned roles. Inactive roles count too: a Website Admin whose
-   * role is deactivated gets an empty CMS workspace, not the programme panel.
+   * Workspace of an account from the codes of its assigned roles (`assigned`, inactive ones included) and of the active
+   * ones among them. Inactive roles count for the Website Admin: one whose role is deactivated gets an empty CMS
+   * workspace, not the programme panel. An account whose active roles are all IPP officer roles gets IPP Approvals
+   * (rule 8); so does one whose roles are all IPP officer roles while none of them is active.
    */
-  portalOf(roleCodes: string[]): Portal {
-    return roleCodes.includes(ROLE_CODES.WEBSITE_ADMIN) ? 'website' : 'admin';
+  portalOf(assigned: string[], active: string[] = assigned): Portal {
+    if (assigned.includes(ROLE_CODES.WEBSITE_ADMIN)) return 'website';
+    return isIppOfficerAccount(active.length ? active : assigned) ? 'ipp' : 'admin';
   }
 
-  /* Rule 6. */
+  /* Rules 6 and 8. */
   assertWithinRoleScope(role: Pick<Role, 'code'>, permissions: Pick<Permission, 'code'>[]): void {
-    if (role.code !== ROLE_CODES.WEBSITE_ADMIN) return;
-    const outside = permissions.filter((p) => !isWebsitePermission(p.code)).map((p) => p.code);
+    const scope =
+      role.code === ROLE_CODES.WEBSITE_ADMIN
+        ? { allowed: isWebsitePermission, message: 'The Website Admin role can only hold permissions of the CMS menu' }
+        : IPP_OFFICER_ROLES.includes(role.code)
+          ? {
+              allowed: isIppOfficerPermission,
+              message: 'The Divisional Officer, COEP and Head Officer roles can only hold permissions of the IPP Approvals menu',
+            }
+          : null;
+    if (!scope) return;
+    const outside = permissions.filter((p) => !scope.allowed(p.code)).map((p) => p.code);
     if (outside.length) {
       throw AppError.badRequest(
-        'The Website Admin role can only hold permissions of the CMS menu',
+        scope.message,
         outside.map((m) => ({ field: 'permissionIds', message: m })),
       );
     }
