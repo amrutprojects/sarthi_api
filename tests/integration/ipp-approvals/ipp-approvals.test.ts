@@ -472,6 +472,7 @@ describe('summary, lists and detail', () => {
       toDecide: 2,
       sentBack: 0,
       counts: { AUDITOR: 0, DIVISION: 2, COEP: 1, HEAD_OFFICE: 0, SUPER_ADMIN: 0, APPROVED: 0 },
+      views: { TO_DECIDE: 2, SENT_ON: 1, SENT_BACK: 0, ALL: 3 },
     });
     res = await get(coep, '/summary');
     expect(res.body.data).toMatchObject({ stages: ['COEP'], districts: null, toDecide: 1, counts: { DIVISION: 0, COEP: 1 } });
@@ -514,6 +515,10 @@ describe('summary, lists and detail', () => {
     expect((await listed(pune, '&view=SENT_ON')).sort()).toEqual([sentOn, approved].sort());
     expect(await listed(pune, '&view=SENT_BACK')).toEqual([corrected]);
     expect((await listed(pune, '&view=ALL')).sort()).toEqual([toDecide, sentOn, sentBack, approved, corrected].sort());
+    /* The summary counts each list the same way. */
+    expect((await get(pune, '/summary')).body.data.views).toEqual({ TO_DECIDE: 2, SENT_ON: 2, SENT_BACK: 1, ALL: 5 });
+    expect((await get(coep, '/summary')).body.data.views).toEqual({ TO_DECIDE: 1, SENT_ON: 1, SENT_BACK: 1, ALL: 3 });
+    expect((await get(viewer, '/summary')).body.data.views).toMatchObject({ TO_DECIDE: 0, SENT_ON: 0, SENT_BACK: 0 });
     expect(await listed(coep)).toEqual([sentOn]);
     expect(await listed(coep, '&view=SENT_BACK')).toEqual([sentBack]);
     expect(await listed(coep, '&view=SENT_ON')).toEqual([approved]);

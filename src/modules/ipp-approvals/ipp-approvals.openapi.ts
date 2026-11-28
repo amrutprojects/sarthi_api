@@ -157,6 +157,10 @@ export const IppSummaryDto = registry.register(
       toDecide: count,
       sentBack: count.describe('Waiting for me after a rejection'),
       counts: perStage.describe('Of what I see'),
+      views: z
+        .object({ TO_DECIDE: count, SENT_ON: count, SENT_BACK: count, ALL: count })
+        .strict()
+        .describe('How many each list (GET /applications?view=…) holds'),
     })
     .strict(),
 );

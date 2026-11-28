@@ -1,6 +1,7 @@
 import type { IppAccess } from './ipp-access';
 import { approveTo, isLevel, rejectTo, STAGE_LABELS, type IppEvent, type Stage } from './ipp-approvals.constants';
 import type { ApplicationDetailRow, ApplicationListRow, BatchListRow, EventRow } from './ipp-approvals.repository';
+import type { ApplicationView } from './ipp-approvals.validation';
 
 /* The shapes of docs/ipp-approvals.md; nothing else leaves the module. */
 export interface EventDto {
@@ -169,4 +170,6 @@ export interface SummaryDto {
   toDecide: number;
   sentBack: number;
   counts: Record<Stage, number>;
+  /* How many each list (GET /applications?view=…) holds: the tabs and the dashboard's cards. */
+  views: Record<ApplicationView, number>;
 }

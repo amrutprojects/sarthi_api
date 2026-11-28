@@ -4,7 +4,7 @@ import { likePattern } from '../../shared/utils/pagination';
 import { aboveSql, belowSql, canDecideSql, SqlParams, visibleSql, type IppAccess } from './ipp-access';
 import { STAGES, type IppEvent, type Level, type Stage } from './ipp-approvals.constants';
 import type { SnapshotDocument, SnapshotEdit, SnapshotField } from './ipp-approvals.entity';
-import type { ListApplicationsQuery, ListBatchesQuery } from './ipp-approvals.validation';
+import { APPLICATION_VIEWS, type ApplicationView, type ListApplicationsQuery, type ListBatchesQuery } from './ipp-approvals.validation';
 
 /*
  * Reads of the IPP approvals. Every query of applications or batches goes through the conditions of ipp-access.ts: what a
@@ -169,23 +169,30 @@ class IppApprovalsRepository {
     );
   }
 
-  async counts(access: IppAccess): Promise<{ stages: Record<Stage, number>; toDecide: number; sentBack: number }> {
+  /* Per stage, mine to decide (sentBack: of those, after a rejection), and in each list (the tabs, as listApplications counts them). */
+  async counts(
+    access: IppAccess,
+  ): Promise<{ stages: Record<Stage, number>; toDecide: number; sentBack: number; views: Record<ApplicationView, number> }> {
     const p = new SqlParams();
-    const rows: { stage: Stage; n: number; toDecide: number; sentBack: number }[] = await AppDataSource.query(
-      `SELECT a."stage", count(*)::int AS "n", count(*) FILTER (WHERE ${canDecideSql(access, p)})::int AS "toDecide",
-              count(*) FILTER (WHERE a."stageEvent" = 'REJECTED' AND ${canDecideSql(access, p)})::int AS "sentBack"
-         ${FROM} WHERE ${visibleSql(access, p)} GROUP BY a."stage"`,
-      p.values,
-    );
+    const rows: ({ stage: Stage; n: number; toDecide: number; sentBack: number } & Record<ApplicationView, number>)[] =
+      await AppDataSource.query(
+        `SELECT a."stage", count(*)::int AS "n", count(*) FILTER (WHERE ${canDecideSql(access, p)})::int AS "toDecide",
+                count(*) FILTER (WHERE a."stageEvent" = 'REJECTED' AND ${canDecideSql(access, p)})::int AS "sentBack",
+                ${APPLICATION_VIEWS.map((v) => `count(*) FILTER (WHERE ${viewSql(access, v, p)})::int AS "${v}"`).join(', ')}
+           ${FROM} WHERE ${visibleSql(access, p)} GROUP BY a."stage"`,
+        p.values,
+      );
     const stages = Object.fromEntries(STAGES.map((s) => [s, 0])) as Record<Stage, number>;
+    const views = Object.fromEntries(APPLICATION_VIEWS.map((v) => [v, 0])) as Record<ApplicationView, number>;
     let toDecide = 0;
     let sentBack = 0;
     for (const r of rows) {
       stages[r.stage] = r.n;
       toDecide += r.toDecide;
       sentBack += r.sentBack;
+      for (const v of APPLICATION_VIEWS) views[v] += r[v];
     }
-    return { stages, toDecide, sentBack };
+    return { stages, toDecide, sentBack, views };
   }
 
   /* A batch is seen when one of its applications is; the numbers count the applications the user sees. */

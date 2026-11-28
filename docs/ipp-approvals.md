@@ -42,7 +42,7 @@ Officer, With COEP, With Head Office, With Super Admin, Final approved.
 
 | | Permission | |
 |---|---|---|
-| `GET /summary` | `ipp-approvals.view` | `{ stages: Stage[] (the ones I decide), districts: { id, name }[] \| null (null = not limited), headOfficeEnabled, toDecide, sentBack (waiting for me after a rejection), counts: Record<Stage, number> (of what I see) }` |
+| `GET /summary` | `ipp-approvals.view` | `{ stages: Stage[] (the ones I decide), districts: { id, name }[] \| null (null = not limited), headOfficeEnabled, toDecide, sentBack (waiting for me after a rejection), counts: Record<Stage, number> (of what I see), views: { TO_DECIDE, SENT_ON, SENT_BACK, ALL } (how many each list holds) }` |
 | `GET /applications` | view | list (below) |
 | `GET /applications/:id` | view | detail (below) |
 | `GET /applications/:id/documents/:code` | view | the file, fetched from IPP and streamed (`private, no-store`, nosniff, attachment); 404 no file; 502 `IPP_UNAVAILABLE`; audited |

@@ -5,6 +5,7 @@ import { BULK_MAX, OFFICER_DISTRICTS_MAX, REASON_MAX, REASON_MIN, STAGES } from 
 import { typedText } from './ipp-text';
 
 export const APPLICATION_VIEWS = ['TO_DECIDE', 'SENT_ON', 'SENT_BACK', 'ALL'] as const;
+export type ApplicationView = (typeof APPLICATION_VIEWS)[number];
 
 const list = <S extends readonly [string, ...string[]]>(sortable: S) => listQuerySchema(sortable).omit({ isActive: true });
 

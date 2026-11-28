@@ -76,7 +76,7 @@ class IppApprovalsService {
 
   async summary(auth: AuthUser): Promise<SummaryDto> {
     const { access, headOffice } = await this.access(auth);
-    const { stages, toDecide, sentBack } = await repository.counts(access);
+    const { stages, toDecide, sentBack, views } = await repository.counts(access);
     return {
       stages: access.decides,
       districts: limitedToDistricts(access) ? await repository.districtsOf(auth.id) : null,
@@ -84,6 +84,7 @@ class IppApprovalsService {
       toDecide,
       sentBack,
       counts: stages,
+      views,
     };
   }
 
