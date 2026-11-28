@@ -18,6 +18,9 @@ export const ippApprovalsController = {
   summary: asyncHandler(async (req: Request, res: Response) => {
     ApiResponse.ok(res, await service.summary(req.auth!), MESSAGES.retrieved('Summary'));
   }),
+  dashboard: asyncHandler(async (req: Request, res: Response) => {
+    ApiResponse.ok(res, await service.dashboard(req.auth!), MESSAGES.retrieved('Dashboard'));
+  }),
 
   listApplications: asyncHandler(async (req: Request, res: Response) => {
     const { items, meta } = await service.listApplications(req.auth!, query<ListApplicationsQuery>(req));

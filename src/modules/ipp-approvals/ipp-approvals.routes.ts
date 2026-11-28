@@ -38,6 +38,7 @@ const settingsView = authorizePermission('settings.view');
 const settingsUpdate = authorizePermission('settings.update');
 
 ippApprovalsRouter.get('/summary', view, c.summary);
+ippApprovalsRouter.get('/dashboard', view, c.dashboard);
 ippApprovalsRouter.get('/applications', view, validateRequest(listApplicationsSchema), c.listApplications);
 ippApprovalsRouter.get('/applications/:id', view, validateRequest(idSchema), c.application);
 ippApprovalsRouter.get('/applications/:id/documents/:code', view, validateRequest(documentSchema), c.document);

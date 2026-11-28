@@ -288,4 +288,51 @@ class IppApprovalsRepository {
   }
 }
 
+export interface DashboardRow {
+  pipeline: { received: number; auditorApproved: number; divisionApproved: number; coepApproved: number; finalApproved: number };
+  /* ongoing / ended: as IPP sends the batch (the Auditor starts and ends it). */
+  batches: { total: number; ongoing: number; ended: number };
+  inTraining: number;
+  courses: { name: string; applications: number; enrolled: number }[];
+}
+
+/*
+ * The figures of the dashboards, over every application, or those of the given districts (a Divisional Officer's). Counts
+ * only, no person: the Head Office and the COEP read the whole programme here. The pipeline counts where the forms are now
+ * (a form sent back counts at the level it is at again). A batch is ongoing from when the Auditor of IPP started it until
+ * they end it (ipp_batches.status, as IPP sends it).
+ */
+export async function dashboardFigures(districtIds: readonly string[] | null): Promise<DashboardRow> {
+  /* Each query its own parameters: a query is sent exactly the ones it uses. */
+  const inScope = (p: SqlParams) => (districtIds ? `b."districtId" = ANY(${p.add(districtIds)}::uuid[])` : 'true');
+  const ongoing = `b."status" = 'ONGOING'`;
+  const course = `coalesce(nullif(btrim(b."technologyName"), ''), 'Course not set')`;
+  const query = <T>(build: (p: SqlParams) => string): Promise<T[]> => {
+    const p = new SqlParams();
+    return AppDataSource.query(build(p), p.values);
+  };
+  const [[pipeline], [batches], courses] = await Promise.all([
+    query<DashboardRow['pipeline'] & { inTraining: number }>(
+      (p) => `SELECT count(*)::int AS "received",
+              count(*) FILTER (WHERE a."stage" <> 'AUDITOR')::int AS "auditorApproved",
+              count(*) FILTER (WHERE a."stage" IN ('COEP', 'HEAD_OFFICE', 'SUPER_ADMIN', 'APPROVED'))::int AS "divisionApproved",
+              count(*) FILTER (WHERE a."stage" IN ('HEAD_OFFICE', 'SUPER_ADMIN', 'APPROVED'))::int AS "coepApproved",
+              count(*) FILTER (WHERE a."stage" = 'APPROVED')::int AS "finalApproved",
+              count(*) FILTER (WHERE a."stage" = 'APPROVED' AND ${ongoing})::int AS "inTraining"
+         ${FROM} WHERE ${inScope(p)}`,
+    ),
+    query<DashboardRow['batches']>(
+      (p) =>
+        `SELECT count(*)::int AS "total", count(*) FILTER (WHERE ${ongoing})::int AS "ongoing",
+                count(*) FILTER (WHERE b."status" = 'ENDED')::int AS "ended" FROM "ipp_batches" b WHERE ${inScope(p)}`,
+    ),
+    query<DashboardRow['courses'][number]>(
+      (p) => `SELECT ${course} AS "name", count(*)::int AS "applications", count(*) FILTER (WHERE a."stage" = 'APPROVED')::int AS "enrolled"
+         ${FROM} WHERE ${inScope(p)} GROUP BY 1 ORDER BY "enrolled" DESC, "applications" DESC, lower(${course})`,
+    ),
+  ]);
+  const { inTraining, ...counts } = pipeline;
+  return { pipeline: counts, batches, inTraining, courses };
+}
+
 export const ippApprovalsRepository = new IppApprovalsRepository();

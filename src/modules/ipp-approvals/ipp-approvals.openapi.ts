@@ -165,6 +165,30 @@ export const IppSummaryDto = registry.register(
     .strict(),
 );
 
+export const IppDashboardDto = registry.register(
+  'IppApprovalsDashboard',
+  z
+    .object({
+      districts: z.array(ref).nullable().describe("A Divisional Officer's districts the figures are of; null = the whole programme"),
+      pipeline: z
+        .object({ received: count, auditorApproved: count, divisionApproved: count, coepApproved: count, finalApproved: count })
+        .strict()
+        .describe('Where the forms are now: received, past the Auditor, past the Divisional Officer, past the COEP, final approved'),
+      batches: z
+        .object({
+          total: count,
+          ongoing: count.describe('Started by the Auditor of IPP, not ended'),
+          ended: count.describe('Ended by the Auditor of IPP'),
+        })
+        .strict(),
+      inTraining: count.describe('Final approved, in an ongoing batch'),
+      courses: z
+        .array(z.object({ name: z.string(), applications: count, enrolled: count.describe('Final approved') }).strict())
+        .describe("By the batch's technology, most enrolled first"),
+    })
+    .strict(),
+);
+
 export const IppDecidedManyDto = registry.register(
   'IppDecidedMany',
   z
@@ -239,6 +263,16 @@ documentEndpoint({
   summary: 'What I decide, and how many forms are where',
   permission: view,
   response: envelope(IppSummaryDto),
+});
+documentEndpoint({
+  method: 'get',
+  path: '/ipp-approvals/dashboard',
+  tag,
+  summary: 'Figures of the dashboards: the approval pipeline, batches, candidates in training, courses',
+  description:
+    'Counts only, no person. Over the whole programme, or over the districts of a user who is a Divisional Officer only. Attendance, assessments, certification and placement are not recorded here.',
+  permission: view,
+  response: envelope(IppDashboardDto),
 });
 documentEndpoint({
   method: 'get',

@@ -67,6 +67,10 @@ export interface WireBatch {
   technology: { code: string; name: string } | null;
   created_at: string;
   created_by: string | null;
+  /* Where the batch is (the Auditor of IPP starts and ends it); an older IPP sends none. */
+  status?: 'NOT_STARTED' | 'ONGOING' | 'ENDED';
+  started_at?: string | null;
+  ended_at?: string | null;
 }
 
 export const PUNE = { code: 'PUN', name: 'Pune', state_code: 'MH' };

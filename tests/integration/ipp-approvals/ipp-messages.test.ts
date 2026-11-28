@@ -350,6 +350,33 @@ describe('SUBMIT, RESUBMIT, UPDATE', () => {
     expect(row.name).toBe('Newer name');
   });
 
+  it('keeps where the batch is, as IPP sends it: not started, ongoing, ended', async () => {
+    const batch = wireBatch();
+    const status = async () =>
+      ((await AppDataSource.query(`SELECT "status", "startedAt", "endedAt" FROM "ipp_batches"`)) as Record<string, unknown>[])[0];
+    /* An IPP that does not send it: not started. */
+    const { status: _none, started_at: _s, ended_at: _e, ...older } = { ...batch, status: undefined, started_at: undefined, ended_at: undefined };
+    expect((await send(wireMessage(older, [wireApplication()]))).status).toBe(200);
+    expect(await status()).toEqual({ status: 'NOT_STARTED', startedAt: null, endedAt: null });
+    const started = '2026-12-01T04:30:00.000Z';
+    expect((await send(wireMessage({ ...batch, status: 'ONGOING', started_at: started }, []))).status).toBe(200);
+    expect(await status()).toEqual({ status: 'ONGOING', startedAt: new Date(started), endedAt: null });
+    const ended = '2027-02-28T11:30:00.000Z';
+    expect((await send(wireMessage({ ...batch, status: 'ENDED', started_at: started, ended_at: ended }, []))).status).toBe(200);
+    expect(await status()).toEqual({ status: 'ENDED', startedAt: new Date(started), endedAt: new Date(ended) });
+    /* A status that does not agree with its times is refused. */
+    for (const wrong of [
+      { status: 'ONGOING', started_at: null },
+      { status: 'NOT_STARTED', started_at: started },
+      { status: 'ENDED', started_at: started, ended_at: null },
+      { status: 'PAUSED' },
+    ]) {
+      const res = await send(wireMessage({ ...batch, ...wrong } as typeof batch, []));
+      expect([JSON.stringify(wrong), res.status]).toEqual([JSON.stringify(wrong), 422]);
+    }
+    expect((await status())!.status).toBe('ENDED');
+  });
+
   it('an older RESUBMIT still brings the form back, but keeps the newer snapshot', async () => {
     const batch = wireBatch();
     const form = wireApplication();

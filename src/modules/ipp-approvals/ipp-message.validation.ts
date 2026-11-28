@@ -57,7 +57,24 @@ const batchSchema = z.object({
     .transform((v) => v ?? null),
   created_at: moment,
   created_by: optional(200),
-});
+  /*
+   * Where the batch is (the Auditor starts and ends it). An IPP that predates it sends none: not started. A status that
+   * does not agree with its times is refused.
+   */
+  status: oneOf(['NOT_STARTED', 'ONGOING', 'ENDED'])
+    .nullish()
+    .transform((v) => v ?? 'NOT_STARTED'),
+  started_at: optionalMoment,
+  ended_at: optionalMoment,
+}).refine(
+  (b) =>
+    b.status === 'NOT_STARTED'
+      ? !b.started_at && !b.ended_at
+      : b.status === 'ONGOING'
+        ? !!b.started_at && !b.ended_at
+        : !!b.started_at && !!b.ended_at,
+  { message: 'status must agree with started_at and ended_at', path: ['status'] },
+);
 
 const documentSchema = z.object({
   code: required(100),

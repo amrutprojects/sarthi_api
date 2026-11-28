@@ -4,6 +4,7 @@ import {
   IppApplicationDetailDto,
   IppApplicationRowDto,
   IppBatchDto,
+  IppDashboardDto,
   IppDecidedManyDto,
   IppSummaryDto,
 } from '../../../src/modules/ipp-approvals/ipp-approvals.openapi';
@@ -459,6 +460,88 @@ describe('who sees what', () => {
   });
 });
 
+describe('dashboard figures (GET /dashboard)', () => {
+  /* A day relative to today where the programme runs (APP_TIMEZONE, Asia/Kolkata in the tests). */
+  const day = (offset: number) =>
+    new Date(Date.now() + offset * 86_400_000).toLocaleDateString('en-CA', { timeZone: process.env.APP_TIMEZONE || 'Asia/Kolkata' });
+  const finalApprove = async (id: string, officer: TestActor) => {
+    for (const who of [officer, coep, head]) expect((await approve(who, id)).status).toBe(200);
+  };
+
+  it('counts the pipeline, the batches, the candidates in training and the courses', async () => {
+    const running = wireBatch({ start_date: day(-10), end_date: day(30), status: 'ONGOING', started_at: `${day(-10)}T04:30:00.000Z` });
+    const ended = wireBatch({
+      district: NASHIK,
+      start_date: day(-90),
+      end_date: day(-1),
+      status: 'ENDED',
+      started_at: `${day(-90)}T04:30:00.000Z`,
+      ended_at: `${day(-1)}T11:30:00.000Z`,
+      technology: { code: 'T05', name: 'Cyber Security' },
+    });
+    const later = wireBatch({ start_date: day(5), end_date: day(60), technology: null });
+    const undated = wireBatch({ start_date: null, end_date: null });
+    const [a1, a2] = await submit(app, running, [wireApplication(), wireApplication(), wireApplication()]);
+    const [b1, b2] = await submit(app, ended, [wireApplication(), wireApplication()]);
+    await submit(app, later, [wireApplication()]);
+    await submit(app, undated, [wireApplication()]);
+    await finalApprove(a1, pune);
+    expect((await approve(pune, a2)).status).toBe(200);
+    await finalApprove(b1, nashik);
+    expect((await reject(nashik, b2)).status).toBe(200);
+
+    const res = await get(head, '/dashboard');
+    expect(res.status).toBe(200);
+    check(envelope(IppDashboardDto), res.body);
+    expect(res.body.data).toEqual({
+      districts: null,
+      pipeline: { received: 7, auditorApproved: 6, divisionApproved: 3, coepApproved: 2, finalApproved: 2 },
+      /* Running: started and not ended. Not the one that starts later, the one that ended, or one without dates. */
+      /* Ongoing and ended as IPP sends them (the Auditor starts and ends a batch), whatever its planned dates. */
+      batches: { total: 4, ongoing: 1, ended: 1 },
+      inTraining: 1,
+      courses: [
+        { name: 'Web Design & Development', applications: 4, enrolled: 1 },
+        { name: 'Cyber Security', applications: 2, enrolled: 1 },
+        { name: 'Course not set', applications: 1, enrolled: 0 },
+      ],
+    });
+    /* Counts only: the COEP, the Super Admin and a viewer read the whole programme too. */
+    for (const who of [coep, admin, viewer]) expect((await get(who, '/dashboard')).body.data).toEqual(res.body.data);
+
+    /* A Divisional Officer: the figures of their districts. */
+    expect((await get(pune, '/dashboard')).body.data).toEqual({
+      districts: [{ id: districts.PUN, name: 'Pune' }],
+      pipeline: { received: 5, auditorApproved: 5, divisionApproved: 2, coepApproved: 1, finalApproved: 1 },
+      batches: { total: 3, ongoing: 1, ended: 0 },
+      inTraining: 1,
+      courses: [
+        { name: 'Web Design & Development', applications: 4, enrolled: 1 },
+        { name: 'Course not set', applications: 1, enrolled: 0 },
+      ],
+    });
+    expect((await get(nashik, '/dashboard')).body.data).toMatchObject({
+      pipeline: { received: 2, auditorApproved: 1, divisionApproved: 1, coepApproved: 1, finalApproved: 1 },
+      batches: { total: 1, ongoing: 0, ended: 1 },
+      inTraining: 0,
+    });
+  });
+
+  it('is empty for a Divisional Officer without districts, and needs the view permission', async () => {
+    await submit(app, wireBatch(), [wireApplication()]);
+    const none = await divisionalOfficer([], 'Officer Nowhere');
+    expect((await get(none, '/dashboard')).body.data).toEqual({
+      districts: [],
+      pipeline: { received: 0, auditorApproved: 0, divisionApproved: 0, coepApproved: 0, finalApproved: 0 },
+      batches: { total: 0, ongoing: 0, ended: 0 },
+      inTraining: 0,
+      courses: [],
+    });
+    const outsider = await actorWith(['ipp-officers.view']);
+    expect((await get(outsider, '/dashboard')).status).toBe(403);
+  });
+});
+
 describe('summary, lists and detail', () => {
   it('summary: what I decide, my districts and the counts of what I see', async () => {
     const [a] = await submit(app, wireBatch(), [wireApplication(), wireApplication(), wireApplication()]);
@@ -774,6 +857,7 @@ describe('nobody decides twice', () => {
 describe('the door', () => {
   const routes: ['get' | 'post' | 'put', string][] = [
     ['get', '/summary'],
+    ['get', '/dashboard'],
     ['get', '/applications'],
     ['get', `/applications/${randomUUID()}`],
     ['get', `/applications/${randomUUID()}/documents/X`],

@@ -5,6 +5,7 @@ import { RemoveDemoDataset1798800000000 } from './1798800000000-RemoveDemoDatase
 import { IppApprovals1798900000000 } from './1798900000000-IppApprovals';
 import { IppApprovalReasons1799000000000 } from './1799000000000-IppApprovalReasons';
 import { IppOfficerRolesScope1799100000000 } from './1799100000000-IppOfficerRolesScope';
+import { IppBatchRuns1799200000000 } from './1799200000000-IppBatchRuns';
 import { RoleMenuVisibility1792100000000 } from './1792100000000-RoleMenuVisibility';
 import { StudentImport1792200000000 } from './1792200000000-StudentImport';
 import { IdempotencyKeys1792300000000 } from './1792300000000-IdempotencyKeys';
@@ -212,4 +213,6 @@ export const MIGRATIONS = [
   IppApprovalReasons1799000000000,
   /* The IPP officer roles hold only IPP Approvals permissions (RbacService rule 8). */
   IppOfficerRolesScope1799100000000,
+  /* Where an IPP batch is (not started, ongoing, ended), as IPP sends it. */
+  IppBatchRuns1799200000000,
 ];

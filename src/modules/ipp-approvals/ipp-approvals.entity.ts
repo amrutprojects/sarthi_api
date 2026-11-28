@@ -66,6 +66,10 @@ export class IppBatch {
   @Column({ type: 'timestamptz', name: 'ippCreatedAt' }) ippCreatedAt!: Date;
   /* When the first message of the batch came. */
   @Column({ type: 'timestamptz', name: 'receivedAt', default: () => 'now()' }) receivedAt!: Date;
+  /* Where the batch is, as IPP sends it: the Auditor starts it once all its students are final approved, then ends it. */
+  @Column({ type: 'varchar', length: 12, default: 'NOT_STARTED' }) status!: 'NOT_STARTED' | 'ONGOING' | 'ENDED';
+  @Column({ type: 'timestamptz', name: 'startedAt', nullable: true }) startedAt!: Date | null;
+  @Column({ type: 'timestamptz', name: 'endedAt', nullable: true }) endedAt!: Date | null;
   /* seq of the message the batch was last written from (bigint: text in JavaScript). */
   @Column({ type: 'bigint', name: 'lastSeq' }) lastSeq!: string;
 

@@ -43,6 +43,7 @@ Officer, With COEP, With Head Office, With Super Admin, Final approved.
 | | Permission | |
 |---|---|---|
 | `GET /summary` | `ipp-approvals.view` | `{ stages: Stage[] (the ones I decide), districts: { id, name }[] \| null (null = not limited), headOfficeEnabled, toDecide, sentBack (waiting for me after a rejection), counts: Record<Stage, number> (of what I see), views: { TO_DECIDE, SENT_ON, SENT_BACK, ALL } (how many each list holds) }` |
+| `GET /dashboard` | `ipp-approvals.view` | Counts only, no person: `{ districts: { id, name }[] \| null (a Divisional Officer's; null = the whole programme), pipeline: { received, auditorApproved, divisionApproved, coepApproved, finalApproved } (where the forms are now), batches: { total, ongoing, ended } (as IPP sends the batch: the Auditor starts it once every student is final approved, then ends it), inTraining (final approved in an ongoing batch), courses: { name, applications, enrolled }[] (by the batch's technology; enrolled = final approved) }`. The Head Office and the COEP read the whole programme here; attendance, assessments, certification and placement are not recorded |
 | `GET /applications` | view | list (below) |
 | `GET /applications/:id` | view | detail (below) |
 | `GET /applications/:id/documents/:code` | view | the file, fetched from IPP and streamed (`private, no-store`, nosniff, attachment); 404 no file; 502 `IPP_UNAVAILABLE`; audited |

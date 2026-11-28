@@ -87,14 +87,14 @@ class IppMessageService {
     const districtId = await districtIdFor(m, batch.district);
     await m.query(
       `INSERT INTO "ipp_batches" AS b ("ippId", "code", "name", "size", "districtId", "centreCode", "centreName", "startDate", "endDate",
-         "deliveryMode", "technologyCode", "technologyName", "sentBy", "ippCreatedAt", "lastSeq")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::date, $9::date, $10, $11, $12, $13, $14, $15)
+         "deliveryMode", "technologyCode", "technologyName", "sentBy", "ippCreatedAt", "lastSeq", "status", "startedAt", "endedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::date, $9::date, $10, $11, $12, $13, $14, $15, $16, $17::timestamptz, $18::timestamptz)
        ON CONFLICT ("ippId") DO UPDATE SET
          "code" = EXCLUDED."code", "name" = EXCLUDED."name", "size" = EXCLUDED."size", "districtId" = EXCLUDED."districtId",
          "centreCode" = EXCLUDED."centreCode", "centreName" = EXCLUDED."centreName", "startDate" = EXCLUDED."startDate",
          "endDate" = EXCLUDED."endDate", "deliveryMode" = EXCLUDED."deliveryMode", "technologyCode" = EXCLUDED."technologyCode",
          "technologyName" = EXCLUDED."technologyName", "sentBy" = EXCLUDED."sentBy", "ippCreatedAt" = EXCLUDED."ippCreatedAt",
-         "lastSeq" = EXCLUDED."lastSeq"
+         "lastSeq" = EXCLUDED."lastSeq", "status" = EXCLUDED."status", "startedAt" = EXCLUDED."startedAt", "endedAt" = EXCLUDED."endedAt"
        WHERE EXCLUDED."lastSeq" > b."lastSeq"`,
       [
         batch.id,
@@ -112,6 +112,9 @@ class IppMessageService {
         batch.created_by,
         batch.created_at,
         seq,
+        batch.status,
+        batch.started_at,
+        batch.ended_at,
       ],
     );
     const [row] = (await m.query(`SELECT "id" FROM "ipp_batches" WHERE "ippId" = $1`, [batch.id])) as { id: string }[];

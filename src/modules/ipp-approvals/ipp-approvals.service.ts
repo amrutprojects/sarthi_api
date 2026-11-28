@@ -17,7 +17,7 @@ import {
   type Level,
   type Stage,
 } from './ipp-approvals.constants';
-import { ippApprovalsRepository as repository } from './ipp-approvals.repository';
+import { dashboardFigures, ippApprovalsRepository as repository, type DashboardRow } from './ipp-approvals.repository';
 import {
   toApplicationDetailDto,
   toApplicationRowDto,
@@ -86,6 +86,16 @@ class IppApprovalsService {
       counts: stages,
       views,
     };
+  }
+
+  /*
+   * The figures of the dashboards (GET /dashboard): over the whole programme, or over the districts of a user who is a
+   * Divisional Officer only (none assigned = nothing). Counts only, no person.
+   */
+  async dashboard(auth: AuthUser): Promise<DashboardRow & { districts: { id: string; name: string }[] | null }> {
+    const { access } = await this.access(auth);
+    const districts = limitedToDistricts(access) ? await repository.districtsOf(auth.id) : null;
+    return { districts, ...(await dashboardFigures(districts ? districts.map((d) => d.id) : null)) };
   }
 
   async listApplications(auth: AuthUser, q: ListApplicationsQuery): Promise<Paginated<ApplicationRowDto>> {
